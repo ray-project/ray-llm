@@ -1,0 +1,13 @@
+import_path: aviary.backend:llm_application
+runtime_env:
+  # This working dir is relative to the working dir when we run this file
+  working_dir: "."
+  excludes: 
+  - "deploy"
+  - "aviary/frontend"
+args:
+  models:
+  # This can be a path to a model configuration directory or yaml
+  # Or it can directly define your LLMApp inline
+  # This directory must exist at runtime on the cluster
+  - ./models

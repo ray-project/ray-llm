@@ -1,0 +1,7 @@
+base_image: anyscale/ray-ml:2.4.0-py39-cpu
+post_build_cmds:
+- |-
+  pip install \
+    gradio \
+    'urllib3<2' \
+    pymongo

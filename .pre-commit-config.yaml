@@ -1,0 +1,15 @@
+ci:
+  autoupdate_schedule: monthly
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.0.270
+    hooks:
+      - id: ruff
+        args: [ --fix, --exit-non-zero-on-fix ]
+
+  # Black needs to be ran after ruff with --fix
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black

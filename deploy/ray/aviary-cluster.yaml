@@ -1,0 +1,60 @@
+# An unique identifier for the head node and workers of this cluster.
+cluster_name: aviary-deploy
+
+# Cloud-provider specific configuration.
+provider:
+    type: aws
+    region: us-west-2
+    cache_stopped_nodes: False
+docker:
+    image: "anyscale/aviary:latest"
+    container_name: "aviary"
+
+available_node_types:
+  head_node_type:
+    node_config:
+      InstanceType: m5.xlarge
+      BlockDeviceMappings: &mount
+      - DeviceName: /dev/sda1
+        Ebs:
+            VolumeSize: 256
+            VolumeType: gp3
+      BlockDeviceMappings:
+      - DeviceName: /dev/sda1
+        Ebs:
+            VolumeSize: 256
+            VolumeType: gp3
+    resources:
+      head_node: 1
+      instance_type_m5: 1
+  gpu_worker_g5:
+    node_config:
+      InstanceType: g5.12xlarge
+      BlockDeviceMappings: *mount
+    resources:
+      worker_node: 1
+      instance_type_g5: 1
+      accelerator_type_a10: 1
+    min_workers: 0
+    max_workers: 8
+  gpu_worker_p3:
+    node_config:
+      InstanceType: p3.8xlarge
+      BlockDeviceMappings: *mount
+    resources:
+      worker_node: 1
+      instance_type_p3: 1
+      accelerator_type_v100: 1
+    min_workers: 0
+    max_workers: 4
+  cpu_worker:
+    node_config:
+      InstanceType: m5.xlarge
+      BlockDeviceMappings: *mount
+    resources:
+      worker_node: 1
+      instance_type_m5: 1
+      accelerator_type_cpu: 1
+    min_workers: 0
+    max_workers: 16
+head_node_type: head_node_type

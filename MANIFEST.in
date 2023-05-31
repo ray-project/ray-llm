@@ -1,0 +1,4 @@
+include README.md README.ipynb LICENSE *.sh
+recursive-include tests *.py
+recursive-include models *.yaml
+recursive-include examples *.*

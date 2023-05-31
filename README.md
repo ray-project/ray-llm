@@ -1,0 +1,320 @@
+# Aviary - Study stochastic parrots in the wild
+
+Go on bird watch right now: [🦜🔍 Aviary 🦜🔍](http://aviary.anyscale.com/)
+
+Aviary is an app that lets you interact with a variety of 
+large language models (LLMs) in a single place. 
+You can compare the outputs of different models directly, rank them by quality,
+get a cost and latency estimate, and more.
+
+Aviary is built on top of [Ray](https://ray.io) by [Anyscale](https://anyscale.com).
+It's an [open source project](https://github.com/ray-project/aviary), which means
+that you can deploy it yourself to a cloud service, 
+or simply use our [hosted version](http://aviary.anyscale.com/).
+If you would like to use a managed version of Aviary specific to your company,
+please [reach out to us](mailto:mwk@anyscale.com).
+
+## Known issues
+
+Aviary is still in early development, and there are a few known issues:
+
+* Latency and throughput are not optimized yet. This is due to the fact that we have
+chosen to focus on simplicity and readability for the first release. Ray and Ray Serve
+are framework agnostic and Aviary can be easily modified to use FasterTransformer
+or other high-performance frameworks. We will continiue working on improving this.
+* `lmsys/vicuna-13b-delta-v1.1` model sometimes answers to English questions in Mandarin.
+* Replicas which have had a worker failure will continiue to recieve new requests, which
+will most likely time out. We are looking into fixing that.
+
+## Future plans
+
+* Streaming support.
+* Support for Continuous/Iterative Batching.
+* LangChain + LlamaIndex Integration.
+* Better testing.
+* Improved documentation.
+
+# Aviary User Guides
+
+## Deploy Aviary 
+
+The guide below walks you through a minimal installation of Aviary for use on an 
+Open Source cloud deployment. 
+
+### Set up your laptop
+
+You will need `ray` and `aviary` to be installed on your laptop.
+
+```
+pip install -U "ray>=2.4.0"
+pip install "aviary @ git+https://github.com/ray-project/aviary.git"
+```
+
+
+The default Aviary installation only includes the Aviary CLI and SDK.
+
+To install the Aviary UI, use the following commmand. This will
+enable you to run the Aviary frontend on your laptop.
+
+```
+pip install "aviary[frontend] @ git+https://github.com/ray-project/aviary.git"
+```
+
+### Start a Ray Cluster
+
+Deploy is currently only supported on AWS. 
+**Make sure you have exported your AWS credentials locally.**
+
+```bash
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+export AWS_SESSION_TOKEN=...
+```
+
+Start by cloning this repo to your local machine.
+
+You may need to specify your AWS private key in the `deploy/ray/aviary-cluster.yaml` file.
+See [Ray on Cloud VMs](https://docs.ray.io/en/latest/cluster/vms/index.html) page in
+Ray documentation for more details.
+
+```
+git clone https://github.com/ray-project/aviary.git
+cd aviary
+
+# Start a Ray Cluster (This will take a few minutes to start-up)
+ray up deploy/ray/aviary-cluster.yaml
+```
+
+### Connect to your Cluster
+
+```
+# Connect to the Head node of your Ray Cluster (This will take several minutes to autoscale)
+ray attach deploy/ray/aviary-cluster.yaml
+
+# Deploy the LightGPT model. 
+aviary run --model ./models/amazon--LightGPT.yaml
+```
+
+You can deploy any model in the `models` directory of this repo, 
+or define your own model YAML file and run that instead.
+
+
+### Query Aviary
+
+From the head node, run the following commands. 
+
+```
+export AVIARY_URL="http://localhost:8000"
+
+# List the available models
+aviary list_models
+amazon/LightGPT
+
+# Query the model
+aviary query --model amazon/LightGPT --prompt "How do I make fried rice?"
+
+amazon/LightGPT:
+To make fried rice, start by heating up some oil in a large pan over medium-high
+heat. Once the oil is hot, add your desired amount of vegetables and/or meat to the
+pan. Cook until they are lightly browned, stirring occasionally. Add any other
+desired ingredients such as eggs, cheese, or sauce to the pan. Finally, stir
+everything together and cook for another few minutes until all the ingredients are
+cooked through. Serve with your favorite sides and enjoy!
+```
+
+# Aviary Reference
+
+## Installing Aviary
+
+To install Aviary and its dependencies, run the following command:
+
+```
+pip install "aviary @ git+https://github.com/ray-project/aviary.git"
+```
+
+The default Aviary installation only includes the Aviary API client.
+
+Aviary consists of a backend and a frontend, both of which come with additional
+dependencies. To install the dependencies for both frontend and backend for local
+development, run the following commands:
+
+```
+pip install "aviary[frontend,backend] @ git+https://github.com/ray-project/aviary.git"
+```
+
+The backend dependencies are heavy weight, and quite large. We only recommend installing
+them on a cluster.
+
+## Running Aviary Frontend locally
+
+Aviary consists of two components, a backend and a frontend.
+The backend exposes a FastAPI interface running on a Ray cluster,
+that allows you to query various LLMs efficiently.
+The frontend is a [Gradio](https://gradio.app/) interface that allows you to interact
+with the models in the backend through a web interface.
+The Gradio app is served using [Ray Serve](https://docs.ray.io/en/latest/serve/index.html).
+
+To run the Aviary frontend locally, you need to set the following environment variable:
+
+```shell
+export AVIARY_HOSTNAME=<hostname of the backend, eg. 'http://localhost:8000'>
+```
+
+Once you have set these environment variables, you can run the frontend with the
+following command:
+
+```shell
+serve run aviary.frontend.app:app
+```
+
+To just use the Gradio frontend without Ray Serve, you can start it 
+with `python aviary/frontend/app.py`.
+
+If you don't have access to a deployed backend, or would just like to test and develop
+the frontend, you can run a mock backend locally by setting `MOCK=True`:
+
+```shell
+MOCK=True python aviary/frontend/app.py
+```
+
+In any case, the Gradio interface should be accessible at `http://localhost:7860`
+in your browser.
+If running the frontend yourself is not an option, you can still use 
+[our hosted version](http://aviary.anyscale.com/) for your experiments.
+
+### Usage stats collection
+
+Aviary backend collects basic, non-identifiable usage statistics to help us improve the project.
+The mechanism for collection is the same as in Ray.
+For more information on what is collected and how to opt-out, see the
+[Usage Stats Collection](https://docs.ray.io/en/latest/cluster/usage-stats.html) page in
+Ray documentation.
+
+## Using the Aviary CLI
+
+Aviary comes with a CLI that allows you to interact with the backend directly, without
+using the Gradio frontend.
+Installing Aviary as described earlier will install the `aviary` CLI as well.
+You can get a list of all available commands by running `aviary --help`.
+
+Currently, `aviary` supports a few basic commands, all of which can be used with the
+`--help` flag to get more information:
+
+```shell
+# Get a list of all available models in Aviary
+aviary models
+
+# Query a model with a list of prompts
+aviary query --model <model-name> --prompt <prompt_1> --prompt <prompt_2>
+
+# Run a query on a text file of prompts
+aviary query  --model <model-name> --prompt-file <prompt-file>
+
+# Evaluate the quality of responses with GPT-4 for evaluation
+aviary evaluate --input-file <query-result-file>
+
+# Start a new model in Aviary from provided configuration
+aviary run <model>
+```
+
+### CLI examples
+
+#### Listing all available models
+
+```shell
+aviary models
+```
+```text
+mosaicml/mpt-7b-instruct
+CarperAI/stable-vicuna-13b-delta
+databricks/dolly-v2-12b
+RWKV/rwkv-raven-14b
+mosaicml/mpt-7b-chat
+stabilityai/stablelm-tuned-alpha-7b
+lmsys/vicuna-13b-delta-v1.1
+mosaicml/mpt-7b-storywriter
+h2oai/h2ogpt-oasst1-512-12b
+OpenAssistant/oasst-sft-7-llama-30b-xor
+```
+
+#### Running two models on the same prompt
+
+```shell
+aviary query --model mosaicml/mpt-7b-instruct --model RWKV/rwkv-raven-14b \
+  --prompt "what is love?"
+```
+```text
+mosaicml/mpt-7b-instruct:
+love can be defined as feeling of affection, attraction or ...
+RWKV/rwkv-raven-14b:
+Love is a feeling of strong affection and care for someone or something...
+```
+
+#### Running a batch-query of two prompts on the same model
+
+```shell
+aviary query --model mosaicml/mpt-7b-instruct \
+  --prompt "what is love?" --prompt "why are we here?"
+```
+
+#### Running a query on a text file of prompts
+
+```shell
+aviary query --model mosaicml/mpt-7b-instruct --prompt-file prompts.txt
+```
+
+#### Evaluating the quality of responses with GPT-4 for evaluation
+
+```shell
+ aviary evaluate --input-file aviary-output.json --evaluator gpt-4
+```
+
+This will result in a leaderboard-like ranking of responses, but also save the
+results to file:
+
+```shell
+What is the best indie band of the 90s?
+                                              Evaluation results (higher ranks are better)                                               
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Model                    ┃ Rank ┃                                                                                            Response ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ mosaicml/mpt-7b-instruct │ 1    │  The Shins are often considered to be one of the greatest bands from this era, with their album 'Oh │
+│                          │      │        Inverted World' being widely regarded as one of the most influential albums in recent memory │
+│ RWKV/rwkv-raven-14b      │ 2    │ It's subjective and depends on personal taste. Some people might argue that Nirvana or The Smashing │
+│                          │      │                       Pumpkins were the best, while others might prefer Sonic Youth or Dinosaur Jr. │
+└──────────────────────────┴──────┴─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+You can also use the Gradio API directly, by following the instructions
+provided in the [Aviary documentation](https://aviary.anyscale.com/?view=api).
+
+## Aviary Model Registry
+
+Aviary allows you to easily add new models by adding a single configuration file.
+To learn more about how to customize or add new models, 
+see the [Aviary Model Registry](models/README.md).
+
+## Contributing
+
+If you want to help improve or extend the Aviary, please get in touch with us!
+You can [reach us via email](mailto:mwk@anyscale.com) for feedback and suggestions,
+or [open an issue](https://github.com/ray-project/aviary/issues/new) on GitHub.
+Pull requests are also welcome!
+
+We use `pre-commit` hooks to ensure that all code is formatted correctly.
+Make sure to `pip install pre-commit` and then run `pre-commit install`.
+You can also run `./format` to run the hooks manually.
+
+## Running tests
+
+To run the tests, you need to install the `test` dependencies:
+
+```shell
+pip install -e .[test]
+```
+
+and then simply run `pytest`:
+
+```shell
+pytest .
+```
