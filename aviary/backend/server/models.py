@@ -374,7 +374,7 @@ class LLMConfig(BaseModelExtended):
                 model_description = ""
             values["model_description"] = model_description
         return values
-    
+
     @property
     def actual_hf_model_id(self) -> str:
         return self.initialization.hf_model_id or self.model_id
