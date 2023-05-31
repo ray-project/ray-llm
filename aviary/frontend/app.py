@@ -73,7 +73,7 @@ def gen_leaderboard():
 
 
 @ray.remote(num_cpus=0)
-def completions(prompt, llm):
+def completions(prompt, llm, index):
     try:
         out = BACKEND.completions(prompt=prompt, llm=llm)
     except Exception as e:
@@ -95,25 +95,27 @@ def completions(prompt, llm):
         else:
             out = f"[AVIARY] An error occurred. Please try again.\nError: {e}"
         out = {"error": out}
-    return out, llm
+    return out, index
 
 
 def do_query(prompt, model1, model2, model3, unused_raw=None):
     try:
         models = [model1, model2, model3]
-        not_ready = [completions.remote(prompt, model) for model in models]
+        not_ready = [
+            completions.remote(prompt, model, i) for i, model in enumerate(models)
+        ]
         text_output = [""] * len(models)
         stats = [""] * len(models)
         outs = [{}] * len(models)
         while not_ready:
             ready, not_ready = ray.wait(not_ready)
-            out, llm = ray.get(ready[0])
+            out, index = ray.get(ready[0])
             if "error" not in out:
-                outs[models.index(llm)] = out
-                text_output[models.index(llm)] = out["generated_text"]
-                stats[models.index(llm)] = gen_stats(out)
+                outs[index] = out
+                text_output[index] = out["generated_text"]
+                stats[index] = gen_stats(out)
             else:
-                text_output[models.index(llm)] = out["error"]
+                text_output[index] = out["error"]
 
         return [*text_output, *stats, "", outs]
     except Exception as e:
