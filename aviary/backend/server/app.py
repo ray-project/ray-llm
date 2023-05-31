@@ -207,15 +207,13 @@ class LLMDeployment(LLMPredictor):
             prediction = await self._predict_async(
                 data_ref, timeout_s=timeout_s, start_timestamp=start_timestamp
             )
-        except RayActorError:
-            logger.warning(
+        except RayActorError as e:
+            raise RuntimeError(
                 f"Prediction failed due to RayActorError. "
+                "This usually means that one or all prediction workers are dead. "
+                "Try again in a few minutes. "
                 f"Traceback:\n{traceback.print_exc()}"
-            )
-            await self.check_health()
-            prediction = await self._predict_async(
-                data_ref, timeout_s=timeout_s, start_timestamp=start_timestamp
-            )
+            ) from e
 
         logger.info(f"Predictions {prediction}")
         if not isinstance(prediction, list):
@@ -234,14 +232,9 @@ class LLMDeployment(LLMPredictor):
                 if actor_state["State"] == "DEAD":
                     dead_actors.append(actor)
             if dead_actors:
-                logger.warning(
+                raise RuntimeError(
                     f"At least one prediction worker is dead. Dead workers: {dead_actors}. "
                     "Reinitializing worker group."
-                )
-                self.base_worker_group = None
-                await self.rollover(
-                    self.args.air_scaling_config,
-                    pg_timeout_s=self.args.scaling_config.pg_timeout_s,
                 )
 
     def __repr__(self) -> str:
