@@ -23,7 +23,7 @@ It is built on top of [Ray](https://ray.io) by the company
 It is an open source project and you can launch your own instance of aviary.backend.
 
 If you would like to use a managed version of Aviary Explorer specific to your company,
-please let mwk@anyscale.com know.
+please let aviary@anyscale.com know.
 
 # Notes
 
