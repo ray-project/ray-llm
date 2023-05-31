@@ -30,11 +30,30 @@ will most likely time out. We are looking into fixing that.
 
 * Streaming support.
 * Support for Continuous/Iterative Batching.
-* LangChain + LlamaIndex Integration.
+* LangChain + LlamaIndex Integration (which will make it much easier to compare open and closed LLMs).
 * Better testing.
 * Improved documentation.
 
+## Getting Help and Filing Bugs / Feature Requests
+
+We are eager to help you get started with Aviary. You can get help on: 
+
+- Via Slack -- fill in [this form](https://docs.google.com/forms/d/e/1FAIpQLSfAcoiLCHOguOm8e7Jnn-JJdZaCxPGjgVCvFijHB5PLaQLeig/viewform) to sign up. 
+- Via [Discuss](https://discuss.ray.io/c/llms-generative-ai/27). 
+
+For bugs or for feature requests, please submit them [here](https://github.com/ray-project/aviary/issues/new).
+
+We have people in both US and European time zones who will help answer your questions. 
+
+## Contributions
+We are also interested in accepting contributions. Those could be anything from a new evaluator, to integrating a new model with a yaml file, to more.
+Feel free to post an issue first to get our feedback on a proposal first, or just file a PR and we commit to giving you prompt feedback.
+
 # Aviary User Guides
+
+For a video introduction, see the following intro. Note: There have been some minor changes since the video was recorded. The guide below is more up to date. 
+
+[![Watch the video](https://img.youtube.com/vi/WmqPfQOXJ-4/0.jpg)](https://www.youtube.com/watch?v=WmqPfQOXJ-4)
 
 ## Deploy Aviary 
 
