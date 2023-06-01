@@ -244,7 +244,7 @@ def gradio_app_builder():
                 elem_classes="branding-container",
             )
             gr.HTML(
-                "<a href='https://www.anyscale.com/large-language-models' target='_blank' id='deploy-button'>Deploy your LLMs</a>",
+                "<a href='https://bit.ly/run-aviary' target='_blank' id='deploy-button'>Deploy your LLMs</a>",
                 elem_classes="ref-link primary",
             )
         with gr.Tab("Compare", elem_id="top-tab-group"), gr.Row():
