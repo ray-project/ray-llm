@@ -1,1 +1,0 @@
-Just added: Expanded context windows! OpenAI CLI support!
