@@ -74,12 +74,11 @@ model_config:
   # Hugging Face model id
   model_id: mosaicml/mpt-7b-instruct
   initialization:
-    # dtype to use when loading the model
-    dtype: bfloat16
-    # kwargs to pass to `AutoModel.from_pretrained`
-    from_pretrained_kwargs:
-      trust_remote_code: true
-      use_cache: true
+    # Optional runtime environment configuration. 
+    # Add dependent libraries
+    runtime_env:
+      pip:
+        - deepspeed==0.9.2
     # Optional configuration for loading the model from S3 instead of
     # Hugging Face Hub. You can use this to speed up downloads.
     s3_mirror_config:
@@ -93,6 +92,12 @@ model_config:
       # - DeepSpeed - use DeepSpeed to load the model onto multiple GPUs on a single
       #   or multiple nodes and run the model in tensor parallel mode (`deepspeed.init_inference`)
       type: SingleDevice
+      # dtype to use when loading the model
+      dtype: bfloat16
+      # kwargs to pass to `AutoModel.from_pretrained`
+      from_pretrained_kwargs:
+        trust_remote_code: true
+        use_cache: true
       # Whether to use Hugging Face Optimum BetterTransformer to inject flash attention
       # (may not work with all models)
       use_bettertransformer: false
