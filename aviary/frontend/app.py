@@ -24,6 +24,7 @@ from aviary.common.constants import (
     MODEL_DESCRIPTION_FORMAT,
     MODEL_DESCRIPTIONS_HEADER,
     MODELS,
+    NEWS_URL,
     NUM_LLM_OPTIONS,
     PROJECT_NAME,
     SELECTION_DICT,
@@ -211,6 +212,14 @@ def model_selection():
     return llm_choices
 
 
+def get_news():
+    try:
+        response = requests.get(NEWS_URL)
+        return response.json()["title"]
+    except Exception:
+        return ""
+
+
 def create_session_id():
     return str(uuid.uuid4())
 
@@ -250,6 +259,12 @@ def gradio_app_builder():
         with gr.Tab("Compare", elem_id="top-tab-group"), gr.Row():
             with gr.Column(elem_id="left-column"):
                 with gr.Column(elem_id="left-column-content"):
+                    news = get_news()
+                    if news:
+                        gr.HTML(
+                            f"<div class='ticker'>\U0001F4E3 {news}</div>",
+                            elem_classes="ticker-container",
+                        )
                     llm_choices = model_selection()
                     prompt = gr.TextArea(label="Prompt", lines=5, elem_id="prompt")
                     with gr.Row():
