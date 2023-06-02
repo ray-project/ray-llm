@@ -5,7 +5,7 @@ Go on bird watch right now: [🦜🔍 Aviary 🦜🔍](http://aviary.anyscale.co
 Aviary is an app that lets you interact with a variety of 
 large language models (LLMs) in a single place. 
 You can compare the outputs of different models directly, rank them by quality,
-get a cost and latency estimate, and more. In particular it offers good support for 
+get a cost and latency estimate, and more. In particular, it offers good support for 
 Transformer models hosted on [Hugging Face](http://hf.co) and in many cases also 
 supports [DeepSpeed](https://www.deepspeed.ai/) inference acceleration. 
 
@@ -16,25 +16,27 @@ or simply use our [hosted version](http://aviary.anyscale.com/).
 If you would like to use a managed version of Aviary specific to your company,
 please [reach out to us](mailto:mwk@anyscale.com).
 
-## Known issues
+## Table of Contents
 
-Aviary is still in early development, and there are a few known issues:
-
-* Latency and throughput are not optimized yet. This is due to the fact that we have
-chosen to focus on simplicity and readability for the first release. Ray and Ray Serve
-are framework agnostic and Aviary can be easily modified to use FasterTransformer
-or other high-performance frameworks. We will continiue working on improving this.
-* `lmsys/vicuna-13b-delta-v1.1` model sometimes answers to English questions in Mandarin.
-* Replicas which have had a worker failure will continiue to receive new requests, which
-will most likely time out. We are looking into fixing that.
-
-## Future plans
-
-* Streaming support.
-* Support for Continuous/Iterative Batching.
-* LangChain + LlamaIndex Integration (which will make it much easier to compare open and closed LLMs).
-* Better testing.
-* Improved documentation.
+* [Getting Help and Filing Bugs / Feature Requests](#Getting-Help-and-Filing-Bugs-/-Feature-Requests)
+* [Contributions](#Contributions)
+* [Aviary User Guides](#Aviary-User-Guides)
+	* [Deploy Aviary ](#Deploy-Aviary)
+		* [Set up your laptop](#Set-up-your-laptop)
+		* [Start a Ray Cluster](#Start-a-Ray-Cluster)
+		* [Connect to your Cluster](#Connect-to-your-Cluster)
+		* [Query Aviary](#Query-Aviary)
+* [Aviary Reference](#Aviary-Reference)
+	* [Installing Aviary](#Installing-Aviary)
+	* [Running Aviary Frontend locally](#Running-Aviary-Frontend-locally)
+		* [Usage stats collection](#Usage-stats-collection)
+	* [Using the Aviary CLI](#Using-the-Aviary-CLI)
+		* [CLI examples](#CLI-examples)
+	* [Aviary Model Registry](#Aviary-Model-Registry)
+	* [Contributing](#Contributing)
+	* [Running tests](#Running-tests)
+	* [Known issues](#Known-issues)
+	* [Future plans](#Future-plans)
 
 ## Getting Help and Filing Bugs / Feature Requests
 
@@ -64,6 +66,7 @@ For bugs or for feature requests, please submit them [here](https://github.com/r
 We have people in both US and European time zones who will help answer your questions. 
 
 ## Contributions
+
 We are also interested in accepting contributions. Those could be anything from a new evaluator, to integrating a new model with a yaml file, to more.
 Feel free to post an issue first to get our feedback on a proposal first, or just file a PR and we commit to giving you prompt feedback.
 
@@ -87,10 +90,9 @@ pip install -U "ray>=2.4.0"
 pip install "aviary @ git+https://github.com/ray-project/aviary.git"
 ```
 
-
 The default Aviary installation only includes the Aviary CLI and SDK.
 
-To install the Aviary UI, use the following commmand. This will
+To install the Aviary UI, use the following command. This will
 enable you to run the Aviary frontend on your laptop.
 
 ```shell
@@ -371,3 +373,23 @@ and then simply run `pytest`:
 ```shell
 pytest .
 ```
+
+## Known issues
+
+Aviary is still in early development, and there are a few known issues:
+
+* Latency and throughput are not optimized yet. This is due to the fact that we have
+chosen to focus on simplicity and readability for the first release. Ray and Ray Serve
+are framework-agnostic and Aviary can be easily modified to use FasterTransformer
+or other high-performance frameworks. We will continue working on improving this.
+* `lmsys/vicuna-13b-delta-v1.1` model sometimes answers to English questions in Mandarin.
+* Replicas which have had a worker failure will continue to receive new requests, which
+will most likely time out. We are looking into fixing that.
+
+## Future plans
+
+* Streaming support.
+* Support for Continuous/Iterative Batching.
+* LangChain + LlamaIndex Integration (which will make it much easier to compare open and closed LLMs).
+* Better testing.
+* Improved documentation.

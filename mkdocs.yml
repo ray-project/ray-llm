@@ -1,0 +1,31 @@
+site_name: Aviary
+site_description: Aviary - A tool to deploy and query LLMs.
+site_url: https://anyscale.github.io/aviary
+
+theme:
+  name: material
+  palette:
+    primary: black
+    accent: teal
+  icon:
+    repo: fontawesome/brands/github-alt
+  logo: img/ray.png
+  favicon: img/favicon.ico
+
+repo_name: anyscale/aviary
+repo_url: https://github.com/anyscale/aviary
+edit_uri: ""
+
+nav:
+  - Aviary Home: index.md
+  - CLI: cli.md
+
+
+extra:
+  social:
+    - icon: fontawesome/brands/github-alt
+      link: https://github.com/anyscale/aviary
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/raydistributed
+    - icon: fontawesome/solid/globe
+      link: https://anyscale.com
