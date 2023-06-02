@@ -65,6 +65,9 @@ setup(
         "test": [
             "pytest",
         ],
+        "docs": [
+            "mkdocs-material",
+        ],
     },
     dependency_links=["https://download.pytorch.org/whl/cu118"],
     python_requires=">=3.8",

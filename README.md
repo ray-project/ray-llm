@@ -38,6 +38,22 @@ will most likely time out. We are looking into fixing that.
 
 ## Getting Help and Filing Bugs / Feature Requests
 
+
+We are eager to help you get started with Aviary. You can get help on: 
+
+- Via Slack -- fill in [this form](https://docs.google.com/forms/d/e/1FAIpQLSfAcoiLCHOguOm8e7Jnn-JJdZaCxPGjgVCvFijHB5PLaQLeig/viewform) to sign up. 
+- Via [Discuss](https://discuss.ray.io/c/llms-generative-ai/27). 
+
+For bugs or for feature requests, please submit them [here](https://github.com/ray-project/aviary/issues/new).
+
+We have people in both US and European time zones who will help answer your questions. 
+
+## Contributions
+We are also interested in accepting contributions. Those could be anything from a new evaluator, to integrating a new model with a yaml file, to more.
+Feel free to post an issue first to get our feedback on a proposal first, or just file a PR and we commit to giving you prompt feedback.
+
+## Getting Help and Filing Bugs / Feature Requests
+
 We are eager to help you get started with Aviary. You can get help on: 
 
 - Via Slack -- fill in [this form](https://docs.google.com/forms/d/e/1FAIpQLSfAcoiLCHOguOm8e7Jnn-JJdZaCxPGjgVCvFijHB5PLaQLeig/viewform) to sign up. 
@@ -66,7 +82,7 @@ Open Source cloud deployment.
 
 You will need `ray` and `aviary` to be installed on your laptop.
 
-```
+```shell
 pip install -U "ray>=2.4.0"
 pip install "aviary @ git+https://github.com/ray-project/aviary.git"
 ```
@@ -77,7 +93,7 @@ The default Aviary installation only includes the Aviary CLI and SDK.
 To install the Aviary UI, use the following commmand. This will
 enable you to run the Aviary frontend on your laptop.
 
-```
+```shell
 pip install "aviary[frontend] @ git+https://github.com/ray-project/aviary.git"
 ```
 
@@ -98,7 +114,7 @@ You may need to specify your AWS private key in the `deploy/ray/aviary-cluster.y
 See [Ray on Cloud VMs](https://docs.ray.io/en/latest/cluster/vms/index.html) page in
 Ray documentation for more details.
 
-```
+```shell
 git clone https://github.com/ray-project/aviary.git
 cd aviary
 
@@ -108,7 +124,7 @@ ray up deploy/ray/aviary-cluster.yaml
 
 ### Connect to your Cluster
 
-```
+```shell
 # Connect to the Head node of your Ray Cluster (This will take several minutes to autoscale)
 ray attach deploy/ray/aviary-cluster.yaml
 
@@ -124,7 +140,7 @@ or define your own model YAML file and run that instead.
 
 From the head node, run the following commands. 
 
-```
+```shell
 export AVIARY_URL="http://localhost:8000"
 
 # List the available models
@@ -133,7 +149,8 @@ amazon/LightGPT
 
 # Query the model
 aviary query --model amazon/LightGPT --prompt "How do I make fried rice?"
-
+```
+```text
 amazon/LightGPT:
 To make fried rice, start by heating up some oil in a large pan over medium-high
 heat. Once the oil is hot, add your desired amount of vegetables and/or meat to the
@@ -143,13 +160,28 @@ everything together and cook for another few minutes until all the ingredients a
 cooked through. Serve with your favorite sides and enjoy!
 ```
 
+You can also use `aviary query` with certain LangChain-compatible APIs.
+Currently, we support the following APIs:
+* openai (`langchain.llms.OpenAIChat`)
+
+```shell
+# langchain is an optional dependency
+pip install langchain
+
+export OPENAI_API_KEY=...
+
+# Query an Aviary model and OpenAI model
+# [PROVIDER]://[MODEL_NAME]
+aviary query --model amazon/LightGPT --model openai://gpt-3.5-turbo --prompt "How do I make fried rice?"
+```
+
 # Aviary Reference
 
 ## Installing Aviary
 
 To install Aviary and its dependencies, run the following command:
 
-```
+```shell
 pip install "aviary @ git+https://github.com/ray-project/aviary.git"
 ```
 
@@ -159,7 +191,7 @@ Aviary consists of a backend and a frontend, both of which come with additional
 dependencies. To install the dependencies for both frontend and backend for local
 development, run the following commands:
 
-```
+```shell
 pip install "aviary[frontend,backend] @ git+https://github.com/ray-project/aviary.git"
 ```
 
