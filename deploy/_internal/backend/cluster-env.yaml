@@ -15,7 +15,6 @@ post_build_cmds:
   pip install \
     "async_timeout" \
     "markdown-it-py[plugins]" \
-    "git+https://github.com/huggingface/diffusers.git" \
     "accelerate" \
     "transformers>=4.25.1" \
     "datasets" \
@@ -29,14 +28,8 @@ post_build_cmds:
     "bitsandbytes" \
     "git+https://github.com/Yard1/DeepSpeed.git@aviary" \
     "numpy<1.24" \
-    "pytorch-lightning" \
     "ninja" \
     "protobuf<3.21.0" \
     "git+https://github.com/huggingface/optimum.git" \
     "torchmetrics" \
-    "git+https://github.com/EleutherAI/lm_dataformat.git@4eec05349977071bf67fc072290b95e31c8dd836" \
-    "lm_eval==0.3.0" \
-    "tiktoken==0.1.2" \
-    "pybind11==2.6.2" \
-    "einops==0.3.0" \
     "safetensors"
