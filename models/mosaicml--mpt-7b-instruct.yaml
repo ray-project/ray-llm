@@ -14,6 +14,7 @@ deployment_config:
       accelerator_type_cpu: 0.01
 model_config:
   model_id: mosaicml/mpt-7b-instruct
+  max_input_words: 800
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-instruct/main-safetensors/
@@ -29,7 +30,7 @@ model_config:
         mode: max-autotune
     pipeline: default
   generation:
-    max_batch_size: 22
+    max_batch_size: 8
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
