@@ -25,7 +25,7 @@ chosen to focus on simplicity and readability for the first release. Ray and Ray
 are framework agnostic and Aviary can be easily modified to use FasterTransformer
 or other high-performance frameworks. We will continiue working on improving this.
 * `lmsys/vicuna-13b-delta-v1.1` model sometimes answers to English questions in Mandarin.
-* Replicas which have had a worker failure will continiue to recieve new requests, which
+* Replicas which have had a worker failure will continiue to receive new requests, which
 will most likely time out. We are looking into fixing that.
 
 ## Future plans
