@@ -14,6 +14,7 @@ deployment_config:
       accelerator_type_cpu: 0.01
 model_config:
   model_id: amazon/LightGPT
+  max_input_words: 800
   initialization:
     runtime_env:
       pip:
@@ -26,9 +27,10 @@ model_config:
       from_pretrained_kwargs:
         use_cache: true
       use_kernel: true
+      max_tokens: 1536
     pipeline: default
   generation:
-    max_batch_size: 26
+    max_batch_size: 18
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512

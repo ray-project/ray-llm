@@ -76,7 +76,7 @@ def init_model(
     # will raise CUDA errors if use_kernel=True.
     batch_size = max_batch_size or 1
     prompt = [WARMUP_PROMPT] * (
-        int(llm_config.max_input_words / (len(WARMUP_PROMPT) + 1)) + 1
+        int(llm_config.max_input_words / (len(WARMUP_PROMPT.split()) + 1)) + 1
     )
     prompt = " ".join(prompt)
     logger.info(
