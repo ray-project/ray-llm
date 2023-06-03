@@ -32,4 +32,7 @@ post_build_cmds:
     "protobuf<3.21.0" \
     "git+https://github.com/huggingface/optimum.git" \
     "torchmetrics" \
-    "safetensors"
+    "safetensors" \
+    "pydantic==1.10.7" \
+    "einops" \
+    "markdown-it-py[plugins]"
