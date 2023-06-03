@@ -40,6 +40,7 @@ setup(
             "torchmetrics",
             "safetensors",
             "pydantic==1.10.7",
+            "einops",
             "markdown-it-py[plugins]",
         ],
         "frontend": [
