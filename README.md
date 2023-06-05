@@ -224,10 +224,10 @@ To just use the Gradio frontend without Ray Serve, you can start it
 with `python aviary/frontend/app.py`.
 
 If you don't have access to a deployed backend, or would just like to test and develop
-the frontend, you can run a mock backend locally by setting `MOCK=True`:
+the frontend, you can run a mock backend locally by setting `AVIARY_MOCK=True`:
 
 ```shell
-MOCK=True python aviary/frontend/app.py
+AVIARY_MOCK=True python aviary/frontend/app.py
 ```
 
 In any case, the Gradio interface should be accessible at `http://localhost:7860`
