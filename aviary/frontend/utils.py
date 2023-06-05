@@ -2,7 +2,7 @@ import time
 
 import gradio as gr
 
-from aviary.common.constants import G5_COST_PER_S_IN_DOLLARS, PROJECT_NAME
+from aviary.common.constants import G5_COST_PER_S_IN_DOLLARS, PROJECT_NAME, NUM_LLM_OPTIONS
 from aviary.frontend.mongo_logger import MongoLogger
 from aviary.frontend.mongo_secrets import get_mongo_secret_url
 
@@ -48,15 +48,16 @@ def blank():
     return ""
 
 
-# TODO(mwk): Replace this really ugly use of the labels to store state
-# to use gr.State
-def set_last(x):
-    return x, gr.Button.update(value="Saving ... " + x, variant="primary")
+def select_button(button):
+    return button, gr.Button.update(variant="primary")
 
 
-def unset_last(x):
-    old_val = x.replace("Saving ... ", "")
-    return gr.Button.update(value=old_val, variant="secondary")
+def deactivate_buttons():
+    return [gr.Button.update(interactive=False)] * NUM_LLM_OPTIONS
+
+
+def unset_buttons():
+    return [gr.Button.update(variant="secondary", interactive=True)] * NUM_LLM_OPTIONS
 
 
 def paused_logger(*args):

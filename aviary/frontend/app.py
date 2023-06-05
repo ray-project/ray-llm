@@ -41,8 +41,9 @@ from aviary.frontend.utils import (
     gen_stats,
     log_flags,
     paused_logger,
-    set_last,
-    unset_last,
+    select_button,
+    deactivate_buttons,
+    unset_buttons,
 )
 
 # Global Gradio variables
@@ -335,18 +336,18 @@ def gradio_app_builder():
         ).then(
             fn=log_flags,
             inputs=inputs + llm_text_boxes + [last_btn, raw_completions, session_id],
-        )
+        ).then(fn=unset_buttons, outputs=btns)
 
         for i in range(NUM_LLM_OPTIONS):
             btns[i].click(
-                fn=set_last, inputs=btns[i], outputs=[last_btn, btns[i]]
+                fn=select_button, inputs=btns[i], outputs=[last_btn, btns[i]]
+            ).then(
+                fn=deactivate_buttons, outputs=btns
             ).then(
                 lambda *args: paused_logger(args),
                 inputs=inputs
                 + llm_text_boxes
                 + [last_btn, raw_completions, session_id],
-            ).then(
-                fn=unset_last, inputs=btns[i], outputs=btns[i]
             )
         with gr.Row(elem_id="footer"):
             gr.HTML(
