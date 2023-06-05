@@ -104,8 +104,6 @@ SELECTION_DICT = {
     "\U0001f3b2 Random": [],
 }
 
-NEWS_URL = "https://api.github.com/repos/ray-project/aviary/issues/8"
-
 MODEL_DESCRIPTIONS_HEADER = "# Model Descriptions\n\n"
 
 MODEL_DESCRIPTION_FORMAT = "## [{model_id}]({model_url})\n{model_description}"
