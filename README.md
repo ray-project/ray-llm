@@ -144,7 +144,7 @@ From the head node, run the following commands.
 export AVIARY_URL="http://localhost:8000"
 
 # List the available models
-aviary list_models
+aviary models
 amazon/LightGPT
 
 # Query the model
