@@ -103,7 +103,7 @@ def initialize_node(
     torch_cache_home = _get_torch_home()
     os.makedirs(os.path.join(torch_cache_home, "kernels"), exist_ok=True)
 
-    if model_id and s3_mirror_config:
+    if model_id and s3_mirror_config and s3_mirror_config.bucket_uri:
         lock_path = os.path.expanduser(f"~/{model_id.replace('/', '--')}.lock")
         try:
             # Timeout 0 means there will be only one attempt to acquire

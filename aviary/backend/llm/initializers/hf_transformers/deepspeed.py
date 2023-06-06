@@ -30,6 +30,8 @@ class DeepSpeedInitializer(TransformersInitializer):
         use_meta_tensor (bool, optional): Whether to use meta tensor loading method. Defaults to False.
         injection_policy ([type], optional): Injection policy for DeepSpeed AutoTP. Cannot
             be set if use_kernel=True. Defaults to None.
+        ds_inference_kwargs (Dict[str, Any], optional): Other keyword arguments for ``deepspeed.initialize``.
+            Specific arguments in the signature of this function will override these values.
         **from_pretrained_kwargs: Keyword arguments for ``AutoModel.from_pretrained``.
     """
 
@@ -44,6 +46,7 @@ class DeepSpeedInitializer(TransformersInitializer):
         use_kernel: bool = False,
         use_meta_tensor: bool = False,
         injection_policy=None,
+        ds_inference_kwargs: Optional[Dict[str, Any]] = None,
         **from_pretrained_kwargs,
     ):
         super().__init__(
@@ -59,6 +62,7 @@ class DeepSpeedInitializer(TransformersInitializer):
         self.use_meta_tensor = use_meta_tensor
         # TODO: Allow conversion from strings (need to do dynamic imports)
         self.injection_policy = injection_policy
+        self.ds_inference_kwargs = ds_inference_kwargs
 
         if self.use_kernel:
             assert not (self.use_bettertransformer or self.torch_compile)
@@ -115,13 +119,28 @@ class DeepSpeedInitializer(TransformersInitializer):
 
     def load_model(self, model_id: str) -> "PreTrainedModel":
         model_id_or_path = self._get_model_location_on_disk(model_id)
+        from_pretrained_kwargs = self._get_model_from_pretrained_kwargs()
 
         logger.info(f"Loading model {model_id_or_path}...")
         if self.use_meta_tensor:
             logger.info("Loading model using DeepSpeed meta tensor...")
-            config = AutoConfig.from_pretrained(
-                model_id_or_path, **self._get_model_from_pretrained_kwargs()
-            )
+
+            try:
+                config = AutoConfig.from_pretrained(
+                    model_id_or_path, **from_pretrained_kwargs
+                )
+            except OSError:
+                if model_id_or_path != model_id:
+                    logger.warning(
+                        f"Couldn't load model from derived path {model_id_or_path}, "
+                        f"trying to load from model_id {model_id}"
+                    )
+                    config = AutoConfig.from_pretrained(
+                        model_id, **from_pretrained_kwargs
+                    )
+                else:
+                    raise
+
             self._repo_root, self._checkpoints_json = self._generate_checkpoint_json(
                 model_id
             )
@@ -129,9 +148,21 @@ class DeepSpeedInitializer(TransformersInitializer):
             with deepspeed.OnDevice(dtype=torch.float16, device="meta"):
                 model = AutoModelForCausalLM.from_config(config)
         else:
-            model = AutoModelForCausalLM.from_pretrained(
-                model_id_or_path, **self._get_model_from_pretrained_kwargs()
-            )
+            try:
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_id_or_path, **from_pretrained_kwargs
+                )
+            except OSError:
+                if model_id_or_path != model_id:
+                    logger.warning(
+                        f"Couldn't load model from derived path {model_id_or_path}, "
+                        f"trying to load from model_id {model_id}"
+                    )
+                    model = AutoModelForCausalLM.from_pretrained(
+                        model_id, **from_pretrained_kwargs
+                    )
+                else:
+                    raise
         model.eval()
         return model
 
@@ -139,6 +170,7 @@ class DeepSpeedInitializer(TransformersInitializer):
         from transformers import GPTNeoXForCausalLM, LlamaForCausalLM
 
         injection_policy = self.injection_policy
+        # TODO: remove those later when deepspeed master is updated
         if injection_policy is None and not self.use_kernel:
             if isinstance(model, GPTNeoXForCausalLM):
                 from transformers import GPTNeoXLayer
@@ -159,20 +191,25 @@ class DeepSpeedInitializer(TransformersInitializer):
             logger.info("Transforming the model with BetterTransformer...")
             model = BetterTransformer.transform(model)
 
-        if self.use_meta_tensor:
-            ds_kwargs = dict(
-                base_dir=self._repo_root, checkpoint=self._checkpoints_json
+        ds_kwargs = self.ds_inference_kwargs or {}
+        ds_kwargs = ds_kwargs.copy()
+        ds_kwargs.update(
+            dict(
+                dtype=self.dtype,
+                mp_size=self.world_size,
+                replace_with_kernel_inject=self.use_kernel,
+                injection_policy=injection_policy,
+                max_tokens=self.max_tokens,
             )
-        else:
-            ds_kwargs = dict()
+        )
+        if self.use_meta_tensor:
+            ds_kwargs.update(
+                dict(base_dir=self._repo_root, checkpoint=self._checkpoints_json)
+            )
 
+        logger.info(f"deepspeed.init_inference kwargs: {ds_kwargs}")
         model = deepspeed.init_inference(
             model,
-            dtype=self.dtype,
-            mp_size=self.world_size,
-            replace_with_kernel_inject=self.use_kernel,
-            injection_policy=injection_policy,
-            max_tokens=self.max_tokens,
             **ds_kwargs,
         )
 

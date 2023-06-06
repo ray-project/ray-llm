@@ -74,7 +74,11 @@ class TransformersInitializer(LLMInitializer):
         if os.path.exists(path):
             with open(os.path.join(path, "refs", "main"), "r") as f:
                 snapshot_hash = f.read().strip()
-            if os.path.exists(os.path.join(path, "snapshots", snapshot_hash)):
+            if os.path.exists(
+                os.path.join(path, "snapshots", snapshot_hash)
+            ) and os.path.exists(
+                os.path.join(path, "snapshots", snapshot_hash, "config.json")
+            ):
                 model_id_or_path = os.path.join(path, "snapshots", snapshot_hash)
         return model_id_or_path
 
@@ -85,11 +89,24 @@ class TransformersInitializer(LLMInitializer):
             model_id (str): Hugging Face model ID.
         """
         model_id_or_path = self._get_model_location_on_disk(model_id)
+        from_pretrained_kwargs = self._get_model_from_pretrained_kwargs()
 
         logger.info(f"Loading model {model_id_or_path}...")
-        model = AutoModelForCausalLM.from_pretrained(
-            model_id_or_path, **self._get_model_from_pretrained_kwargs()
-        )
+        try:
+            model = AutoModelForCausalLM.from_pretrained(
+                model_id_or_path, **from_pretrained_kwargs
+            )
+        except OSError:
+            if model_id_or_path != model_id:
+                logger.warning(
+                    f"Couldn't load model from derived path {model_id_or_path}, "
+                    f"trying to load from model_id {model_id}"
+                )
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_id, **from_pretrained_kwargs
+                )
+            else:
+                raise
         model.eval()
         return model
 
@@ -100,15 +117,28 @@ class TransformersInitializer(LLMInitializer):
             tokenizer_id (str): Hugging Face tokenizer name.
         """
         tokenizer_id_or_path = self._get_model_location_on_disk(tokenizer_id)
+        from_pretrained_kwargs = self._get_model_from_pretrained_kwargs()
 
-        # TODO make this more robust, add logging
+        # TODO make this more robust
         try:
             return AutoTokenizer.from_pretrained(
-                tokenizer_id_or_path, padding_side="left", trust_remote_code=True
+                tokenizer_id_or_path,
+                padding_side="left",
+                trust_remote_code=from_pretrained_kwargs.get(
+                    "trust_remote_code", False
+                ),
             )
         except Exception:
+            logger.warning(
+                f"Couldn't load tokenizer from derived path {tokenizer_id_or_path}, "
+                f"trying to load from model_id {tokenizer_id}"
+            )
             return AutoTokenizer.from_pretrained(
-                tokenizer_id, padding_side="left", trust_remote_code=True
+                tokenizer_id,
+                padding_side="left",
+                trust_remote_code=from_pretrained_kwargs.get(
+                    "trust_remote_code", False
+                ),
             )
 
     def postprocess_model(self, model: "PreTrainedModel") -> "PreTrainedModel":
