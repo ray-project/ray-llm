@@ -89,7 +89,7 @@ class DefaultPipeline(BasePipeline):
         token_stopper = next(
             (
                 x
-                for x in model_outputs["generate_kwargs"]["stopping_criteria"]
+                for x in model_outputs["generate_kwargs"].get("stopping_criteria", [])
                 if isinstance(x, StopOnTokens)
             ),
             None,

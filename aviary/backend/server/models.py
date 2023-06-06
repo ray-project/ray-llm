@@ -232,6 +232,7 @@ class DeepSpeed(Transformers):
     use_kernel: bool = False
     max_tokens: int = 1024
     use_meta_tensor: bool = False
+    ds_inference_kwargs: Optional[Dict[str, Any]] = None
 
     @root_validator
     def use_kernel_bettertransformer_torch_compile(cls, values):
