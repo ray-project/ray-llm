@@ -37,11 +37,11 @@ from aviary.frontend.utils import (
     LOGGER,
     THEME,
     blank,
+    deactivate_buttons,
     gen_stats,
     log_flags,
     paused_logger,
     select_button,
-    deactivate_buttons,
     unset_buttons,
 )
 
@@ -325,14 +325,14 @@ def gradio_app_builder():
         ).then(
             fn=log_flags,
             inputs=inputs + llm_text_boxes + [last_btn, raw_completions, session_id],
-        ).then(fn=unset_buttons, outputs=btns)
+        ).then(
+            fn=unset_buttons, outputs=btns
+        )
 
         for i in range(NUM_LLM_OPTIONS):
             btns[i].click(
                 fn=select_button, inputs=btns[i], outputs=[last_btn, btns[i]]
-            ).then(
-                fn=deactivate_buttons, outputs=btns
-            ).then(
+            ).then(fn=deactivate_buttons, outputs=btns).then(
                 lambda *args: paused_logger(args),
                 inputs=inputs
                 + llm_text_boxes
