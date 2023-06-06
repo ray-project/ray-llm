@@ -2,7 +2,11 @@ import time
 
 import gradio as gr
 
-from aviary.common.constants import G5_COST_PER_S_IN_DOLLARS, PROJECT_NAME, NUM_LLM_OPTIONS
+from aviary.common.constants import (
+    G5_COST_PER_S_IN_DOLLARS,
+    NUM_LLM_OPTIONS,
+    PROJECT_NAME,
+)
 from aviary.frontend.mongo_logger import MongoLogger
 from aviary.frontend.mongo_secrets import get_mongo_secret_url
 
