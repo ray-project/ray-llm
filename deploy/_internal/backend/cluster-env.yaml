@@ -9,7 +9,7 @@ env_vars:
   TORCH_HOME: /mnt/local_storage/data/cache/torch
 post_build_cmds:
 - |-
-  echo "dedup version 1. increment this to force a rebuild."
+  echo "dedup version 2. increment this to force a rebuild."
   pip uninstall -y torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric tensorflow
   pip install -i https://download.pytorch.org/whl/cu118 torch torchvision torchaudio
   pip install \

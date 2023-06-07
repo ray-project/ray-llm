@@ -49,6 +49,9 @@ class DeepSpeedInitializer(TransformersInitializer):
         ds_inference_kwargs: Optional[Dict[str, Any]] = None,
         **from_pretrained_kwargs,
     ):
+        if dtype not in (torch.float16, torch.float32, torch.int8):
+            raise ValueError(f"dtype {dtype} is not supported by DeepSpeed.")
+
         super().__init__(
             device=device,
             world_size=world_size,
@@ -118,25 +121,23 @@ class DeepSpeedInitializer(TransformersInitializer):
         return os.path.abspath(repo_root), os.path.abspath(checkpoints_json)
 
     def load_model(self, model_id: str) -> "PreTrainedModel":
-        model_id_or_path = self._get_model_location_on_disk(model_id)
         from_pretrained_kwargs = self._get_model_from_pretrained_kwargs()
 
-        logger.info(f"Loading model {model_id_or_path}...")
+        logger.info(f"Loading model {model_id}...")
         if self.use_meta_tensor:
             logger.info("Loading model using DeepSpeed meta tensor...")
 
             try:
-                config = AutoConfig.from_pretrained(
-                    model_id_or_path, **from_pretrained_kwargs
-                )
+                config = AutoConfig.from_pretrained(model_id, **from_pretrained_kwargs)
             except OSError:
-                if model_id_or_path != model_id:
+                location = self._get_model_location_on_disk(model_id)
+                if model_id != location:
                     logger.warning(
-                        f"Couldn't load model from derived path {model_id_or_path}, "
-                        f"trying to load from model_id {model_id}"
+                        f"Couldn't load model {model_id}, "
+                        f"trying to load from derived location {location}"
                     )
                     config = AutoConfig.from_pretrained(
-                        model_id, **from_pretrained_kwargs
+                        location, **from_pretrained_kwargs
                     )
                 else:
                     raise
@@ -144,25 +145,14 @@ class DeepSpeedInitializer(TransformersInitializer):
             self._repo_root, self._checkpoints_json = self._generate_checkpoint_json(
                 model_id
             )
+            trust_remote_code = from_pretrained_kwargs.get("trust_remote_code", False)
 
             with deepspeed.OnDevice(dtype=torch.float16, device="meta"):
-                model = AutoModelForCausalLM.from_config(config)
-        else:
-            try:
-                model = AutoModelForCausalLM.from_pretrained(
-                    model_id_or_path, **from_pretrained_kwargs
+                model = AutoModelForCausalLM.from_config(
+                    config, trust_remote_code=trust_remote_code
                 )
-            except OSError:
-                if model_id_or_path != model_id:
-                    logger.warning(
-                        f"Couldn't load model from derived path {model_id_or_path}, "
-                        f"trying to load from model_id {model_id}"
-                    )
-                    model = AutoModelForCausalLM.from_pretrained(
-                        model_id, **from_pretrained_kwargs
-                    )
-                else:
-                    raise
+        else:
+            model = super().load_model(model_id)
         model.eval()
         return model
 
@@ -220,5 +210,5 @@ class DeepSpeedInitializer(TransformersInitializer):
         # Add attributes for compatibility with the pipeline
         model.use_kernel = self.use_kernel
         model.device = self.device
-        model = model.to(self.device)
+        # model = model.to(self.device)
         return model

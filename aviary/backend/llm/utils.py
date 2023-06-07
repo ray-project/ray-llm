@@ -38,7 +38,6 @@ def download_model(
     from transformers.utils.hub import TRANSFORMERS_CACHE
 
     s3_sync_args = s3_sync_args or []
-    logger.info(f"Downloading {model_id} from {bucket_uri} to '{TRANSFORMERS_CACHE}'")
     path = os.path.expanduser(
         os.path.join(TRANSFORMERS_CACHE, f"models--{model_id.replace('/', '--')}")
     )
@@ -53,6 +52,9 @@ def download_model(
         )
     with open(os.path.join(".", "hash"), "r") as f:
         f_hash = f.read().strip()
+    logger.info(
+        f"Downloading {model_id} from {bucket_uri} to {os.path.join(path, 'snapshots', f_hash)}"
+    )
     subprocess.run(["mkdir", "-p", os.path.join(path, "snapshots", f_hash)])
     subprocess.run(["mkdir", "-p", os.path.join(path, "refs")])
     subprocess.run(
