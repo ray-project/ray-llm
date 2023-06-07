@@ -88,22 +88,22 @@ class TransformersInitializer(LLMInitializer):
         Args:
             model_id (str): Hugging Face model ID.
         """
-        model_id_or_path = self._get_model_location_on_disk(model_id)
         from_pretrained_kwargs = self._get_model_from_pretrained_kwargs()
 
-        logger.info(f"Loading model {model_id_or_path}...")
+        logger.info(f"Loading model {model_id}...")
         try:
             model = AutoModelForCausalLM.from_pretrained(
-                model_id_or_path, **from_pretrained_kwargs
+                model_id, **from_pretrained_kwargs
             )
         except OSError:
-            if model_id_or_path != model_id:
+            location = self._get_model_location_on_disk(model_id)
+            if model_id != location:
                 logger.warning(
-                    f"Couldn't load model from derived path {model_id_or_path}, "
-                    f"trying to load from model_id {model_id}"
+                    f"Couldn't load model {model_id}, "
+                    f"trying to load from derived location {location}"
                 )
                 model = AutoModelForCausalLM.from_pretrained(
-                    model_id, **from_pretrained_kwargs
+                    location, **from_pretrained_kwargs
                 )
             else:
                 raise
@@ -116,30 +116,26 @@ class TransformersInitializer(LLMInitializer):
         Args:
             tokenizer_id (str): Hugging Face tokenizer name.
         """
-        tokenizer_id_or_path = self._get_model_location_on_disk(tokenizer_id)
         from_pretrained_kwargs = self._get_model_from_pretrained_kwargs()
+        trust_remote_code = from_pretrained_kwargs.get("trust_remote_code", False)
 
         # TODO make this more robust
         try:
             return AutoTokenizer.from_pretrained(
-                tokenizer_id_or_path,
-                padding_side="left",
-                trust_remote_code=from_pretrained_kwargs.get(
-                    "trust_remote_code", False
-                ),
+                tokenizer_id, padding_side="left", trust_remote_code=trust_remote_code
             )
         except Exception:
-            logger.warning(
-                f"Couldn't load tokenizer from derived path {tokenizer_id_or_path}, "
-                f"trying to load from model_id {tokenizer_id}"
-            )
-            return AutoTokenizer.from_pretrained(
-                tokenizer_id,
-                padding_side="left",
-                trust_remote_code=from_pretrained_kwargs.get(
-                    "trust_remote_code", False
-                ),
-            )
+            location = self._get_model_location_on_disk(tokenizer_id)
+            if tokenizer_id != location:
+                logger.warning(
+                    f"Couldn't load tokenizer {tokenizer_id}, "
+                    f"trying to load from derived location {location}"
+                )
+                return AutoTokenizer.from_pretrained(
+                    location, padding_side="left", trust_remote_code=trust_remote_code
+                )
+            else:
+                raise
 
     def postprocess_model(self, model: "PreTrainedModel") -> "PreTrainedModel":
         """Postprocess model.

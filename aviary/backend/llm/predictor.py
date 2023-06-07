@@ -36,6 +36,7 @@ def init_model(
     world_size: int,
     local_rank: int,
     max_batch_size: Optional[int] = None,
+    full_warmup: bool = False,
 ):
     """Initialize the model.
 
@@ -44,6 +45,8 @@ def init_model(
         world_size (int): Number of GPUs.
         local_rank (int): Local rank of the current GPU.
         max_batch_size (Optional[int], optional): Maximum batch size. Defaults to None.
+        full_warmup (bool, optional): Whether to do a full warmup (min_new_tokens=max_new_tokens and
+            max out input length). Defaults to False.
     """
     logger.info(f"Initializing model {llm_config.model_id}...")
 
@@ -75,8 +78,9 @@ def init_model(
     # otherwise subsequent batches with more entries than the first batch
     # will raise CUDA errors if use_kernel=True.
     batch_size = max_batch_size or 1
-    prompt = [WARMUP_PROMPT] * (
-        int(llm_config.max_input_words / (len(WARMUP_PROMPT.split()) + 1)) + 1
+    n_repeats = llm_config.max_input_words if full_warmup else 1
+    prompt = [WARMUP_PROMPT] * max(
+        1, (int(n_repeats / (len(WARMUP_PROMPT.split()) + 1)))
     )
     prompt = " ".join(prompt)
     logger.info(
@@ -84,7 +88,12 @@ def init_model(
     )
     generate_kwargs = llm_config.generation.all_generate_kwargs.copy()
     if "max_new_tokens" in generate_kwargs:
-        generate_kwargs["min_new_tokens"] = generate_kwargs["max_new_tokens"]
+        if full_warmup:
+            generate_kwargs["min_new_tokens"] = generate_kwargs["max_new_tokens"]
+        else:
+            generate_kwargs["max_new_tokens"] = generate_kwargs.get(
+                "min_new_tokens", 16
+            )
     warmup_success = False
     while not warmup_success:
         try:
@@ -178,6 +187,7 @@ class PredictionWorker(TorchDistributedWorker):
             self.world_size,
             local_rank,
             max_batch_size=self.llm_config.generation.max_batch_size,
+            full_warmup=self.llm_config.initialization.full_warmup,
         )
 
     def generate(

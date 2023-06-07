@@ -208,7 +208,9 @@ class Initializer(BaseModelExtended, extra=Extra.forbid):
 class Transformers(Initializer, extra=Extra.forbid):
     use_bettertransformer: bool = False
     torch_compile: Optional[TorchCompile] = None
-    dtype: str = "float16"
+    dtype: Union[
+        Literal["float16"], Literal["bfloat16"], Literal["float32"], Literal["int8"]
+    ] = "float16"
     from_pretrained_kwargs: Dict[str, Any] = {}
 
     @property
@@ -229,6 +231,7 @@ class Transformers(Initializer, extra=Extra.forbid):
 
 class DeepSpeed(Transformers):
     type: Literal["DeepSpeed"]
+    dtype: Union[Literal["float16"], Literal["float32"], Literal["int8"]] = "float16"
     use_kernel: bool = False
     max_tokens: int = 1024
     use_meta_tensor: bool = False
@@ -289,6 +292,7 @@ class InitializationConfig(BaseModelExtended):
     s3_mirror_config: Optional[S3MirrorConfig] = None
     runtime_env: Optional[Dict[str, Any]] = None
     hf_model_id: Optional[str] = None
+    full_warmup: bool = False  # For debugging purposes
 
     @root_validator
     def initializer_pipeline(cls, values):
