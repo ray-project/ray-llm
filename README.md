@@ -210,7 +210,7 @@ The Gradio app is served using [Ray Serve](https://docs.ray.io/en/latest/serve/i
 To run the Aviary frontend locally, you need to set the following environment variable:
 
 ```shell
-export AVIARY_HOSTNAME=<hostname of the backend, eg. 'http://localhost:8000'>
+export AVIARY_URL=<hostname of the backend, eg. 'http://localhost:8000'>
 ```
 
 Once you have set these environment variables, you can run the frontend with the
