@@ -164,7 +164,7 @@ aviary query --model mosaicml/mpt-7b-chat --prompt "What are the top 5 most popu
 ```sh
 # Step 8.1: Delete the RayCluster
 # path: deploy/kuberay
-kubectl apply -f kuberay.yaml
+kubectl delete -f kuberay.yaml
 
 # Step 8.2: Uninstall the KubeRay operator chart
 helm uninstall kuberay-operator

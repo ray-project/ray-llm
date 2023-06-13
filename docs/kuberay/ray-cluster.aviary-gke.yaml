@@ -5,7 +5,7 @@ metadata:
     controller-tools.k8s.io: "1.0"
   name: aviary
 spec:
-  rayVersion: '2.4.0' # should match the Ray version in the image of the containers
+  rayVersion: 'nightly' # should match the Ray version in the image of the containers
   # Ray head pod template
   headGroupSpec:
     # The `rayStartParams` are used to configure the `ray start` command.
@@ -43,7 +43,7 @@ spec:
     groupName: gpu-group
     rayStartParams:
       resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 4}"'
-    #pod template
+    # pod template
     template:
       spec:
         containers:
@@ -62,9 +62,11 @@ spec:
               cpu: "36"
               memory: "128G"
               nvidia.com/gpu: 4
-        # Please add the following taints to the GPU node.
+        # Please ensure the following taint has been applied to the GPU node in the cluster.
         tolerations:
           - key: "ray.io/node-type"
             operator: "Equal"
             value: "worker"
             effect: "NoSchedule"
+        nodeSelector:
+          cloud.google.com/gke-accelerator: nvidia-l4-vws

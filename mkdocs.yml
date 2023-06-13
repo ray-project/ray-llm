@@ -19,6 +19,8 @@ edit_uri: ""
 nav:
   - Aviary Home: index.md
   - CLI: cli.md
+  - Deploying on GKE: kuberay/deploy-on-gke.md
+  - Deploying on EKS: kuberay/deploy-on-eks.md
 
 
 extra:
