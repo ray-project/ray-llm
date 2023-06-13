@@ -9,7 +9,7 @@ setup(
     package_data={"aviary": ["models/*"]},
     entry_points={
         "console_scripts": [
-            "aviary=aviary.api.cli:app",
+            "aviary=aviary.cli:app",
         ]
     },
     install_requires=["typer>=0.9", "rich"],
