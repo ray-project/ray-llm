@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 import re
 import uuid
@@ -9,7 +10,12 @@ import requests
 from ray import serve
 from ray.serve.gradio_integrations import GradioIngress
 
-from aviary.common.backend import get_aviary_backend
+if os.getenv("AVIARY_MOCK"):
+    from aviary.api import mock_sdk as sdk
+else:
+    from aviary.api import sdk
+
+
 from aviary.common.constants import (
     AVIARY_DESC,
     CSS,
@@ -47,9 +53,8 @@ from aviary.frontend.utils import (
 
 # Global Gradio variables
 # NOTE: In the context of Gradio "global" means shared between all sessions.
-BACKEND = get_aviary_backend()
-ALL_MODELS = BACKEND.models()
-ALL_MODELS_METADATA = {model: BACKEND.metadata(model) for model in ALL_MODELS}
+ALL_MODELS = sdk.models()
+ALL_MODELS_METADATA = {model: sdk.metadata(model) for model in ALL_MODELS}
 MODEL_DESCRIPTIONS = (
     MODEL_DESCRIPTIONS_HEADER
     + "\n\n"
@@ -76,7 +81,7 @@ def gen_leaderboard():
 @ray.remote(num_cpus=0)
 def completions(prompt, llm, index):
     try:
-        out = BACKEND.completions(prompt=prompt, llm=llm)
+        out = sdk.completions(prompt=prompt, model=llm)
     except Exception as e:
         if isinstance(e, requests.ReadTimeout) or (
             hasattr(e, "response")
