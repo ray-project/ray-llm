@@ -9,6 +9,10 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from aviary.api import sdk
+from aviary.common.evaluation import GPT
+
+
+__all__ = ["app", "models", "metadata", "query", "batch_query", "run"]
 
 app = typer.Typer()
 
@@ -34,6 +38,12 @@ def models(metadata: Annotated[bool, "Whether to print metadata"] = False):
             rp(sdk.metadata(model))
     else:
         print("\n".join(result))
+
+
+@app.command()
+def metadata(model: Annotated[List[str], model_type]):
+    """Get metadata for models."""
+    return [sdk.metadata(m) for m in model]
 
 
 def _print_result(result, model, print_stats):
@@ -64,6 +74,7 @@ def query(
 ):
     """Query one or several models with one or multiple prompts,
     optionally read from file, and save the results to a file."""
+    # TODO (max): deprecate and rename to "completions" to match the API
     with progress_spinner() as progress:
         if prompt_file:
             with open(prompt_file, "r") as f:
@@ -76,7 +87,7 @@ def query(
                 description=f"Processing all prompts against model: {m}.",
                 total=None,
             )
-            query_results = sdk.batch_query(m, prompt)
+            query_results = sdk.batch_completions(m, prompt)
             for result in query_results:
                 _print_result(result, m, print_stats)
 
@@ -98,12 +109,13 @@ def batch_query(
     print_stats: Annotated[bool, stats_type] = False,
 ):
     """Query a model with a batch of prompts."""
+    # TODO (max): deprecate and rename to "batch_completions" to match the API
     with progress_spinner() as progress:
         for m in model:
             progress.add_task(
                 description=f"Processing prompt against {m}...", total=None
             )
-            results = sdk.batch_query(m, prompt)
+            results = sdk.batch_completions(m, prompt)
             for result in results:
                 _print_result(result, m, print_stats)
 
@@ -130,7 +142,7 @@ def multi_query(
                 description=f"Processing all prompts against model: {model}.",
                 total=None,
             )
-            query_results = sdk.batch_query(m, prompts)
+            query_results = sdk.batch_completions(m, prompts)
             for i, prompt in enumerate(prompts):
                 result = query_results[i]
                 text = result["generated_text"]
@@ -168,8 +180,6 @@ def evaluate(
     with progress_spinner() as progress:
         progress.add_task(description="Loading the evaluator LLM.", total=None)
         if evaluator == "gpt-4":
-            from aviary.common.evaluation import GPT
-
             eval_model = GPT()
         else:
             raise NotImplementedError(f"No evaluator for {evaluator}")

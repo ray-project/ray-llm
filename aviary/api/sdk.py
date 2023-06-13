@@ -1,89 +1,124 @@
+import os
 from typing import Any, Dict, List, Union
 
-try:
-    from langchain.llms import OpenAIChat
+import requests
 
-    LANGCHAIN_INSTALLED = True
-    LANGCHAIN_SUPPORTED_PROVIDERS = {"openai": OpenAIChat}
-except ImportError:
-    LANGCHAIN_INSTALLED = False
+from aviary.common.constants import TIMEOUT
+from aviary.api.utils import (
+    AviaryBackend,
+    BackendError,
+    assert_has_backend,
+    _is_aviary_model,
+    _supports_batching,
+    _get_langchain_model,
+    _convert_to_aviary_format,
+)
 
-from aviary.api.env import assert_has_backend
 
-__all__ = ["models", "metadata", "query", "batch_query", "run"]
+__all__ = ["models", "metadata", "completions", "batch_completions", "run",
+           "get_aviary_backend"]
+
+
+def get_aviary_backend():
+    """
+    Establishes a connection to the Aviary backed after establishing
+    the information using environmental variables.
+    If the AVIARY_MOCK environmental variable is set, then a mock backend is used.
+
+    For direct connection to the aviary backend (e.g. running on the same cluster),
+    no AVIARY_TOKEN is required. Otherwise, the AVIARY_URL and AVIARY_TOKEN environment
+    variables are required.
+
+    Returns:
+        backend: An instance of the Backend class.
+    """
+    aviary_url = os.getenv("AVIARY_URL")
+    assert aviary_url, "AVIARY_URL must be set"
+
+    aviary_token = os.getenv("AVIARY_TOKEN")
+    assert aviary_token, "AVIARY_TOKEN must be set"
+
+    bearer = f"Bearer {aviary_token}" if aviary_token else ""
+    aviary_url += "/" if not aviary_url.endswith("/") else ""
+
+    print("Connecting to Aviary backend at: ", aviary_url)
+    return AviaryBackend(aviary_url, bearer)
 
 
 def models() -> List[str]:
     """List available models"""
-    from aviary.common.backend import get_aviary_backend
-
     backend = get_aviary_backend()
-    return backend.models()
-
-
-def _is_aviary_model(model: str) -> bool:
-    """
-    Determine if this is an aviary model. Aviary
-    models do not have a '://' in them.
-    """
-    return "://" not in model
-
-
-def _supports_batching(model: str) -> bool:
-    provider, _ = model.split("://", 1)
-    return provider != "openai"
-
-
-def _get_langchain_model(model: str):
-    if not LANGCHAIN_INSTALLED:
-        raise ValueError(
-            f"Unsupported model {model}. If you want to use a langchain-"
-            "compatible model, install langchain ( pip install langchain )."
-        )
-
-    provider, model_name = model.split("://", 1)
-    if provider not in LANGCHAIN_SUPPORTED_PROVIDERS:
-        raise ValueError(
-            f"Unknown model provider for {model}. Supported providers are: "
-            f"{' '.join(LANGCHAIN_SUPPORTED_PROVIDERS.keys())}"
-        )
-    return LANGCHAIN_SUPPORTED_PROVIDERS[provider](model_name=model_name)
-
-
-def _convert_to_aviary_format(model: str, llm_result):
-    generation = llm_result.generations
-    result_list = [{"generated_text": x.text} for x in generation[0]]
-    return result_list
+    url = backend.backend_url + "models"
+    response = requests.get(url, headers=backend.header, timeout=TIMEOUT)
+    try:
+        result = response.json()
+    except requests.JSONDecodeError as e:
+        raise BackendError(
+            f"Error decoding JSON from {url}. Text response: {response.text}",
+            response=response,
+        ) from e
+    return result
 
 
 def metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
     """Get model metadata"""
-    from aviary.common.backend import get_aviary_backend
-
     backend = get_aviary_backend()
-    return backend.metadata(model_id)
+    url = backend.backend_url + "metadata/" + model_id.replace("/", "--")
+    response = requests.get(url, headers=backend.header, timeout=TIMEOUT)
+    try:
+        result = response.json()
+    except requests.JSONDecodeError as e:
+        raise BackendError(
+            f"Error decoding JSON from {url}. Text response: {response.text}",
+            response=response,
+        ) from e
+    return result
 
 
-def query(model: str, prompt: str) -> Dict[str, Union[str, float, int]]:
+def completions(model: str, prompt: str) -> Dict[str, Union[str, float, int]]:
     """Query Aviary"""
-    from aviary.common.backend import get_aviary_backend
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        return backend.completions(prompt, model)
+        url = backend.backend_url + "query/" + model.replace("/", "--")
+        response = requests.post(
+            url,
+            headers=backend.header,
+            json={"prompt": prompt},
+            timeout=TIMEOUT,
+        )
+        try:
+            return response.json()[model]
+        except requests.JSONDecodeError as e:
+            raise BackendError(
+                f"Error decoding JSON from {url}. Text response: {response.text}",
+                response=response,
+            ) from e
     llm = _get_langchain_model(model)
     return llm.predict(prompt)
 
 
-def batch_query(
+def batch_completions(
     model: str, prompts: List[str]
 ) -> List[Dict[str, Union[str, float, int]]]:
     """Batch Query Aviary"""
-    from aviary.common.backend import get_aviary_backend
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        return backend.batch_completions(prompts, model)
+        url = backend.backend_url + "query/batch/" + model.replace("/", "--")
+        response = requests.post(
+            url,
+            headers=backend.header,
+            json=[{"prompt": prompt} for prompt in prompts],
+            timeout=TIMEOUT,
+        )
+        try:
+            return response.json()[model]
+        except requests.JSONDecodeError as e:
+            raise BackendError(
+                f"Error decoding JSON from {url}. Text response: {response.text}",
+                response=response,
+            ) from e
     else:
         llm = _get_langchain_model(model)
         if _supports_batching(model):
