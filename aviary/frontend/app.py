@@ -202,7 +202,8 @@ def model_selection():
             gr.Button(
                 value=choice,
                 variant="secondary",
-                elem_classes=f"pill-button llm-express-button llm-{re.sub(emoji_regex, '', choice).lower()}",
+                elem_classes=f"pill-button llm-express-button llm-"
+                             f"{re.sub(emoji_regex, '', choice).lower()}",
             )
             for choice in choices
         ]
@@ -238,19 +239,24 @@ def gradio_app_builder():
         raw_completions = gr.State([None] * NUM_LLM_OPTIONS)
         with gr.Row(elem_classes="header"):
             gr.HTML(
-                f"<h1><span>{HEADER}</span><a class='logo-github' href='https://github.com/ray-project/aviary/' target='_blank'>{LOGO_GITHUB}</a></h1>",
+                f"<h1><span>{HEADER}</span><a class='logo-github' "
+                f"href='https://github.com/ray-project/aviary/' "
+                f"target='_blank'>{LOGO_GITHUB}</a></h1>",
                 elem_classes="header-main",
             )
             gr.Markdown(SUB_HEADER, elem_classes="header-sub")
             gr.HTML(
-                f"""<a class='logo-anyscale' href='https://www.anyscale.com' target='_blank'><span>Hosted on</span>{LOGO_ANYSCALE}</a>
+                f"""<a class='logo-anyscale' href='https://www.anyscale.com' 
+                target='_blank'><span>Hosted on</span>{LOGO_ANYSCALE}</a>
                 <div><span>|</span></div>
-                <a class='logo-ray' href='https://ray.io' target='_blank'><span>Powered by</span>{LOGO_RAY}{LOGO_RAY_TYPEFACE}</a>
+                <a class='logo-ray' href='https://ray.io' target='_blank'>
+                <span>Powered by</span>{LOGO_RAY}{LOGO_RAY_TYPEFACE}</a>
                 """,
                 elem_classes="branding-container",
             )
             gr.HTML(
-                "<a href='https://bit.ly/run-aviary' target='_blank' id='deploy-button'>Deploy your LLMs</a>",
+                "<a href='https://bit.ly/run-aviary' target='_blank' "
+                "id='deploy-button'>Deploy your LLMs</a>",
                 elem_classes="ref-link primary",
             )
         with gr.Tab("Compare", elem_id="top-tab-group"), gr.Row():
@@ -345,7 +351,11 @@ def gradio_app_builder():
             )
         with gr.Row(elem_id="footer"):
             gr.HTML(
-                f"<a href='https://github.com/ray-project/aviary/'>{LOGO_GITHUB}<span>GitHub</span></a> • <a href='https://anyscale.com/aviary-tos' target='_blank'>Terms of Use</a> • <a href='https://anyscale.com/privacy-policy' target='_blank'>Privacy Policy</a>"
+                f"<a href='https://github.com/ray-project/aviary/'>{LOGO_GITHUB}"
+                f"<span>GitHub</span></a> • <a href='https://anyscale.com/aviary-tos' "
+                f"target='_blank'>Terms of Use</a> • "
+                f"<a href='https://anyscale.com/privacy-policy' "
+                f"target='_blank'>Privacy Policy</a>"
             )
         return demo
 

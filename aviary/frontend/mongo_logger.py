@@ -39,7 +39,8 @@ class MongoLogger(FlaggingCallback):
         if COLLECTION_NAME in self.db.list_collection_names():
             # The collection exists
             print(
-                f"Collection '{COLLECTION_NAME}' already exists in database '{DB_NAME}'."
+                f"Collection '{COLLECTION_NAME}' "
+                f"already exists in database '{DB_NAME}'."
             )
         else:
             # The collection doesn't exist, so create it
