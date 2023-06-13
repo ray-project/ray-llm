@@ -1,11 +1,25 @@
 from typer.testing import CliRunner
 
-from aviary.api.cli import app
+from aviary.cli import app
 
 runner = CliRunner()
 
 
-def test_list_models():
+def test_metadata():
+    llm = "amazon/LightGPT"
+    result = runner.invoke(
+        app,
+        [
+            "metadata",
+            "--model",
+            llm,
+        ],
+    )
+    assert result.exit_code == 0
+    assert "metadata" in result.stdout
+
+
+def test_models():
     result = runner.invoke(app, ["models"])
     assert result.exit_code == 0
     assert "mosaicml/mpt-7b-instruct" in result.stdout
