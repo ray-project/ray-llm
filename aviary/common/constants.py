@@ -1,5 +1,7 @@
 PROJECT_NAME = "AviaryFrontend"
 
+DEFAULT_API_VERSION = "v0"
+
 NUM_LLM_OPTIONS = 3
 
 # AWS timeout

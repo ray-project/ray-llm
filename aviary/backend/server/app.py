@@ -7,6 +7,8 @@ import async_timeout
 import ray
 import ray.util
 from fastapi import FastAPI
+from fastapi_versioning import VersionedFastAPI, version
+
 from ray import serve
 from ray.exceptions import RayActorError
 from ray.serve.deployment import ClassNode
@@ -123,6 +125,7 @@ class LLMDeployment(LLMPredictor):
             )
 
     @app.get("/metadata", include_in_schema=False)
+    @version(0)
     async def metadata(self) -> dict:
         return self.args.dict(
             exclude={
@@ -131,6 +134,7 @@ class LLMDeployment(LLMPredictor):
         )
 
     @app.post("/", include_in_schema=False)
+    @version(0)
     async def generate_text(self, prompt: Prompt):
         await self.validate_prompt(prompt)
         time.time()
@@ -143,6 +147,7 @@ class LLMDeployment(LLMPredictor):
             return text
 
     @app.post("/batch", include_in_schema=False)
+    @version(0)
     async def batch_generate_text(self, prompts: List[Prompt]):
         for prompt in prompts:
             await self.validate_prompt(prompt)
@@ -265,6 +270,7 @@ class RouterDeployment:
         self._model_configurations = model_configurations
 
     @app.post("/query/{model}")
+    @version(0)
     async def query(self, model: str, prompt: Prompt) -> Dict[str, Dict[str, Any]]:
         model = _replace_prefix(model)
         results = await asyncio.gather(
@@ -275,6 +281,7 @@ class RouterDeployment:
         return {model: results}
 
     @app.post("/query/batch/{model}")
+    @version(0)
     async def batch_query(
         self, model: str, prompts: List[Prompt]
     ) -> Dict[str, List[Dict[str, Any]]]:
@@ -291,6 +298,7 @@ class RouterDeployment:
         return {model: results}
 
     @app.get("/metadata/{model}")
+    @version(0)
     async def metadata(self, model) -> Dict[str, Dict[str, Any]]:
         model = _replace_prefix(model)
         # This is what we want to do eventually, but it looks like reconfigure is blocking
@@ -308,5 +316,13 @@ class RouterDeployment:
         return {"metadata": metadata}
 
     @app.get("/models")
+    @version(0)
     async def models(self) -> List[str]:
         return list(self._models.keys())
+
+
+app = VersionedFastAPI(
+    app,
+    version_format='{major}',
+    prefix_format='/v{major}'
+)
