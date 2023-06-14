@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Any, Dict, List, Union
 
@@ -47,7 +48,7 @@ def get_aviary_backend():
 def models(version: str = DEFAULT_API_VERSION) -> List[str]:
     """List available models"""
     backend = get_aviary_backend()
-    request_url = backend.backend_url + version + "/models"
+    request_url = backend.backend_url + version + "models"
     response = requests.get(request_url, headers=backend.header, timeout=TIMEOUT)
     try:
         result = response.json()
@@ -63,7 +64,7 @@ def metadata(model_id: str,
              version: str = DEFAULT_API_VERSION) -> Dict[str, Dict[str, Any]]:
     """Get model metadata"""
     backend = get_aviary_backend()
-    url = backend.backend_url + version + "/metadata/" + model_id.replace("/", "--")
+    url = backend.backend_url + version + "metadata/" + model_id.replace("/", "--")
     response = requests.get(url, headers=backend.header, timeout=TIMEOUT)
     try:
         result = response.json()
@@ -80,11 +81,11 @@ def completions(
         prompt: str,
         version: str = DEFAULT_API_VERSION
 ) -> Dict[str, Union[str, float, int]]:
-    """Query Aviary"""
+    """Get completions from Aviary models."""
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        url = backend.backend_url + version + "/query/" + model.replace("/", "--")
+        url = backend.backend_url + version + "query/" + model.replace("/", "--")
         response = requests.post(
             url,
             headers=backend.header,
@@ -102,16 +103,25 @@ def completions(
     return llm.predict(prompt)
 
 
+def query(
+        model: str,
+        prompt: str,
+        version: str = DEFAULT_API_VERSION
+) -> Dict[str, Union[str, float, int]]:
+    logging.warning("'query' is deprecated, please use 'completions' instead")
+    return completions(model, prompt, version)
+
+
 def batch_completions(
         model: str,
         prompts: List[str],
         version: str = DEFAULT_API_VERSION
 ) -> List[Dict[str, Union[str, float, int]]]:
-    """Batch Query Aviary"""
+    """Get batch completions from Aviary models."""
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        url = backend.backend_url + version + "/query/batch/" + model.replace("/", "--")
+        url = backend.backend_url + version + "query/batch/" + model.replace("/", "--")
         response = requests.post(
             url,
             headers=backend.header,
@@ -134,6 +144,16 @@ def batch_completions(
             result = [{"generated_text": llm.predict(prompt)} for prompt in prompts]
             converted = result
         return converted
+
+
+def batch_query(
+        model: str,
+        prompts: List[str],
+        version: str = DEFAULT_API_VERSION
+) -> List[Dict[str, Union[str, float, int]]]:
+    logging.warning("'batch_query' is deprecated, please use "
+                    "'batch_completions' instead")
+    return batch_completions(model, prompts, version)
 
 
 def run(*model: str) -> None:

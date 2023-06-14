@@ -38,16 +38,29 @@ def test_metadata():
     assert "metadata" in result.keys()
 
 
-def test_query():
+def test_completions():
     llm = "amazon/LightGPT"
     prompt = "test query"
     result = sdk.completions(llm, prompt)
     assert result
 
 
+def test_query():
+    llm = "amazon/LightGPT"
+    prompt = "test query"
+    result = sdk.query(llm, prompt)
+    assert result
+
+
 def test_batch_query():
+    llm = "amazon/LightGPT"
+    prompts = ["test batch query", "test batch query 2"]
+    result = sdk.batch_query(llm, prompts)
+    assert result
+
+
+def test_batch_completions():
     llm = "amazon/LightGPT"
     prompts = ["test batch query", "test batch query 2"]
     result = sdk.batch_completions(llm, prompts)
     assert result
-    print(result)

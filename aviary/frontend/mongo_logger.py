@@ -1,8 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Any, TYPE_CHECKING
-if TYPE_CHECKING:
-    from gradio.components import IOComponent
+from typing import Any
 
 from gradio import FlaggingCallback
 from pymongo import MongoClient
@@ -26,7 +24,7 @@ class MongoLogger(FlaggingCallback):
         except Exception as e:
             print(e)
 
-    def setup(self, components: list[IOComponent], flagging_dir: str = None):
+    def setup(self, components: list, flagging_dir: str = None):
         """FlaggingCallback-compliant setup method."""
         self.components = components
         # Check if the database exists
