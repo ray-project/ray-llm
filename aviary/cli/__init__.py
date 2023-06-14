@@ -1,1 +1,1 @@
-from .cli import *
+from aviary.cli import *
