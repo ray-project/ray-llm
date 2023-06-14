@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Union
 
 import requests
 
-from aviary.common.constants import TIMEOUT
+from aviary.common.constants import TIMEOUT, DEFAULT_API_VERSION
 from aviary.api.utils import (
     AviaryBackend,
     BackendError,
@@ -13,7 +13,6 @@ from aviary.api.utils import (
     _get_langchain_model,
     _convert_to_aviary_format,
 )
-
 
 __all__ = ["models", "metadata", "completions", "batch_completions", "run",
            "get_aviary_backend"]
@@ -45,25 +44,26 @@ def get_aviary_backend():
     return AviaryBackend(aviary_url, bearer)
 
 
-def models() -> List[str]:
+def models(version: str = DEFAULT_API_VERSION) -> List[str]:
     """List available models"""
     backend = get_aviary_backend()
-    url = backend.backend_url + "models"
-    response = requests.get(url, headers=backend.header, timeout=TIMEOUT)
+    request_url = backend.backend_url + version + "/models"
+    response = requests.get(request_url, headers=backend.header, timeout=TIMEOUT)
     try:
         result = response.json()
     except requests.JSONDecodeError as e:
         raise BackendError(
-            f"Error decoding JSON from {url}. Text response: {response.text}",
+            f"Error decoding JSON from {request_url}. Text response: {response.text}",
             response=response,
         ) from e
     return result
 
 
-def metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
+def metadata(model_id: str,
+             version: str = DEFAULT_API_VERSION) -> Dict[str, Dict[str, Any]]:
     """Get model metadata"""
     backend = get_aviary_backend()
-    url = backend.backend_url + "metadata/" + model_id.replace("/", "--")
+    url = backend.backend_url + version + "/metadata/" + model_id.replace("/", "--")
     response = requests.get(url, headers=backend.header, timeout=TIMEOUT)
     try:
         result = response.json()
@@ -75,12 +75,16 @@ def metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
     return result
 
 
-def completions(model: str, prompt: str) -> Dict[str, Union[str, float, int]]:
+def completions(
+        model: str,
+        prompt: str,
+        version: str = DEFAULT_API_VERSION
+) -> Dict[str, Union[str, float, int]]:
     """Query Aviary"""
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        url = backend.backend_url + "query/" + model.replace("/", "--")
+        url = backend.backend_url + version + "/query/" + model.replace("/", "--")
         response = requests.post(
             url,
             headers=backend.header,
@@ -99,13 +103,15 @@ def completions(model: str, prompt: str) -> Dict[str, Union[str, float, int]]:
 
 
 def batch_completions(
-    model: str, prompts: List[str]
+        model: str,
+        prompts: List[str],
+        version: str = DEFAULT_API_VERSION
 ) -> List[Dict[str, Union[str, float, int]]]:
     """Batch Query Aviary"""
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        url = backend.backend_url + "query/batch/" + model.replace("/", "--")
+        url = backend.backend_url + version + "/query/batch/" + model.replace("/", "--")
         response = requests.post(
             url,
             headers=backend.header,

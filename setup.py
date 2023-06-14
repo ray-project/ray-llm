@@ -42,6 +42,7 @@ setup(
             "pydantic==1.10.7",
             "einops",
             "markdown-it-py[plugins]",
+            "fastapi-versioning",
         ],
         "frontend": [
             "gradio",
