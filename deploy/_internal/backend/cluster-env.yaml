@@ -35,4 +35,5 @@ post_build_cmds:
     "safetensors" \
     "pydantic==1.10.7" \
     "einops" \
-    "markdown-it-py[plugins]"
+    "markdown-it-py[plugins]" \
+    "fastapi_versioning"
