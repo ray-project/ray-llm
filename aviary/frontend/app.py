@@ -203,7 +203,7 @@ def model_selection():
                 value=choice,
                 variant="secondary",
                 elem_classes=f"pill-button llm-express-button llm-"
-                             f"{re.sub(emoji_regex, '', choice).lower()}",
+                f"{re.sub(emoji_regex, '', choice).lower()}",
             )
             for choice in choices
         ]

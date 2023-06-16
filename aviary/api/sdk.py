@@ -4,19 +4,25 @@ from typing import Any, Dict, List, Union
 
 import requests
 
-from aviary.common.constants import TIMEOUT, DEFAULT_API_VERSION
 from aviary.api.utils import (
     AviaryBackend,
     BackendError,
-    assert_has_backend,
+    _convert_to_aviary_format,
+    _get_langchain_model,
     _is_aviary_model,
     _supports_batching,
-    _get_langchain_model,
-    _convert_to_aviary_format,
+    assert_has_backend,
 )
+from aviary.common.constants import DEFAULT_API_VERSION, TIMEOUT
 
-__all__ = ["models", "metadata", "completions", "batch_completions", "run",
-           "get_aviary_backend"]
+__all__ = [
+    "models",
+    "metadata",
+    "completions",
+    "batch_completions",
+    "run",
+    "get_aviary_backend",
+]
 
 
 def get_aviary_backend():
@@ -60,8 +66,9 @@ def models(version: str = DEFAULT_API_VERSION) -> List[str]:
     return result
 
 
-def metadata(model_id: str,
-             version: str = DEFAULT_API_VERSION) -> Dict[str, Dict[str, Any]]:
+def metadata(
+    model_id: str, version: str = DEFAULT_API_VERSION
+) -> Dict[str, Dict[str, Any]]:
     """Get model metadata"""
     backend = get_aviary_backend()
     url = backend.backend_url + version + "metadata/" + model_id.replace("/", "--")
@@ -77,9 +84,7 @@ def metadata(model_id: str,
 
 
 def completions(
-        model: str,
-        prompt: str,
-        version: str = DEFAULT_API_VERSION
+    model: str, prompt: str, version: str = DEFAULT_API_VERSION
 ) -> Dict[str, Union[str, float, int]]:
     """Get completions from Aviary models."""
 
@@ -104,18 +109,14 @@ def completions(
 
 
 def query(
-        model: str,
-        prompt: str,
-        version: str = DEFAULT_API_VERSION
+    model: str, prompt: str, version: str = DEFAULT_API_VERSION
 ) -> Dict[str, Union[str, float, int]]:
     logging.warning("'query' is deprecated, please use 'completions' instead")
     return completions(model, prompt, version)
 
 
 def batch_completions(
-        model: str,
-        prompts: List[str],
-        version: str = DEFAULT_API_VERSION
+    model: str, prompts: List[str], version: str = DEFAULT_API_VERSION
 ) -> List[Dict[str, Union[str, float, int]]]:
     """Get batch completions from Aviary models."""
 
@@ -147,12 +148,11 @@ def batch_completions(
 
 
 def batch_query(
-        model: str,
-        prompts: List[str],
-        version: str = DEFAULT_API_VERSION
+    model: str, prompts: List[str], version: str = DEFAULT_API_VERSION
 ) -> List[Dict[str, Union[str, float, int]]]:
-    logging.warning("'batch_query' is deprecated, please use "
-                    "'batch_completions' instead")
+    logging.warning(
+        "'batch_query' is deprecated, please use " "'batch_completions' instead"
+    )
     return batch_completions(model, prompts, version)
 
 

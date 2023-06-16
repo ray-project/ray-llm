@@ -14,7 +14,7 @@ def metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
             "model_config": {
                 "model_id": model_id,
                 "model_url": f"https://huggingface.co/org/{model_id}",
-                "model_description": f"This is a model description for model {model_id}"
+                "model_description": f"This is a model description for model {model_id}",
             }
         }
     }
