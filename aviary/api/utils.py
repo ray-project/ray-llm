@@ -8,8 +8,7 @@ except ImportError:
 
 
 class AviaryBackend:
-    """Stores information about the Aviary backend.
-    """
+    """Stores information about the Aviary backend."""
 
     def __init__(self, backend_url: str, bearer: str):
         assert "::param" not in backend_url, "backend_url not set correctly"

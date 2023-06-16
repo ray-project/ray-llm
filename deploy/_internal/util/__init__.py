@@ -1,5 +1,6 @@
 import enum
 import hashlib
+import os
 import subprocess
 from typing import List, Optional
 
@@ -7,7 +8,6 @@ import yaml
 from anyscale import AnyscaleSDK
 from anyscale.controllers.service_controller import ServiceController
 from pydantic import BaseModel, validator
-import os
 
 service_controller = ServiceController()
 sdk: AnyscaleSDK = service_controller.anyscale_api_client
@@ -29,7 +29,10 @@ class Config(BaseModel):
         return self._is_prod_or_staging()
 
     def _is_prod_or_staging(self):
-        return self.deploy_env in ["prod", "staging"] or os.getenv("AVIARY_PROD_DEPLOY") == "1"
+        return (
+            self.deploy_env in ["prod", "staging"]
+            or os.getenv("AVIARY_PROD_DEPLOY") == "1"
+        )
 
     def get_project_name(self):
         return f"aviary-{self.deploy_env}" if self._is_prod_or_staging() else "aviary"
