@@ -16,6 +16,7 @@ setup(
         "typer>=0.9",
         "rich",
         "typing_extensions",
+        "requests",
     ],
     extras_require={
         # TODO(tchordia): test whether this works, and determine how we can keep requirements
