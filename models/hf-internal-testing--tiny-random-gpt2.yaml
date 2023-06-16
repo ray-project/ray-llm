@@ -1,5 +1,5 @@
 # This model is intended only for testing.
-# enabled: false
+enabled: false
 deployment_config:
   autoscaling_config:
     min_replicas: 1
