@@ -1,6 +1,12 @@
 import ast
 import json
-from typing import Annotated, List, Optional
+
+try:
+    from typing import Annotated
+except ImportError:
+    from typing_extensions import Annotated
+
+from typing import List, Optional
 
 import typer
 from rich import print as rp

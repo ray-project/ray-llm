@@ -12,7 +12,11 @@ setup(
             "aviary=aviary.cli:app",
         ]
     },
-    install_requires=["typer>=0.9", "rich"],
+    install_requires=[
+        "typer>=0.9",
+        "rich",
+        "typing_extensions",
+    ],
     extras_require={
         # TODO(tchordia): test whether this works, and determine how we can keep requirements
         # in sync
