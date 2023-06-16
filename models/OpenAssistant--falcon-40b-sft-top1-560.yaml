@@ -17,6 +17,7 @@ model_config:
   model_id: OpenAssistant/falcon-40b-sft-top1-560
   max_input_words: 800
   initialization:
+
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--OpenAssistant--falcon-40b-sft-top1-560/main-safetensors/
     initializer:
@@ -45,3 +46,4 @@ scaling_config:
   num_cpus_per_worker: 8
   resources_per_worker:
     accelerator_type_a100: 0.01
+enabled: false
