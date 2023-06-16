@@ -8,7 +8,6 @@ import ray
 import ray.util
 from fastapi import FastAPI
 from fastapi_versioning import VersionedFastAPI, version
-
 from ray import serve
 from ray.exceptions import RayActorError
 from ray.serve.deployment import ClassNode
@@ -321,8 +320,4 @@ class RouterDeployment:
         return list(self._models.keys())
 
 
-app = VersionedFastAPI(
-    app,
-    version_format='{major}',
-    prefix_format='/v{major}'
-)
+app = VersionedFastAPI(app, version_format="{major}", prefix_format="/v{major}")

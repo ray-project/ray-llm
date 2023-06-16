@@ -59,8 +59,9 @@ class MongoLogger(FlaggingCallback):
                 LlmResponse(
                     model_id=flag_data[i],  # 1, 2, 3
                     text=flag_data[i + NUM_LLM_OPTIONS],  # 4, 5, 6
-                    gen_stats=flag_data[-2][i-1]  # 0, 1, 2
-                ) for i in range(1, NUM_LLM_OPTIONS + 1)
+                    gen_stats=flag_data[-2][i - 1],  # 0, 1, 2
+                )
+                for i in range(1, NUM_LLM_OPTIONS + 1)
             ],
             session_id=flag_data[-1],
         )

@@ -202,7 +202,8 @@ def model_selection():
             gr.Button(
                 value=choice,
                 variant="secondary",
-                elem_classes=f"pill-button llm-express-button llm-{re.sub(emoji_regex, '', choice).lower()}",
+                elem_classes=f"pill-button llm-express-button llm-"
+                f"{re.sub(emoji_regex, '', choice).lower()}",
             )
             for choice in choices
         ]
