@@ -7,6 +7,7 @@ import yaml
 from anyscale import AnyscaleSDK
 from anyscale.controllers.service_controller import ServiceController
 from pydantic import BaseModel, validator
+import os
 
 service_controller = ServiceController()
 sdk: AnyscaleSDK = service_controller.anyscale_api_client
@@ -28,12 +29,14 @@ class Config(BaseModel):
         return self._is_prod_or_staging()
 
     def _is_prod_or_staging(self):
-        return self.deploy_env in ["prod", "staging"]
+        return self.deploy_env in ["prod", "staging"] or os.getenv("AVIARY_PROD_DEPLOY") == "1"
 
     def get_project_name(self):
         return f"aviary-{self.deploy_env}" if self._is_prod_or_staging() else "aviary"
 
     def get_project_id(self):
+        if os.getenv("AVIARY_PROJECT_ID"):
+            return os.getenv("AVIARY_PROJECT_ID")
         if self.deploy_env == "staging":
             return "prj_s7ky22b64qrx2yqumji46plg6x"
         elif self.deploy_env == "prod":
