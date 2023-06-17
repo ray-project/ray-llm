@@ -306,7 +306,10 @@ body, gradio-app {
         fill: #000 !important;
     }
 }
-
+.contain > .gap > .tabs {
+    display: flex;
+    flex-direction: column;
+}
 #top-tab-group {
     padding: 16px !important;
 }
