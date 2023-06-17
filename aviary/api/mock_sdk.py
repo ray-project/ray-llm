@@ -1,5 +1,5 @@
 # Mocks the API for testing purposes
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 
 def models() -> List[str]:
@@ -20,7 +20,9 @@ def metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
     }
 
 
-def completions(model: str, prompt: str) -> Dict[str, Union[str, float, int]]:
+def completions(
+    model: str, prompt: str, use_prompt_format: bool = True
+) -> Dict[str, Union[str, float, int]]:
     """Query Aviary"""
     return {
         "generated_text": prompt,
@@ -30,7 +32,7 @@ def completions(model: str, prompt: str) -> Dict[str, Union[str, float, int]]:
 
 
 def batch_completions(
-    model: str, prompts: List[str]
+    model: str, prompts: List[str], use_prompt_format: Optional[List[bool]] = None
 ) -> List[Dict[str, Union[str, float, int]]]:
     """Batch Query Aviary"""
     return [
