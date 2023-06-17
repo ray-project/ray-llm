@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 
@@ -84,7 +84,10 @@ def metadata(
 
 
 def completions(
-    model: str, prompt: str, version: str = DEFAULT_API_VERSION
+    model: str,
+    prompt: str,
+    use_prompt_format: bool = True,
+    version: str = DEFAULT_API_VERSION,
 ) -> Dict[str, Union[str, float, int]]:
     """Get completions from Aviary models."""
 
@@ -94,7 +97,7 @@ def completions(
         response = requests.post(
             url,
             headers=backend.header,
-            json={"prompt": prompt},
+            json={"prompt": prompt, "use_prompt_format": use_prompt_format},
             timeout=TIMEOUT,
         )
         try:
@@ -109,16 +112,25 @@ def completions(
 
 
 def query(
-    model: str, prompt: str, version: str = DEFAULT_API_VERSION
+    model: str,
+    prompt: str,
+    use_prompt_format: bool = True,
+    version: str = DEFAULT_API_VERSION,
 ) -> Dict[str, Union[str, float, int]]:
     logging.warning("'query' is deprecated, please use 'completions' instead")
-    return completions(model, prompt, version)
+    return completions(model, prompt, use_prompt_format, version)
 
 
 def batch_completions(
-    model: str, prompts: List[str], version: str = DEFAULT_API_VERSION
+    model: str,
+    prompts: List[str],
+    use_prompt_format: Optional[List[bool]] = None,
+    version: str = DEFAULT_API_VERSION,
 ) -> List[Dict[str, Union[str, float, int]]]:
     """Get batch completions from Aviary models."""
+
+    if not use_prompt_format:
+        use_prompt_format = [True] * len(prompts)
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
@@ -126,7 +138,10 @@ def batch_completions(
         response = requests.post(
             url,
             headers=backend.header,
-            json=[{"prompt": prompt} for prompt in prompts],
+            json=[
+                {"prompt": prompt, "use_prompt_format": use_format}
+                for prompt, use_format in zip(prompts, use_prompt_format)
+            ],
             timeout=TIMEOUT,
         )
         try:
@@ -148,12 +163,15 @@ def batch_completions(
 
 
 def batch_query(
-    model: str, prompts: List[str], version: str = DEFAULT_API_VERSION
+    model: str,
+    prompts: List[str],
+    use_prompt_format: Optional[List[bool]] = None,
+    version: str = DEFAULT_API_VERSION,
 ) -> List[Dict[str, Union[str, float, int]]]:
     logging.warning(
         "'batch_query' is deprecated, please use " "'batch_completions' instead"
     )
-    return batch_completions(model, prompts, version)
+    return batch_completions(model, prompts, use_prompt_format, version)
 
 
 def run(*model: str) -> None:
