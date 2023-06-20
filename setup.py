@@ -15,7 +15,7 @@ setup(
     install_requires=[
         "typer>=0.9",
         "rich",
-        "typing_extensions",
+        "typing_extensions==4.5.0",
         "requests",
     ],
     extras_require={
