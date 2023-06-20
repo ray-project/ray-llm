@@ -50,6 +50,8 @@ from aviary.frontend.utils import (
     select_button,
     unset_buttons,
 )
+from aviary.frontend.types import Selection
+
 
 # Global Gradio variables
 # NOTE: In the context of Gradio "global" means shared between all sessions.
@@ -168,8 +170,8 @@ def show_examples(prompt):
         )
 
 
-def update_selection(button, choice_1, choice_2, choice_3):
-    llm_choices = [choice_1, choice_2, choice_3]
+def update_selection(*inputs):
+    button, llm_choices = Selection.from_list(inputs)
     for i in range(NUM_LLM_OPTIONS):
         if button != "\U0001f3b2 Random":
             llm_choices[i] = SELECTION_DICT[button][i]
@@ -209,9 +211,10 @@ def model_selection():
         ]
 
         for cb in category_buttons:
+            selection = Selection(cb, llm_choices)
             cb.click(
                 fn=update_selection,
-                inputs=[cb] + llm_choices,
+                inputs=selection.to_list(),
                 outputs=llm_choices,
             )
 
