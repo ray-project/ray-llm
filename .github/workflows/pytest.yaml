@@ -1,0 +1,39 @@
+name: Aviary testing
+
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U "ray>=2.4.0"
+          pip install -e ".[backend, test]"
+      - name: Test with pytest
+        env:
+          AVIARY_TOKEN: ${{ secrets.AVIARY_TOKEN }}
+          AVIARY_URL: ${{ secrets.AVIARY_URL }}
+        run: |
+          pytest tests/test_mock_sdk.py

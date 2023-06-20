@@ -38,6 +38,7 @@ from aviary.common.constants import (
 from aviary.frontend.javascript_loader import JavaScriptLoader
 from aviary.frontend.leaderboard import DummyLeaderboard, Leaderboard
 from aviary.frontend.mongo_secrets import get_mongo_secret_url
+from aviary.frontend.types import Selection
 from aviary.frontend.utils import (
     DEFAULT_STATS,
     LOGGER,
@@ -50,8 +51,6 @@ from aviary.frontend.utils import (
     select_button,
     unset_buttons,
 )
-from aviary.frontend.types import Selection
-
 
 # Global Gradio variables
 # NOTE: In the context of Gradio "global" means shared between all sessions.
