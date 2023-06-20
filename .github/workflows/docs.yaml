@@ -1,11 +1,16 @@
-name: ci
+name: Documentation build and deploy
+
 on:
   push:
     branches:
-      - master
-      - main
+    - master
+  pull_request:
+    branches:
+    - master
+
 permissions:
   contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
