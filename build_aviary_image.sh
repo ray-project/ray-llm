@@ -12,4 +12,4 @@ DOCKER_FILE="${AVIARY_DOCKER_FILE:-deploy/ray/Dockerfile}"
 ./build_aviary_wheel.sh
 
 sudo docker build . -f $DOCKER_FILE -t $DOCKER_TAG -t $DOCKER_REPO:latest
-sudo docker push -a "$DOCKER_TAG"
+sudo docker push -a "$DOCKER_REPO"
