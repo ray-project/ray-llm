@@ -139,3 +139,18 @@ def test_eval():
         ],
     )
     assert result.exit_code == 0
+
+
+def test_stream():
+    result = runner.invoke(
+        app,
+        [
+            "stream",
+            "--model",
+            "amazon/LightGPT",
+            "--prompt",
+            "hello",
+        ],
+    )
+    assert result.exit_code == 0
+    assert result.stdout

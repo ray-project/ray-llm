@@ -25,7 +25,7 @@ model_config:
         use_cache: true
       use_kernel: true
       max_tokens: 1536
-    pipeline: default
+    pipeline: transformers
   generation:
     max_batch_size: 8
     generate_kwargs:

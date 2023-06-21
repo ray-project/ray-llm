@@ -1,16 +1,18 @@
+models: ./models
+
 ray_serve_config:
-  import_path: aviary.backend:llm_application
-  runtime_env:
-    # This working dir is relative to the working dir when we run this file
-    working_dir: "."
-    excludes: 
-    - "deploy"
-    - "aviary/frontend"
-    - "**.DS_Store"
-    - ".git"
-  args:
-    models:
-    # This can be a path to a model configuration directory or yaml
-    # Or it can directly define your LLMApp inline
-    # This directory must exist at runtime on the cluster
-    - ./models
+  applications:
+  # This is a template
+  - name: "::param:app_name::"
+    route_prefix: "/::param:app_name::"
+    import_path: aviary.backend:llm_application
+    runtime_env:
+      # This working dir is relative to the working dir when we run this file
+      working_dir: "."
+      excludes: 
+      - "deploy"
+      - "aviary/frontend"
+      - "**.DS_Store"
+      - ".git"
+    args:
+      model: "::param:model_yaml_path::"

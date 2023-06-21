@@ -25,7 +25,10 @@ def parse_args(args: Union[str, LLMApp, List[Union[LLMApp, str]]]) -> List[LLMAp
     models: List[LLMApp] = []
     for raw_model in raw_models:
         if isinstance(raw_model, str):
-            parsed_models = _parse_path_args(raw_model)
+            if os.path.exists(raw_model):
+                parsed_models = _parse_path_args(raw_model)
+            else:
+                parsed_models = [LLMApp.parse_yaml(raw_model)]
         else:
             parsed_models = [LLMApp.parse_obj(raw_model)]
         models += parsed_models

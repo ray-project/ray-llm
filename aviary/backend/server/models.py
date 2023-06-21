@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 import torch
@@ -110,6 +111,11 @@ class Prompt(BaseModelExtended):
         return self.prompt
 
 
+class ErrorResponse(BaseModelExtended):
+    error: str
+    error_type: str
+
+
 class Response(ComputedPropertyMixin, BaseModelExtended):
     generated_text: str
     num_input_tokens: Optional[int] = None
@@ -118,18 +124,79 @@ class Response(ComputedPropertyMixin, BaseModelExtended):
     num_generated_tokens_batch: Optional[int] = None
     preprocessing_time: Optional[float] = None
     generation_time: Optional[float] = None
-    postprocessing_time: Optional[float] = None
+
+    @classmethod
+    def merge_stream(cls, *responses: "Response") -> "Response":
+        """
+        Merge a stream of responses into a single response.
+
+        The generated text is concatenated. Fields are maxed, except for
+        num_generated_tokens and generation_time, which are summed.
+        """
+        if len(responses) == 1:
+            return responses[0]
+
+        generated_text = "".join(
+            [response.generated_text or "" for response in responses]
+        )
+        num_input_tokens = [
+            response.num_input_tokens
+            for response in responses
+            if response.num_input_tokens is not None
+        ]
+        num_input_tokens = max(num_input_tokens) if num_input_tokens else None
+        num_input_tokens_batch = [
+            response.num_input_tokens_batch
+            for response in responses
+            if response.num_input_tokens_batch is not None
+        ]
+        num_input_tokens_batch = (
+            max(num_input_tokens_batch) if num_input_tokens_batch else None
+        )
+        num_generated_tokens = [
+            response.num_generated_tokens
+            for response in responses
+            if response.num_generated_tokens is not None
+        ]
+        num_generated_tokens = (
+            sum(num_generated_tokens) if num_generated_tokens else None
+        )
+        num_generated_tokens_batch = [
+            response.num_generated_tokens_batch
+            for response in responses
+            if response.num_generated_tokens_batch is not None
+        ]
+        num_generated_tokens_batch = (
+            sum(num_generated_tokens_batch) if num_generated_tokens_batch else None
+        )
+        preprocessing_time = [
+            response.preprocessing_time
+            for response in responses
+            if response.preprocessing_time is not None
+        ]
+        preprocessing_time = max(preprocessing_time) if preprocessing_time else None
+        generation_time = [
+            response.generation_time
+            for response in responses
+            if response.generation_time is not None
+        ]
+        generation_time = sum(generation_time) if generation_time else None
+
+        return cls(
+            generated_text=generated_text,
+            num_input_tokens=num_input_tokens,
+            num_input_tokens_batch=num_input_tokens_batch,
+            num_generated_tokens=num_generated_tokens,
+            num_generated_tokens_batch=num_generated_tokens_batch,
+            preprocessing_time=preprocessing_time,
+            generation_time=generation_time,
+        )
 
     @property
     def total_time(self) -> Optional[float]:
-        try:
-            return (
-                self.preprocessing_time
-                + self.generation_time
-                + self.postprocessing_time
-            )
-        except Exception:
+        if self.generation_time is None and self.preprocessing_time is None:
             return None
+        return (self.preprocessing_time or 0) + (self.generation_time or 0)
 
     @property
     def num_total_tokens(self) -> Optional[float]:
@@ -226,7 +293,7 @@ class Transformers(Initializer, extra=Extra.forbid):
 
     @property
     def allowed_pipelines(self) -> Set[str]:
-        return {"default"}
+        return {"transformers"}
 
 
 class DeepSpeed(Transformers):
@@ -288,7 +355,7 @@ class InitializationConfig(BaseModelExtended):
     initializer: Annotated[
         Union[DeepSpeed, DeviceMap, SingleDevice, LlamaCpp], Field(discriminator="type")
     ]
-    pipeline: Union[Literal["default"], Literal["llamacpp"]]
+    pipeline: Union[Literal["transformers"], Literal["llamacpp"], Literal["default"]]
     s3_mirror_config: Optional[S3MirrorConfig] = None
     runtime_env: Optional[Dict[str, Any]] = None
     hf_model_id: Optional[str] = None
@@ -297,8 +364,16 @@ class InitializationConfig(BaseModelExtended):
     @root_validator
     def initializer_pipeline(cls, values):
         pipeline = values.get("pipeline")
+        if pipeline == "default":
+            warnings.warn(
+                "'default' pipeline is deprecated. Use 'transformers' instead. This will raise an error in the future.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            pipeline = "transformers"
+            values["pipeline"] = pipeline
         initializer: Initializer = values.get("initializer")
-        if pipeline not in initializer.allowed_pipelines:
+        if pipeline and pipeline not in initializer.allowed_pipelines:
             raise ValueError(
                 f"'{pipeline}' pipeline cannot be used with '{initializer.type}' initializer. "
                 f"Allowed pipelines for this initializer are {initializer.allowed_pipelines}."
@@ -431,3 +506,7 @@ class LLMApp(Args):
 
 class ServeArgs(BaseModel):
     models: Union[str, LLMApp, List[Union[str, LLMApp]]]
+
+
+class AppArgs(BaseModel):
+    model: Union[str, LLMApp]

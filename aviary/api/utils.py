@@ -1,3 +1,6 @@
+import traceback
+import warnings
+
 try:
     from langchain.llms import OpenAIChat
 
@@ -66,6 +69,7 @@ def has_ray():
 
         return True
     except ImportError:
+        warnings.warn(traceback.format_exc(), stacklevel=2)
         return False
 
 
@@ -75,6 +79,7 @@ def has_backend():
 
         return True
     except ImportError:
+        warnings.warn(traceback.format_exc(), stacklevel=2)
         return False
 
 

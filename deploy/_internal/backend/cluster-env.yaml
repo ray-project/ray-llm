@@ -5,11 +5,13 @@ debian_packages:
 - xfsprogs
 env_vars:
   HF_HUB_ENABLE_HF_TRANSFER: 1
+  RAY_SERVE_ENABLE_EXPERIMENTAL_STREAMING: 1
   XDG_CACHE_HOME: /mnt/local_storage/data/cache
   TORCH_HOME: /mnt/local_storage/data/cache/torch
 post_build_cmds:
 - |-
-  echo "dedup version 2. increment this to force a rebuild."
+  echo "dedup version 3. increment this to force a rebuild."
+  pip uninstall -y ray && pip install -U https://ray-ci-artifact-branch-public.s3.amazonaws.com/2a12cf5eff883a424b49befe89046e8849096238/tmp/artifacts/.whl/ray-3.0.0.dev0-cp310-cp310-manylinux2014_x86_64.whl
   pip uninstall -y torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric tensorflow
   pip install -i https://download.pytorch.org/whl/cu118 torch torchvision torchaudio
   pip install \

@@ -42,3 +42,12 @@ def test_batch_query():
     result = mock_sdk.batch_completions(llm, prompts)
     assert result
     print(result)
+
+
+def test_stream():
+    llm = "bar"
+    prompt = "test query"
+    result = []
+    for chunk in mock_sdk.stream(llm, prompt):
+        result.append(chunk)
+    assert result

@@ -106,8 +106,8 @@ model_config:
         backend: inductor
         mode: max-autotune
     # Aviary pipeline class. This is separate from Hugging Face pipelines.
-    # Leave as default for now.
-    pipeline: default
+    # Leave as transformers for now.
+    pipeline: transformers
   generation:
     # Max batch size to use when generating tokens
     max_batch_size: 22

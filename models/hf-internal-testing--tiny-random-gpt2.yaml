@@ -23,7 +23,7 @@ model_config:
       dtype: float32
       from_pretrained_kwargs:
         use_cache: true
-    pipeline: default
+    pipeline: transformers
   generation:
     max_batch_size: 8
     generate_kwargs:

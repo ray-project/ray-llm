@@ -223,3 +223,7 @@ async def init_torch_dist_process_group_async(
     await asyncio.gather(*setup_futures)
 
     return local_ranks
+
+
+def is_rank_zero():
+    return int(os.environ.get("RANK", -1)) <= 0
