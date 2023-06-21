@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="aviary",
-    version="0.0.2",
+    version="0.0.3",
     description="A tool to deploy and query LLMs",
     packages=find_packages(include="aviary*"),
     include_package_data=True,
