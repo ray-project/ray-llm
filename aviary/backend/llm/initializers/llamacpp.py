@@ -77,10 +77,10 @@ class LlamaCppInitializer(LLMInitializer):
     def load_model(self, model_id: str) -> "Llama":
         model_path = hf_hub_download(model_id, self.model_filename)
 
-        # TODO upstream. Lazy import to avoid issues on CPU head node
-        from aviary.backend.llm.initializers._llama_impl import LlamaWithMinLen
+        # Lazy import to avoid issues on CPU head node
+        from llama_cpp import Llama
 
-        return LlamaWithMinLen(
+        return Llama(
             model_path=os.path.abspath(model_path),
             **self._get_model_init_kwargs(),
         )

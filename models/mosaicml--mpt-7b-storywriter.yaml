@@ -28,7 +28,7 @@ model_config:
       torch_compile:
         backend: inductor
         mode: max-autotune
-    pipeline: default
+    pipeline: transformers
   generation:
     max_batch_size: 8
     generate_kwargs:

@@ -1,11 +1,15 @@
 import os
+from copy import deepcopy
 
+import yaml
 from util import (
     Config,
     _create_cluster_compute,
     _create_cluster_env,
     _rollout,
 )
+
+from aviary.backend.server.utils import parse_args
 
 
 class BackendController:
@@ -34,18 +38,33 @@ class BackendController:
         version = self.config._get_service_version()
         project_id = self.config.get_project_id()
         with open(self.service_start_path, "r") as f:
-            config = (
-                f.read()
-                + f"\ncompute_config: {cc_name}"
-                + f"\nproject_id: {project_id}"
-                + f"\ncluster_env: {ce_name}:1"
-                + f"\nname: {self.backend_service_name}"
-                + (f"\nversion: {version}" if version else "")
-                + "\n"
+            service = yaml.load(f, Loader=yaml.SafeLoader)
+
+        service["compute_config"] = cc_name
+        service["project_id"] = project_id
+        service["cluster_env"] = f"{ce_name}:1"
+        service["name"] = self.backend_service_name
+        service["version"] = version if version else ""
+        models = parse_args(service.pop("models"))
+        applications = service["ray_serve_config"]["applications"]
+        application_template = applications[0]
+
+        def build_application(model, template):
+            app = deepcopy(template)
+            app["name"] = model.model_config.model_id.replace("/", "--").replace(
+                ".", "_"
             )
+            app["route_prefix"] = "/" + app["name"]
+            app["args"] = {"model": model.yaml()}
+            return app
+
+        applications = [
+            build_application(model, application_template) for model in models
+        ]
+        service["ray_serve_config"]["applications"] = applications
 
         with open(self.service_final_path, "w") as f:
-            f.write(config)
+            yaml.dump(service, f)
 
     def deploy(self):
         ask_confirm = self.config._is_prod_or_staging()

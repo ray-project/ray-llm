@@ -1,9 +1,8 @@
 from typing import Type
 
 from ._base import BasePipeline
-from .default_pipeline import DefaultPipeline
-from .default_transformers_pipeline import DefaultTransformersPipeline
-from .llamacpp_pipeline import LlamaCppPipeline
+from .llamacpp import LlamaCppPipeline
+from .transformers import TransformersPipeline
 
 
 def get_pipeline_cls_by_name(name: str) -> Type[BasePipeline]:
@@ -17,7 +16,6 @@ def get_pipeline_cls_by_name(name: str) -> Type[BasePipeline]:
 
 __all__ = [
     "get_pipeline_cls_by_name",
-    "DefaultPipeline",
-    "DefaultTransformersPipeline",
+    "TransformersPipeline",
     "LlamaCppPipeline",
 ]

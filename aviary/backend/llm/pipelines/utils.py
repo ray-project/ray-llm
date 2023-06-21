@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Sequence, Union
 
 import torch
 from transformers import PreTrainedTokenizer
@@ -60,11 +60,11 @@ def _construct_prompt(prompt: Union[str, Prompt], prompt_format: str) -> str:
 
 
 def construct_prompts(
-    prompts: Union[str, Prompt, List[str], List[Prompt]],
+    prompts: Union[str, Prompt, Sequence[str], Sequence[Prompt]],
     prompt_format: str,
 ) -> List[str]:
     """Construct prompts from a prompt string or list of prompts."""
-    if not isinstance(prompts, list):
+    if not isinstance(prompts, (list, tuple, Sequence)):
         prompts = [prompts]
     return [_construct_prompt(prompt, prompt_format) for prompt in prompts]
 

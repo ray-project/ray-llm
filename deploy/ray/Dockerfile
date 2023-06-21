@@ -13,6 +13,7 @@ RUN cd /home/ray/dist && pip install "$(ls *.whl | head -n1)[backend]"
 COPY "./models" "/home/ray/models"
 
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
+ENV RAY_SERVE_ENABLE_EXPERIMENTAL_STREAMING=1
 RUN echo "Testing aviary install" && python -c "import aviary.backend"
 
 RUN pip cache purge && conda clean -a && rm -rf ~/.cache

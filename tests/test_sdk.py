@@ -62,3 +62,12 @@ def test_batch_completions():
     prompts = ["test batch query", "test batch query 2"]
     result = sdk.batch_completions(llm, prompts)
     assert result
+
+
+def test_stream():
+    llm = "amazon/LightGPT"
+    prompt = "test query"
+    result = []
+    for chunk in sdk.stream(llm, prompt):
+        result.append(chunk)
+    assert result

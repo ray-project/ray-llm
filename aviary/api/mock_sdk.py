@@ -1,13 +1,17 @@
 # Mocks the API for testing purposes
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
+
+from aviary.common.constants import DEFAULT_API_VERSION
 
 
-def models() -> List[str]:
+def models(version: str = DEFAULT_API_VERSION) -> List[str]:
     """List available models"""
     return ["A", "B", "C"]
 
 
-def metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
+def metadata(
+    model_id: str, version: str = DEFAULT_API_VERSION
+) -> Dict[str, Dict[str, Any]]:
     """Get model metadata"""
     return {
         "metadata": {
@@ -21,7 +25,10 @@ def metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
 
 
 def completions(
-    model: str, prompt: str, use_prompt_format: bool = True
+    model: str,
+    prompt: str,
+    use_prompt_format: bool = True,
+    version: str = DEFAULT_API_VERSION,
 ) -> Dict[str, Union[str, float, int]]:
     """Query Aviary"""
     return {
@@ -32,7 +39,10 @@ def completions(
 
 
 def batch_completions(
-    model: str, prompts: List[str], use_prompt_format: Optional[List[bool]] = None
+    model: str,
+    prompts: List[str],
+    use_prompt_format: Optional[List[bool]] = None,
+    version: str = DEFAULT_API_VERSION,
 ) -> List[Dict[str, Union[str, float, int]]]:
     """Batch Query Aviary"""
     return [
@@ -43,6 +53,23 @@ def batch_completions(
         }
         for prompt in prompts
     ]
+
+
+def stream(
+    model: str,
+    prompt: str,
+    use_prompt_format: bool = True,
+    version: str = DEFAULT_API_VERSION,
+) -> Iterator[Dict[str, Union[str, float, int]]]:
+    """Query Aviary and stream response"""
+    for chunk in prompt.split():
+        yield {
+            "generated_text": chunk + " ",
+            "total_time": 99,
+            "generation_time": 99,
+            "num_total_tokens": 42,
+            "num_generated_tokens": 42,
+        }
 
 
 def run(*model: str) -> None:

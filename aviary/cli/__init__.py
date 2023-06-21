@@ -227,5 +227,24 @@ def evaluate(
         console.print(table)
 
 
+@app.command()
+def stream(
+    model: Annotated[str, model_type],
+    prompt: Annotated[str, prompt_type],
+    print_stats: Annotated[bool, stats_type] = False,
+):
+    """"""
+    num_generated_tokens = 0
+    for chunk in sdk.stream(model, prompt):
+        text = chunk["generated_text"]
+        num_generated_tokens += chunk["num_generated_tokens"]
+        rp(text, end="")
+    rp("")
+    if print_stats:
+        rp("[bold]Stats:[/]")
+        chunk.pop("generated_text")
+        rp(num_generated_tokens)
+
+
 if __name__ == "__main__":
     app()

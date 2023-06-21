@@ -1,6 +1,7 @@
-import logging
+import json
 import os
-from typing import Any, Dict, List, Optional, Union
+import warnings
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
@@ -22,6 +23,7 @@ __all__ = [
     "batch_completions",
     "run",
     "get_aviary_backend",
+    "stream",
 ]
 
 
@@ -41,8 +43,7 @@ def get_aviary_backend():
     aviary_url = os.getenv("AVIARY_URL")
     assert aviary_url, "AVIARY_URL must be set"
 
-    aviary_token = os.getenv("AVIARY_TOKEN")
-    assert aviary_token, "AVIARY_TOKEN must be set"
+    aviary_token = os.getenv("AVIARY_TOKEN", "")
 
     bearer = f"Bearer {aviary_token}" if aviary_token else ""
     aviary_url += "/" if not aviary_url.endswith("/") else ""
@@ -54,7 +55,7 @@ def get_aviary_backend():
 def models(version: str = DEFAULT_API_VERSION) -> List[str]:
     """List available models"""
     backend = get_aviary_backend()
-    request_url = backend.backend_url + version + "models"
+    request_url = backend.backend_url + "-/routes"
     response = requests.get(request_url, headers=backend.header, timeout=TIMEOUT)
     try:
         result = response.json()
@@ -63,6 +64,9 @@ def models(version: str = DEFAULT_API_VERSION) -> List[str]:
             f"Error decoding JSON from {request_url}. Text response: {response.text}",
             response=response,
         ) from e
+    result = sorted(
+        [k.lstrip("/").replace("--", "/") for k in result.keys() if "--" in k]
+    )
     return result
 
 
@@ -71,7 +75,7 @@ def metadata(
 ) -> Dict[str, Dict[str, Any]]:
     """Get model metadata"""
     backend = get_aviary_backend()
-    url = backend.backend_url + version + "metadata/" + model_id.replace("/", "--")
+    url = backend.backend_url + model_id.replace("/", "--") + "/" + version + "metadata"
     response = requests.get(url, headers=backend.header, timeout=TIMEOUT)
     try:
         result = response.json()
@@ -93,7 +97,7 @@ def completions(
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        url = backend.backend_url + version + "query/" + model.replace("/", "--")
+        url = backend.backend_url + model.replace("/", "--") + "/" + version + "query"
         response = requests.post(
             url,
             headers=backend.header,
@@ -101,7 +105,7 @@ def completions(
             timeout=TIMEOUT,
         )
         try:
-            return response.json()[model]
+            return response.json()
         except requests.JSONDecodeError as e:
             raise BackendError(
                 f"Error decoding JSON from {url}. Text response: {response.text}",
@@ -117,7 +121,11 @@ def query(
     use_prompt_format: bool = True,
     version: str = DEFAULT_API_VERSION,
 ) -> Dict[str, Union[str, float, int]]:
-    logging.warning("'query' is deprecated, please use 'completions' instead")
+    warnings.warn(
+        "'query' is deprecated, please use 'completions' instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return completions(model, prompt, use_prompt_format, version)
 
 
@@ -134,7 +142,7 @@ def batch_completions(
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        url = backend.backend_url + version + "query/batch/" + model.replace("/", "--")
+        url = backend.backend_url + model.replace("/", "--") + "/" + version + "batch"
         response = requests.post(
             url,
             headers=backend.header,
@@ -145,7 +153,7 @@ def batch_completions(
             timeout=TIMEOUT,
         )
         try:
-            return response.json()[model]
+            return response.json()
         except requests.JSONDecodeError as e:
             raise BackendError(
                 f"Error decoding JSON from {url}. Text response: {response.text}",
@@ -162,14 +170,50 @@ def batch_completions(
         return converted
 
 
+def stream(
+    model: str,
+    prompt: str,
+    use_prompt_format: bool = True,
+    version: str = DEFAULT_API_VERSION,
+) -> Iterator[Dict[str, Union[str, float, int]]]:
+    """Query Aviary and stream response"""
+    if _is_aviary_model(model):
+        backend = get_aviary_backend()
+        url = backend.backend_url + model.replace("/", "--") + "/" + version + "stream"
+        response = requests.post(
+            url,
+            headers=backend.header,
+            json={"prompt": prompt, "use_prompt_format": use_prompt_format},
+            timeout=TIMEOUT,
+            stream=True,
+        )
+        chunk = ""
+        try:
+            for chunk in response.iter_lines(chunk_size=None, decode_unicode=True):
+                chunk = chunk.strip()
+                if not chunk:
+                    continue
+                data = json.loads(chunk)
+                if "error" in data:
+                    raise BackendError(data["error"], response=response)
+                yield data
+        except ConnectionError as e:
+            raise BackendError(str(e) + "\n" + chunk, response=response) from e
+    else:
+        # TODO implement streaming for langchain models
+        raise RuntimeError("Streaming is currently only supported for aviary models")
+
+
 def batch_query(
     model: str,
     prompts: List[str],
     use_prompt_format: Optional[List[bool]] = None,
     version: str = DEFAULT_API_VERSION,
 ) -> List[Dict[str, Union[str, float, int]]]:
-    logging.warning(
-        "'batch_query' is deprecated, please use " "'batch_completions' instead"
+    warnings.warn(
+        "'batch_query' is deprecated, please use " "'batch_completions' instead",
+        DeprecationWarning,
+        stacklevel=2,
     )
     return batch_completions(model, prompts, use_prompt_format, version)
 

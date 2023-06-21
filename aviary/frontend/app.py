@@ -1,14 +1,21 @@
+import asyncio
 import logging
 import os
 import random
 import re
+import sys
+import traceback
 import uuid
+from asyncio.queues import Queue
+from typing import AsyncIterator, List, Tuple
 
 import gradio as gr
 import ray
 import requests
 from ray import serve
 from ray.serve.gradio_integrations import GradioIngress
+
+from aviary.api.async_sdk import stream
 
 if os.getenv("AVIARY_MOCK"):
     from aviary.api import mock_sdk as sdk
@@ -79,13 +86,13 @@ def gen_leaderboard():
     return LDR.generate_votes_leaderboard(), LDR.generate_perf_leaderboard()
 
 
-@ray.remote(num_cpus=0)
-def completions(prompt, llm, index):
+def get_next_response(generator):
     try:
-        out = sdk.completions(prompt=prompt, model=llm)
+        out = next(generator, None)
     except Exception as e:
+        traceback.print_exc(file=sys.stderr)
         if isinstance(e, requests.ReadTimeout) or (
-            hasattr(e, "response")
+            getattr(e, "response", None)
             and ("timeout" in e.response or e.response.status_code in (408, 504))
         ):
             out = (
@@ -93,7 +100,7 @@ def completions(prompt, llm, index):
                 "is experiencing a higher than usual load. "
                 "Please try again in a few minutes."
             )
-        elif hasattr(e, "response"):
+        elif getattr(e, "response", None):
             out = (
                 f"[AVIARY] Backend returned an error. "
                 f"Status code: {e.response.status_code}"
@@ -102,29 +109,92 @@ def completions(prompt, llm, index):
         else:
             out = f"[AVIARY] An error occurred. Please try again.\nError: {e}"
         out = {"error": out}
-    return out, index
+    return out
 
 
-def do_query(prompt, model1, model2, model3, unused_raw=None):
+async def stream_response(model, prompt, index: int, queue: Queue) -> None:
     try:
-        models = [model1, model2, model3]
-        not_ready = [
-            completions.remote(prompt, model, i) for i, model in enumerate(models)
-        ]
-        text_output = [""] * len(models)
-        stats = [""] * len(models)
-        outs = [{}] * len(models)
-        while not_ready:
-            ready, not_ready = ray.wait(not_ready)
-            out, index = ray.get(ready[0])
-            if "error" not in out:
-                outs[index] = out
-                text_output[index] = out["generated_text"]
-                stats[index] = gen_stats(out)
-            else:
-                text_output[index] = out["error"]
+        async for response in stream(model, prompt):
+            await queue.put((index, response))
+            if response is None:
+                break
+    except Exception as e:
+        traceback.print_exc(file=sys.stderr)
+        if isinstance(e, requests.ReadTimeout) or (
+            getattr(e, "response", None)
+            and ("timeout" in e.response.text or e.response.status_code in (408, 504))
+        ):
+            out = (
+                "[AVIARY] The request timed out. This usually means the server "
+                "is experiencing a higher than usual load. "
+                "Please try again in a few minutes."
+            )
+        elif getattr(e, "response", None):
+            out = (
+                f"[AVIARY] Backend returned an error. "
+                f"Status code: {e.response.status_code}"
+                f"\nResponse: {e.response.text.splitlines()[-1]}"
+            ).replace("\n", " ")
+        else:
+            out = f"[AVIARY] An error occurred. Please try again.\nError: {e}"
+        out = {"error": out}
+        await queue.put((index, out))
+    finally:
+        await queue.put((index, None))
 
-        return [*text_output, *stats, "", outs]
+
+async def queue_consumer(
+    queue: Queue[str], indices: List[int], timeout: float
+) -> AsyncIterator[Tuple[int, str]]:
+    indices = set(indices)
+    finished_indices = set()
+    while indices != finished_indices:
+        try:
+            index, response = await asyncio.wait_for(queue.get(), timeout)
+            if response is None:
+                finished_indices.add(index)
+            yield (index, response)
+        except TimeoutError:
+            break
+
+
+async def do_query(prompt, model1, model2, model3, unused_raw=None):
+    try:
+        queue = Queue()
+        models = [model1, model2, model3]
+        tasks = [
+            asyncio.create_task(stream_response(model, prompt, i, queue))
+            for i, model in enumerate(models)
+        ]
+        all_text = [list() for _ in range(len(models))]
+        stats = [None] * len(models)
+        outs = [{}] * len(models)
+
+        async for result in queue_consumer(queue, list(range(len(tasks))), timeout=60):
+            i, response = result
+            if response and "error" in response:
+                all_text[i] = [response["error"]]
+                response = None
+
+            if response is not None:
+                # TODO Improve this
+                # TODO Add error handling
+                all_text[i].append(response["generated_text"])
+                if not stats[i]:
+                    stats[i] = response
+                else:
+                    stats[i]["num_total_tokens"] += response["num_generated_tokens"]
+                    stats[i]["total_time"] += response["generation_time"]
+                    stats[i]["generation_time"] += response["generation_time"]
+                outs[i] = stats[i]
+            yield [
+                *["".join(t) for t in all_text],
+                *[gen_stats(s) if s else "" for s in stats],
+                "",
+                outs,
+            ]
+        await asyncio.gather(*tasks)  # Clean up the producer tasks
+
     except Exception as e:
         raise gr.Error(f"An error occurred. Please try again.\nError: {e}") from e
 
@@ -174,6 +244,10 @@ def update_selection(*inputs):
     for i in range(NUM_LLM_OPTIONS):
         if button != "\U0001f3b2 Random":
             llm_choices[i] = SELECTION_DICT[button][i]
+            # Not perfect but it prevents selection of missing models
+            llm_choices = [
+                x if x in ALL_MODELS else random.choice(ALL_MODELS) for x in llm_choices
+            ]
         else:
             llm_choices[i] = random.choice(ALL_MODELS)
     return llm_choices
@@ -359,6 +433,7 @@ def gradio_app_builder():
                 f"<a href='https://anyscale.com/privacy-policy' "
                 f"target='_blank'>Privacy Policy</a>"
             )
+        demo.queue(api_open=False, concurrency_count=16)
         return demo
 
 
@@ -370,12 +445,27 @@ class AviaryFrontend(GradioIngress):
     def __init__(self, builder):
         # Aviary deployment simply silences the unnecessary gradio info calls.
         std_logger.setLevel(logging.ERROR)
-        super().__init__(builder)
+        blocks = builder()
+        super().__init__(lambda: blocks)
+
+        # Gradio queue will make POST requests to the Gradio application
+        # using the public URL, while overriding the authorization
+        # headers with its own. This results in the public URL rejecting
+        # the connection. This is a hacky workaround to set the URL
+        # the queue will use to localhost.
+        def noop(*args, **kwargs):
+            pass
+
+        blocks._queue.set_url("http://localhost:8000/")
+        blocks._queue.set_url = noop
 
 
-app = AviaryFrontend.options(ray_actor_options={"num_cpus": 4}, name=PROJECT_NAME).bind(
-    gradio_app_builder
-)
+app = AviaryFrontend.options(
+    ray_actor_options={
+        "num_cpus": 4,
+    },
+    name=PROJECT_NAME,
+).bind(gradio_app_builder)
 
 
 if __name__ == "__main__":

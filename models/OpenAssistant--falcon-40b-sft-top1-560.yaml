@@ -27,7 +27,7 @@ model_config:
         trust_remote_code: true
       use_kernel: true
       max_tokens: 1536
-    pipeline: default
+    pipeline: transformers
   generation:
     max_batch_size: 8
     generate_kwargs:
