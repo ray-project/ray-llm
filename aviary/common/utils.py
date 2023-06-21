@@ -7,19 +7,7 @@ except ImportError:
     LANGCHAIN_INSTALLED = False
 
 
-class AviaryBackend:
-    """Stores information about the Aviary backend."""
-
-    def __init__(self, backend_url: str, bearer: str):
-        assert "::param" not in backend_url, "backend_url not set correctly"
-        assert "::param" not in bearer, "bearer not set correctly"
-
-        self.backend_url = backend_url
-        self.bearer = bearer
-        self.header = {"Authorization": self.bearer}
-
-
-class BackendError(RuntimeError):
+class ResponseError(RuntimeError):
     def __init__(self, *args: object, **kwargs) -> None:
         self.response = kwargs.pop("response", None)
         super().__init__(*args)

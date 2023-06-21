@@ -1,13 +1,13 @@
 import asyncio
 import time
 import traceback
+import uuid
 from typing import Any, Dict, List, Optional, Union
 
 import async_timeout
 import ray
 import ray.util
 from fastapi import FastAPI
-from fastapi_versioning import VersionedFastAPI, version
 from ray import serve
 from ray.exceptions import RayActorError
 from ray.serve.deployment import ClassNode
@@ -22,6 +22,16 @@ from aviary.backend.server.models import (
     Prompt,
 )
 from aviary.common.constants import GATEWAY_TIMEOUT_S
+from aviary.common.models import (
+    Model,
+    ModelData,
+    Completion,
+    ChatCompletion,
+    Usage,
+    TextChoice,
+    Message,
+    MessageChoices
+)
 
 logger = get_logger(__name__)
 
@@ -124,7 +134,6 @@ class LLMDeployment(LLMPredictor):
             )
 
     @app.get("/metadata", include_in_schema=False)
-    @version(0)
     async def metadata(self) -> dict:
         return self.args.dict(
             exclude={
@@ -133,7 +142,6 @@ class LLMDeployment(LLMPredictor):
         )
 
     @app.post("/", include_in_schema=False)
-    @version(0)
     async def generate_text(self, prompt: Prompt):
         await self.validate_prompt(prompt)
         time.time()
@@ -146,7 +154,6 @@ class LLMDeployment(LLMPredictor):
             return text
 
     @app.post("/batch", include_in_schema=False)
-    @version(0)
     async def batch_generate_text(self, prompts: List[Prompt]):
         for prompt in prompts:
             await self.validate_prompt(prompt)
@@ -269,7 +276,6 @@ class RouterDeployment:
         self._model_configurations = model_configurations
 
     @app.post("/query/{model}")
-    @version(0)
     async def query(self, model: str, prompt: Prompt) -> Dict[str, Dict[str, Any]]:
         model = _replace_prefix(model)
         results = await asyncio.gather(
@@ -280,7 +286,6 @@ class RouterDeployment:
         return {model: results}
 
     @app.post("/query/batch/{model}")
-    @version(0)
     async def batch_query(
         self, model: str, prompts: List[Prompt]
     ) -> Dict[str, List[Dict[str, Any]]]:
@@ -297,11 +302,10 @@ class RouterDeployment:
         return {model: results}
 
     @app.get("/metadata/{model}")
-    @version(0)
     async def metadata(self, model) -> Dict[str, Dict[str, Any]]:
         model = _replace_prefix(model)
-        # This is what we want to do eventually, but it looks like reconfigure is blocking
-        # when called on replica init
+        # This is what we want to do eventually, but it looks like reconfigure
+        # is blocking when called on replica init
         # metadata = await asyncio.gather(
         #     *(await asyncio.gather(*[self._models[model].metadata.remote()]))
         # )
@@ -315,9 +319,199 @@ class RouterDeployment:
         return {"metadata": metadata}
 
     @app.get("/models")
-    @version(0)
     async def models(self) -> List[str]:
         return list(self._models.keys())
 
+    @app.get("/v1/models", response_model=Model)
+    async def models(self) -> Model:
+        """OpenAI API-compliant endpoint to get all Aviary models."""
+        model_ids = list(self._models.keys())
+        model_data = []
+        for model_id in model_ids:
+            model_data.append(ModelData(
+                id=model_id,
+                object="model",
+                owned_by="organization-owner",  # TODO: define owner (metadata)
+                permission=[]  # TODO: define permissions (metadata)
+            ))
+        return Model(data=model_data)
 
-app = VersionedFastAPI(app, version_format="{major}", prefix_format="/v{major}")
+    @app.get("/v1/models/{model}", response_model=ModelData)
+    async def models(self, model: str) -> ModelData:
+        """OpenAI API-compliant endpoint to get one Aviary model.
+
+        :param model: The Aviary model ID (e.g. "amazon/LightGPT")
+        """
+        # TODO: should we integrate "metadata" here?
+        return ModelData(
+            id=model,
+            object="model",
+            owned_by="organization-owner",  # TODO
+            permission=[]  # TODO
+        )
+
+    @app.post("/v1/completions/{model}", response_model=Completion)
+    async def completions(
+            self,
+            model: str,
+            prompt: Union[Prompt, List[Prompt]] = Prompt(text="<|endoftext|>"),
+            suffix: str = None,
+            max_tokens: int = 32,
+            temperature: float = 1.0,
+            top_p: float = 1.0,
+            n: int = 1,
+            stream: bool = False,
+            logprobs: int = None,
+            echo: bool = False,
+            stop: str = None,
+            presence_penalty: float = 0.0,
+            frequency_penalty: float = 0.0,
+            best_of: int = 1,
+            logit_bias: Dict[str, float] = None,
+            user: str = None,
+    ) -> Completion:
+        """Given a prompt, the model will return one or more predicted completions,
+        and can also return the probabilities of alternative tokens at each position.
+
+        Args:
+            model: The model to query.
+            prompt: The prompt(s) to generate completions for, encoded as string
+                or list of strings.
+            suffix: The suffix that comes after a completion of inserted text.
+            max_tokens: The maximum number of tokens to generate.
+            temperature: What sampling temperature to use.
+            top_p: An alternative to sampling with temperature, called nucleus sampling.
+            n: How many completions to generate for each prompt.
+            stream: Whether to stream back partial progress.
+            logprobs: Include the log probabilities on the `logprobs` most likely
+                tokens, as well the chosen tokens.
+            echo: Echo back the prompt in addition to the completion.
+            stop: Up to 4 sequences where the API will stop generating further tokens.
+                The returned text will not contain the stop sequence.
+            presence_penalty: Number between -2.0 and 2.0.
+                Positive values penalize new tokens based on whether they appear in
+                the text so far, increasing the model's likelihood to talk about
+                new topics.
+            frequency_penalty: Number between -2.0 and 2.0. Positive values penalize
+                new tokens based on their existing frequency in the text so far,
+                decreasing the model's likelihood to repeat the same line verbatim.
+            best_of: Generates `best_of` completions server-side and returns the "best".
+            logit_bias: Modify the likelihood of specified tokens appearing in
+                the completion.
+            user: A unique identifier representing your end-user, which can help us
+                to monitor and detect abuse. Learn more.
+
+        Returns:
+            A response object with completions.
+        """
+        model = _replace_prefix(model)
+        results = await asyncio.gather(
+            *(await asyncio.gather(*[self._models[model].generate_text.remote(prompt)]))
+        )
+        results = results[0]
+        logger.info(results)
+
+        choices = [TextChoice(
+            text=results["generated_text"],
+            index=0,
+            logprobs={},
+            finish_reason="length"
+        )]
+        usage = Usage(
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+        )
+        # TODO: pick up parameters that make sense, remove the rest
+
+        return Completion(
+            id=model + "-" + str(uuid.uuid4()),
+            object="text_completion",
+            created=int(time.time()),
+            model=model,
+            choices=choices,
+            usage=usage,
+        )
+
+    @app.post("/v1/chat/completions/{model}", response_model=ChatCompletion)
+    async def chat(
+            self,
+            model: str,
+            messages: List[Message],
+            temperature: float = 1.0,
+            top_p: float = 1.0,
+            n: int = 1,
+            stream: bool = False,
+            logprobs: int = None,
+            echo: bool = False,
+            stop: str = None,
+            presence_penalty: float = 0.0,
+            frequency_penalty: float = 0.0,
+            logit_bias: Dict[str, float] = None,
+            user: str = None,
+    ) -> ChatCompletion:
+        """Given a prompt, the model will return one or more predicted completions,
+        and can also return the probabilities of alternative tokens at each position.
+
+        Args:
+            model: The model to query.
+            messages: A list of messages describing the conversation so far.
+                Contains a required "role", which is the role of the author of this
+                message. One of "system", "user", or "assistant".
+                Also contains required "content", the contents of the message, and
+                an optional "name", the name of the author of this message.
+            temperature: What sampling temperature to use.
+            top_p: An alternative to sampling with temperature, called nucleus sampling.
+            n: How many completions to generate for each prompt.
+            stream: Whether to stream back partial progress.
+            logprobs: Include the log probabilities on the `logprobs` most likely
+                tokens, as well the chosen tokens.
+            echo: Echo back the prompt in addition to the completion.
+            stop: Up to 4 sequences where the API will stop generating further tokens.
+                The returned text will not contain the stop sequence.
+            presence_penalty: Number between -2.0 and 2.0.
+                Positive values penalize new tokens based on whether they appear in
+                the text so far, increasing the model's likelihood to talk about
+                new topics.
+            frequency_penalty: Number between -2.0 and 2.0. Positive values penalize
+                new tokens based on their existing frequency in the text so far,
+                decreasing the model's likelihood to repeat the same line verbatim.
+            logit_bias: Modify the likelihood of specified tokens appearing in
+                the completion.
+            user: A unique identifier representing your end-user, which can help us
+                to monitor and detect abuse. Learn more.
+
+        Returns:
+            A response object with completions.
+        """
+        model = _replace_prefix(model)
+        prompt = messages[-1].content  # FIXME
+        results = await asyncio.gather(
+            *(await asyncio.gather(
+                *[self._models[model].generate_text.remote(prompt)]
+            )))
+        results = results[0]
+        logger.info(results)
+        # TODO: pick up parameters that make sense, remove the rest
+
+        choices: List[MessageChoices] = [MessageChoices(
+            message=Message(
+                role="assistant",
+                content=results["generated_text"]),
+            index=0,
+            finish_reason="length"
+        )]
+        usage = Usage(
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+        )
+
+        return ChatCompletion(
+            id=model + "-" + str(uuid.uuid4()),
+            object="text_completion",
+            created=int(time.time()),
+            model=model,
+            choices=choices,
+            usage=usage,
+        )

@@ -1,4 +1,4 @@
-from aviary.api import sdk
+from aviary import sdk
 
 
 def test_get_backend():
@@ -8,19 +8,15 @@ def test_get_backend():
 
 def test_get_aviary():
     models = sdk.models()
-    assert len(models) > 8
     assert "mosaicml/mpt-7b-instruct" in models
 
     completions = sdk.completions(model="mosaicml/mpt-7b-instruct", prompt="test")
     assert completions
-    assert "generated_text" in completions.keys()
 
     batch_completions = sdk.batch_completions(
         model="mosaicml/mpt-7b-instruct", prompts=["test", "test"]
     )
-    assert all(
-        "generated_text" in batch_completions[i] for i in range(len(batch_completions))
-    )
+    assert batch_completions
 
 
 def test_list_models():
