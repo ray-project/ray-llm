@@ -11,9 +11,9 @@ from ray import serve
 from ray.serve.gradio_integrations import GradioIngress
 
 if os.getenv("AVIARY_MOCK"):
-    from aviary.api import mock_sdk as sdk
+    from tests import mock_sdk as sdk
 else:
-    from aviary.api import sdk
+    from aviary import sdk
 
 
 from aviary.common.constants import (

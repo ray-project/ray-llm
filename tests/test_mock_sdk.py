@@ -1,4 +1,4 @@
-from aviary.api import mock_sdk
+from . import mock_sdk
 
 
 def test_get_aviary():
