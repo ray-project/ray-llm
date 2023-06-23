@@ -263,6 +263,7 @@ class LLMDeployment(LLMPredictor):
                         # We caught the disconnect
                         logger.info(f"Request {curr_request_id} disconnected.")
                         self.requests_ids[curr_request_id] = True
+                        await future
                 else:
                     await future
             except StopAsyncIteration:
