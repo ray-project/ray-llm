@@ -234,16 +234,47 @@ def stream(
     print_stats: Annotated[bool, stats_type] = False,
 ):
     """"""
+    # TODO make this use the Response object
+    num_input_tokens = 0
+    num_input_tokens_batch = 0
     num_generated_tokens = 0
+    num_generated_tokens_batch = 0
+    preprocessing_time = 0
+    generation_time = 0
     for chunk in sdk.stream(model, prompt):
         text = chunk["generated_text"]
+        num_input_tokens = chunk["num_input_tokens"]
+        num_input_tokens_batch = chunk["num_input_tokens_batch"]
         num_generated_tokens += chunk["num_generated_tokens"]
+        num_generated_tokens_batch += chunk["num_generated_tokens_batch"]
+        preprocessing_time += chunk["preprocessing_time"]
+        generation_time += chunk["generation_time"]
         rp(text, end="")
     rp("")
     if print_stats:
         rp("[bold]Stats:[/]")
         chunk.pop("generated_text")
-        rp(num_generated_tokens)
+        total_time = preprocessing_time + generation_time
+        num_total_tokens = num_generated_tokens + num_input_tokens
+        num_total_tokens_batch = num_generated_tokens_batch + num_input_tokens_batch
+        rp(
+            {
+                "num_input_tokens": num_input_tokens,
+                "num_input_tokens_batch": num_input_tokens_batch,
+                "num_generated_tokens": num_generated_tokens,
+                "num_generated_tokens_batch": num_generated_tokens_batch,
+                "preprocessing_time": preprocessing_time,
+                "generation_time": generation_time,
+                "generation_time_per_token": generation_time / num_total_tokens,
+                "generation_time_per_token_batch": generation_time
+                / num_total_tokens_batch,
+                "num_total_tokens": num_total_tokens,
+                "num_total_tokens_batch": num_total_tokens_batch,
+                "total_time": total_time,
+                "total_time_per_token": total_time / num_total_tokens,
+                "total_time_per_token_batch": total_time / num_total_tokens_batch,
+            }
+        )
 
 
 if __name__ == "__main__":
