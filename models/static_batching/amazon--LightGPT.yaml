@@ -13,33 +13,35 @@ deployment_config:
     resources:
       accelerator_type_cpu: 0.01
 model_config:
-  model_id: h2oai/h2ogpt-oasst1-512-12b
+  batching: static
+  model_id: amazon/LightGPT
   max_input_words: 800
   initialization:
+    runtime_env:
+      pip:
+        - deepspeed==0.9.2
     s3_mirror_config:
-      bucket_uri: s3://large-dl-models-mirror/models--h2oai--h2ogpt-oasst1-512-12b/main-safetensors/
+      bucket_uri: s3://large-dl-models-mirror/models--amazon--LightGPT/main-safetensors/
     initializer:
       type: DeepSpeed
       dtype: float16
       from_pretrained_kwargs:
-        trust_remote_code: true
         use_cache: true
       use_kernel: true
       max_tokens: 1536
     pipeline: transformers
   generation:
-    max_batch_size: 4
+    max_batch_size: 18
     generate_kwargs:
       do_sample: true
-      num_beams: 1
       max_new_tokens: 512
       min_new_tokens: 16
-      temperature: 0.2
-      top_p: 0.85
-      top_k: 70
-      repetition_penalty: 1.07
-    prompt_format: "<bot>: I am an intelligent, helpful, truthful, and fair assistant named h2oGPT, who will give accurate, balanced, and reliable responses. I will not respond with I don't know or I don't understand.\n<human>: I am a human person seeking useful assistance and request all questions be answered completely, and typically expect detailed responses. Give answers in numbered list format if several distinct but related items are being listed.\n<human>: {instruction}\n<bot>: "
-    stopping_sequences: [[29, 13961, 32056], [29, 12042, 32056]]
+      temperature: 0.7
+      repetition_penalty: 1.1
+      top_p: 0.8
+      top_k: 50
+    prompt_format: "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n### Instruction:\n{instruction}\n### Response:\n"
+    stopping_sequences: ["### Response:", "### End"]
 scaling_config:
   num_workers: 2
   num_gpus_per_worker: 1

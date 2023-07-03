@@ -1,4 +1,5 @@
 deployment_config:
+  max_concurrent_queries: 64
   autoscaling_config:
     min_replicas: 1
     initial_replicas: 1
@@ -13,37 +14,32 @@ deployment_config:
     resources:
       accelerator_type_cpu: 0.01
 model_config:
-  model_id: mosaicml/mpt-7b-instruct
+  batching: continuous
+  model_id: amazon/LightGPT
   max_input_words: 800
   initialization:
     s3_mirror_config:
-      bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-instruct/main-safetensors/
+      bucket_uri: s3://large-dl-models-mirror/models--amazon--LightGPT/main-safetensors/
     initializer:
-      type: SingleDevice
-      dtype: bfloat16
-      from_pretrained_kwargs:
-        trust_remote_code: true
-        use_cache: true
-      use_bettertransformer: false
-      torch_compile:
-        backend: inductor
-        mode: max-autotune
-    pipeline: transformers
+      type: TextGenerationInference
+    pipeline: TextGenerationInference
   generation:
-    max_batch_size: 8
+    max_batch_total_tokens: 40960
+    max_batch_prefill_tokens: 9216
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
       min_new_tokens: 16
-      top_p: 1.0
-      top_k: 0
-      temperature: 0.1
+      temperature: 0.7
       repetition_penalty: 1.1
+      top_p: 0.8
+      top_k: 50
     prompt_format: "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n### Instruction:\n{instruction}\n### Response:\n"
     stopping_sequences: ["### Response:", "### End"]
 scaling_config:
   num_workers: 1
   num_gpus_per_worker: 1
-  num_cpus_per_worker: 4
+  num_cpus_per_worker: 8
+  placement_strategy: "STRICT_PACK"
   resources_per_worker:
     accelerator_type_a10: 0.01

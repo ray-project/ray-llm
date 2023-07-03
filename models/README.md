@@ -22,7 +22,20 @@ Ray Actors during deployments (using `ray_actor_options`).
 
 The `model_config` section specifies the Hugging Face model ID (`model_id`), how to 
 initialize it (`initialization`) and what parameters to use when generating tokens
-with an LLM (`generation`). We use Hugging Face Transformers under the hood.
+with an LLM (`generation`).
+
+Aviary supports two different batching modes - static and continuous. In
+static batching, incoming requests are batched together and sent to the model.
+The model can only process the next batch once the current one is fully finished
+(meaning that the batch takes as long to process as the single longest sentence).
+In continuous batching, incoming requests are processed as soon as they arrive,
+and can be added to batches that are already being processed. This means that
+the model is not slowed down by certain sentences taking longer to generate than others.
+
+### Static batching
+
+For static batching, we use Hugging Face Transformers under the hood.
+
 Aviary implements several initializer types:
 - SingleDevice - just load the model onto a single GPU,
 - DeviceMap - use the `device_map` argument to load the model onto multiple
@@ -33,6 +46,23 @@ Aviary implements several initializer types:
   load the model. llama.cpp is separate from Torch & Hugging Face Transformers and uses its own model format.
   The model files are still downloaded from Hugging Face Hub - specify `model_filename` to control which
   file in the repository will be loaded.
+
+Under the `generation` section, you also need to specify the `max_batch_size` and optionally `batch_wait_timeout_s` to configure static batching.
+
+### Continuous batching
+
+For continuous batching, Aviary uses Hugging Face text-generation-inference.
+This is an optional requirement that has to be installed separately. Because the installation involves compilation from source, we recommend using our Docker image (`anyscale/aviary:latest-tgi`). You can see examples of continuous batching model configurations in the `models/tgi` folder.
+
+The following settings can be configured under the `generation` section:
+- `max_batch_total_tokens` - the maximum number of tokens that can be processed by the model. For `max_batch_total_tokens=1000`, you could fit `10` queries of `total_tokens=100` or a single query of `1000` tokens. Setting this too high will result in out-of-memory errors while setting it too low will result in underutilization of memory. Overall this number should be the largest possible amount that fits the remaining memory (after the model is loaded). In the future, we will add automatic tuning of this parameter.
+- `max_total_tokens` - the maximum number of input+output tokens in a single request.
+- `max_waiting_tokens` - defines how many tokens can be passed before forcing the waiting queries to be put on the batch (if the size of the batch allows for it). Usually, you shouldn't need to change it.
+- `max_input_length` - maximum number of input tokens in a single request.
+- `max_batch_prefill_tokens` - limits the number of tokens for the prefill operation.
+- `waiting_served_ratio` - represents the ratio of waiting queries vs running queries where you want to start considering pausing the running queries to include the waiting ones into the same batch.
+
+### Scaling config
 
 Finally, the `scaling_config` section specifies what resources should be used to
 serve the model - this corresponds to Ray AIR [ScalingConfig](https://docs.ray.io/en/latest/ray-air/api/doc/ray.air.ScalingConfig.html#ray-air-scalingconfig).
@@ -53,6 +83,9 @@ For instance, the YAML example shown next is stored in a file called
 `mosaicml--mpt-7b-instruct.yaml`:
 
 ```yaml
+# true by default - you can set it to false to ignore this model
+# during loading
+enabled: true
 deployment_config:
   # This corresponds to Ray Serve settings, as generated with
   # `serve build`.
@@ -67,13 +100,21 @@ deployment_config:
     downscale_delay_s: 300.0
     upscale_delay_s: 90.0
   ray_actor_options:
+    # Resources assigned to each model deployment. The deployment will be
+    # initialized first, and then start prediction workers which actually hold the model.
     resources:
-      instance_type_m5: 0.01
+      accelerator_type_cpu: 0.01
 
 model_config:
-  # Hugging Face model id
+  # Model id - this is an Aviary id
   model_id: mosaicml/mpt-7b-instruct
+  # Batching type - static or continuous. Different
+  # batching types support different initializers, pipelines and arguments.
+  batching: static
   initialization:
+    # Id of the model on Hugging Face Hub. Can also be a disk path. Defaults to model_id
+    # if not specified.
+    hf_model_id: mosaicml/mpt-7b-instruct
     # Optional runtime environment configuration. 
     # Add dependent libraries
     runtime_env:
@@ -85,7 +126,7 @@ model_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-instruct/main-safetensors/
     # How to initialize the model.
     initializer:
-      # Initializer type. Can be one of:
+      # Initializer type. For static batching, can be one of:
       # - SingleDevice - just load the model onto a single GPU
       # - DeviceMap - use the `device_map` argument to load the model onto multiple
       #   GPUs on a single node
@@ -111,7 +152,7 @@ model_config:
   generation:
     # Max batch size to use when generating tokens
     max_batch_size: 22
-    # Kwargs passed to `model.generate`
+    # Default kwargs passed to `model.generate`
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
@@ -126,9 +167,9 @@ model_config:
     # Those can be strings, integers (token ids) or lists of integers.
     stopping_sequences: ["### Response:", "### End"]
 
-# Resources assigned to the model. This corresponds to Ray AIR ScalingConfig.
+# Resources assigned to each model replica. This corresponds to Ray AIR ScalingConfig.
 scaling_config:
-  # DeepSpeed requires one worker per GPU - keep num_gpus_per_worker at 1 and
+  # DeepSpeed/TextGenerationInference requires one worker per GPU - keep num_gpus_per_worker at 1 and
   # change num_workers.
   # For other initializers, you should set num_workers to 1 and instead change
   # num_gpus_per_worker.
@@ -138,7 +179,7 @@ scaling_config:
   resources_per_worker:
     # You can use custom resources to specify the instance type / accelerator type
     # to use for the model.
-    instance_type_g5: 0.01
+    accelerator_type_a10: 0.01
 ```
 
 You will notice that many models only deviate very slightly from each other.

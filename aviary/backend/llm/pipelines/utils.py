@@ -1,9 +1,11 @@
-from typing import List, Sequence, Union
+from typing import List, Sequence, TypeVar, Union
 
 import torch
 from transformers import PreTrainedTokenizer
 
 from aviary.backend.server.models import Prompt
+
+T = TypeVar("T")
 
 
 def tokenize_string(tokenizer: PreTrainedTokenizer, key: str) -> Union[int, List[int]]:
@@ -64,7 +66,7 @@ def construct_prompts(
     prompt_format: str,
 ) -> List[str]:
     """Construct prompts from a prompt string or list of prompts."""
-    if not isinstance(prompts, (list, tuple, Sequence)):
+    if isinstance(prompts, (str, Prompt)):
         prompts = [prompts]
     return [_construct_prompt(prompt, prompt_format) for prompt in prompts]
 
@@ -101,3 +103,17 @@ def decode_stopping_sequences_where_needed(
         else sequence
         for sequence in stopping_sequences
     ]
+
+
+def pythonize_tensors(obj: T) -> T:
+    if isinstance(obj, dict):
+        return {k: pythonize_tensors(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [pythonize_tensors(v) for v in obj]
+    elif isinstance(obj, torch.Tensor):
+        return obj.cpu().numpy()
+    elif hasattr(obj, "__dict__"):
+        obj.__dict__ = pythonize_tensors(obj.__dict__)
+        return obj
+    else:
+        return obj

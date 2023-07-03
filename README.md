@@ -7,7 +7,10 @@ large language models (LLMs) in a single place.
 You can compare the outputs of different models directly, rank them by quality,
 get a cost and latency estimate, and more. In particular, it offers good support for 
 Transformer models hosted on [Hugging Face](http://hf.co) and in many cases also 
-supports [DeepSpeed](https://www.deepspeed.ai/) inference acceleration. 
+supports [DeepSpeed](https://www.deepspeed.ai/) inference acceleration.
+
+Aviary also supports continuous batching by integrating with [Hugging Face text-generation-inference](https://github.com/huggingface/text-generation-inference)
+(an optional dependency). Continuous batching allows you to get much better throughput and latency than static batching.
 
 Aviary is built on top of [Ray](https://ray.io) by [Anyscale](https://anyscale.com).
 It's an [open source project](https://github.com/ray-project/aviary), which means
@@ -83,10 +86,14 @@ Open Source cloud deployment.
 
 ### Set up your laptop
 
-You will need `ray` and `aviary` to be installed on your laptop.
+You will need `ray` and `aviary` to be installed on your laptop. `ray` has to be
+the [latest nightly version](https://docs.ray.io/en/latest/ray-overview/installation.html#daily-releases-nightlies).
+
 
 ```shell
-pip install -U "ray>=2.4.0"
+# The link below WILL CHANGE dependning on your platform and python version
+# See https://docs.ray.io/en/latest/ray-overview/installation.html#daily-releases-nightlies
+pip install -U https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-3.0.0.dev0-cp310-cp310-manylinux2014_x86_64.whl
 pip install "aviary @ git+https://github.com/ray-project/aviary.git"
 ```
 
@@ -124,6 +131,19 @@ cd aviary
 ray up deploy/ray/aviary-cluster.yaml
 ```
 
+If you want to use continous batching, edit `deploy/ray/aviary-cluster.yaml` replacing
+```yaml
+docker:
+    image: "anyscale/aviary:latest"
+```
+
+with
+
+```yaml
+docker:
+    image: "anyscale/aviary:latest-tgi"
+```
+
 ### Connect to your Cluster
 
 ```shell
@@ -131,7 +151,7 @@ ray up deploy/ray/aviary-cluster.yaml
 ray attach deploy/ray/aviary-cluster.yaml
 
 # Deploy the LightGPT model. 
-aviary run --model ./models/amazon--LightGPT.yaml
+aviary run --model ./models/static_batching/amazon--LightGPT.yaml
 ```
 
 You can deploy any model in the `models` directory of this repo, 
@@ -383,13 +403,9 @@ chosen to focus on simplicity and readability for the first release. Ray and Ray
 are framework-agnostic and Aviary can be easily modified to use FasterTransformer
 or other high-performance frameworks. We will continue working on improving this.
 * `lmsys/vicuna-13b-delta-v1.1` model sometimes answers to English questions in Mandarin.
-* Replicas which have had a worker failure will continue to receive new requests, which
-will most likely time out. We are looking into fixing that.
 
 ## Future plans
 
-* Streaming support.
-* Support for Continuous/Iterative Batching.
 * LangChain + LlamaIndex Integration (which will make it much easier to compare open and closed LLMs).
 * Better testing.
 * Improved documentation.

@@ -14,6 +14,7 @@ deployment_config:
     resources:
       accelerator_type_cpu: 0.01
 model_config:
+  batching: static
   model_id: eachadea/ggml-vicuna-13b-1.1
   initialization:
     runtime_env:

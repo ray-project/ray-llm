@@ -13,14 +13,12 @@ deployment_config:
     resources:
       accelerator_type_cpu: 0.01
 model_config:
-  model_id: amazon/LightGPT
+  batching: static
+  model_id: stabilityai/stablelm-tuned-alpha-7b
   max_input_words: 800
   initialization:
-    runtime_env:
-      pip:
-        - deepspeed==0.9.2
     s3_mirror_config:
-      bucket_uri: s3://large-dl-models-mirror/models--amazon--LightGPT/main-safetensors/
+      bucket_uri: s3://large-dl-models-mirror/models--stabilityai--stablelm-tuned-alpha-7b/main-safetensors/
     initializer:
       type: DeepSpeed
       dtype: float16
@@ -30,17 +28,17 @@ model_config:
       max_tokens: 1536
     pipeline: transformers
   generation:
-    max_batch_size: 18
+    max_batch_size: 8
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
       min_new_tokens: 16
-      temperature: 0.7
-      repetition_penalty: 1.1
-      top_p: 0.8
-      top_k: 50
-    prompt_format: "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n### Instruction:\n{instruction}\n### Response:\n"
-    stopping_sequences: ["### Response:", "### End"]
+      top_p: 0.95
+      top_k: 1000
+      temperature: 1.0
+      num_beams: 1
+    prompt_format: "<|SYSTEM|># StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language model developed by StabilityAI.\n- StableLM is excited to be able to help the user, but will refuse to do anything that could be considered harmful to the user.\n- StableLM is more than just an information source, StableLM is also able to write poetry, short stories, and make jokes.\n- StableLM will refuse to participate in anything that could harm a human.<|USER|>{instruction}<|ASSISTANT|>"
+    stopping_sequences: [50278, 50279, 50277, 1, 0]
 scaling_config:
   num_workers: 2
   num_gpus_per_worker: 1

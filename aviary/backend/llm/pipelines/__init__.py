@@ -2,6 +2,7 @@ from typing import Type
 
 from ._base import BasePipeline
 from .llamacpp import LlamaCppPipeline
+from .tgi import TextGenerationInferencePipeline
 from .transformers import TransformersPipeline
 
 
@@ -18,4 +19,5 @@ __all__ = [
     "get_pipeline_cls_by_name",
     "TransformersPipeline",
     "LlamaCppPipeline",
+    "TextGenerationInferencePipeline",
 ]

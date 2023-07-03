@@ -14,8 +14,17 @@ logger = get_logger(__name__)
 
 
 class BasePipeline(ABC):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        model,
+        tokenizer,
+        prompt_format: Optional[str] = None,
+        device: Optional[Union[str, int, torch.device]] = None,
+    ) -> None:
+        self.model = model
+        self.prompt_format: str = prompt_format or ""
+        self.tokenizer = tokenizer
+        self.device = device
 
     @abstractmethod
     def __call__(
@@ -52,4 +61,14 @@ class StreamingPipeline(BasePipeline):
         queue: Queue,
         **kwargs,
     ) -> Iterator[List[Response]]:
+        raise NotImplementedError()
+
+
+class AsyncStreamingPipeline(BasePipeline):
+    async def async_stream(
+        self,
+        inputs: List[Union[str, Prompt]],
+        queue: Queue,
+        **kwargs,
+    ):
         raise NotImplementedError()

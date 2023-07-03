@@ -6,6 +6,7 @@ from .hf_transformers import (
     SingleDeviceInitializer,
 )
 from .llamacpp import LlamaCppInitializer
+from .tgi import TextGenerationInferenceInitializer
 
 if TYPE_CHECKING:
     from ._base import LLMInitializer
@@ -26,4 +27,5 @@ __all__ = [
     "DeviceMapInitializer",
     "SingleDeviceInitializer",
     "LlamaCppInitializer",
+    "TextGenerationInferenceInitializer",
 ]

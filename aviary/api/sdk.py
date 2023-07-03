@@ -92,6 +92,7 @@ def completions(
     prompt: str,
     use_prompt_format: bool = True,
     version: str = DEFAULT_API_VERSION,
+    **kwargs,
 ) -> Dict[str, Union[str, float, int]]:
     """Get completions from Aviary models."""
 
@@ -101,7 +102,7 @@ def completions(
         response = requests.post(
             url,
             headers=backend.header,
-            json={"prompt": prompt, "use_prompt_format": use_prompt_format},
+            json={"prompt": prompt, "use_prompt_format": use_prompt_format, **kwargs},
             timeout=TIMEOUT,
         )
         try:
@@ -120,6 +121,7 @@ def query(
     prompt: str,
     use_prompt_format: bool = True,
     version: str = DEFAULT_API_VERSION,
+    **kwargs,
 ) -> Dict[str, Union[str, float, int]]:
     warnings.warn(
         "'query' is deprecated, please use 'completions' instead",
@@ -134,8 +136,12 @@ def batch_completions(
     prompts: List[str],
     use_prompt_format: Optional[List[bool]] = None,
     version: str = DEFAULT_API_VERSION,
+    kwargs: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Union[str, float, int]]]:
     """Get batch completions from Aviary models."""
+
+    if not kwargs:
+        kwargs = [{}] * len(prompts)
 
     if not use_prompt_format:
         use_prompt_format = [True] * len(prompts)
@@ -147,8 +153,8 @@ def batch_completions(
             url,
             headers=backend.header,
             json=[
-                {"prompt": prompt, "use_prompt_format": use_format}
-                for prompt, use_format in zip(prompts, use_prompt_format)
+                {"prompt": prompt, "use_prompt_format": use_format, **kwarg}
+                for prompt, use_format, kwarg in zip(prompts, use_prompt_format, kwargs)
             ],
             timeout=TIMEOUT,
         )
@@ -175,6 +181,7 @@ def stream(
     prompt: str,
     use_prompt_format: bool = True,
     version: str = DEFAULT_API_VERSION,
+    **kwargs,
 ) -> Iterator[Dict[str, Union[str, float, int]]]:
     """Query Aviary and stream response"""
     if _is_aviary_model(model):
@@ -183,7 +190,7 @@ def stream(
         response = requests.post(
             url,
             headers=backend.header,
-            json={"prompt": prompt, "use_prompt_format": use_prompt_format},
+            json={"prompt": prompt, "use_prompt_format": use_prompt_format, **kwargs},
             timeout=TIMEOUT,
             stream=True,
         )
@@ -209,13 +216,14 @@ def batch_query(
     prompts: List[str],
     use_prompt_format: Optional[List[bool]] = None,
     version: str = DEFAULT_API_VERSION,
+    kwargs: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Union[str, float, int]]]:
     warnings.warn(
         "'batch_query' is deprecated, please use " "'batch_completions' instead",
         DeprecationWarning,
         stacklevel=2,
     )
-    return batch_completions(model, prompts, use_prompt_format, version)
+    return batch_completions(model, prompts, use_prompt_format, version, kwargs)
 
 
 def run(*model: str) -> None:

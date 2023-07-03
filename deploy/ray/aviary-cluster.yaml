@@ -8,6 +8,8 @@ provider:
     cache_stopped_nodes: False
 docker:
     image: "anyscale/aviary:latest"
+    # Use this image instead for continuous batching:
+    # image: "anyscale/aviary:latest-tgi"
     container_name: "aviary"
 
 # All the 'conda activate' are necessary to ensure we are in the
