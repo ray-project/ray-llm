@@ -33,7 +33,7 @@ def download_model(
     Download a model from an S3 bucket and save it in TRANSFORMERS_CACHE for
     seamless interoperability with Hugging Face's Transformers library.
 
-    The downloaded model must have a 'hash' file containing the commit hash corresponding
+    The downloaded model may have a 'hash' file containing the commit hash corresponding
     to the commit on Hugging Face Hub.
     """
     from transformers.utils.hub import TRANSFORMERS_CACHE
@@ -48,11 +48,13 @@ def download_model(
         + [os.path.join(bucket_uri, "hash"), "."]
     )
     if not os.path.exists(os.path.join(".", "hash")):
-        raise RuntimeError(
-            "Hash file not found in the bucket or bucket could not have been downloaded."
+        f_hash = "0000000000000000000000000000000000000000"
+        logger.warning(
+            f"hash file does not exist in {bucket_uri}. Using {f_hash} as the hash."
         )
-    with open(os.path.join(".", "hash"), "r") as f:
-        f_hash = f.read().strip()
+    else:
+        with open(os.path.join(".", "hash"), "r") as f:
+            f_hash = f.read().strip()
     logger.info(
         f"Downloading {model_id} from {bucket_uri} to {os.path.join(path, 'snapshots', f_hash)}"
     )

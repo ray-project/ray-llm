@@ -457,7 +457,7 @@ class AviaryFrontend(GradioIngress):
             pass
 
         # Get the port the serve app is running on
-        controller = serve.context._global_client._controller
+        controller = ray.serve.context.get_global_client()._controller
         port = ray.get(controller.get_http_config.remote()).port
 
         blocks._queue.set_url(f"http://localhost:{port}/")
