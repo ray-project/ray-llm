@@ -448,7 +448,7 @@ class LLMPredictor:
         await asyncio.gather(
             *[
                 initialize_node_remote_pg.remote(
-                    llm_config.model_id,
+                    llm_config.actual_hf_model_id,
                     llm_config.initialization.s3_mirror_config,
                 )
                 for i in range(scaling_config.num_workers)

@@ -350,6 +350,11 @@ body, gradio-app {
     font-size: 1rem;
 }
 
+.ticker-container.block {
+    padding: 4px 8px !important;
+    border: 1px solid var(--button-primary-border-color) !important;
+}
+
 #prompt-examples-column {
     flex-grow: 0 !important;
 }

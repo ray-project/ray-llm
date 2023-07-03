@@ -1,4 +1,4 @@
-models: ./models
+models: ./models/continuous_batching
 
 ray_serve_config:
   applications:

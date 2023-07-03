@@ -400,6 +400,15 @@ class InitializationConfig(BaseModelExtended):
             )
         return values
 
+    @root_validator
+    def s3_mirror_config_transformers(cls, values):
+        s3_mirror_config: S3MirrorConfig = values.get("s3_mirror_config")
+        if s3_mirror_config and s3_mirror_config.bucket_uri:
+            initializer: Initializer = values.get("initializer")
+            if isinstance(initializer, Transformers):
+                initializer.from_pretrained_kwargs["local_files_only"] = True
+        return values
+
 
 class StaticBatchingInitializationConfig(InitializationConfig):
     initializer: Annotated[

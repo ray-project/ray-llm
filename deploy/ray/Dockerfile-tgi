@@ -28,11 +28,12 @@ RUN export FORCE_CUDA=1 NVCC_PREPEND_FLAGS="--forward-unknown-opts" DS_BUILD_OPS
   "numpy<1.24" \
   "ninja"
 RUN pip install --no-deps "git+https://github.com/huggingface/optimum.git"
+RUN pip uninstall -y ray && pip install -U https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-3.0.0.dev0-cp310-cp310-manylinux2014_x86_64.whl
 RUN source "$HOME/.cargo/env" && pip install boto3
 
 # Created by build_aviary_wheel.sh
 COPY "./dist" "/home/ray/dist"
-RUN cd /home/ray/dist && pip install "$(ls *.whl | head -n1)[backend]"
+RUN cd /home/ray/dist && pip install --no-deps "$(ls *.whl | head -n1)[backend, frontend]"
 
 # The build context should be the root of the repo
 # So this gives the model definitions
@@ -48,4 +49,4 @@ RUN sudo supervisord --version
 
 RUN echo "Testing aviary install" && python -c "import aviary.backend"
 
-RUN pip cache purge && conda clean -a && rm -rf ~/.cache
+RUN (pip cache purge || true) && conda clean -a && rm -rf ~/.cache
