@@ -28,7 +28,8 @@ class BackendController:
             else "compute-config.yaml"
         )
         self.cc_path = os.path.join(self.deploy_dir, self.cc_filename)
-        self.ce_path = os.path.join(self.deploy_dir, "cluster-env.yaml")
+        # TODO make this configurable
+        self.ce_path = os.path.join(self.deploy_dir, "cluster-env-tgi.yaml")
         self.service_start_path = os.path.join(self.deploy_dir, "service.yaml")
         self.service_final_path = os.path.join(self.deploy_dir, "service.yaml.tmp")
 
