@@ -456,7 +456,11 @@ class AviaryFrontend(GradioIngress):
         def noop(*args, **kwargs):
             pass
 
-        blocks._queue.set_url("http://localhost:8000/")
+        # Get the port the serve app is running on
+        controller = serve.context._global_client._controller
+        port = ray.get(controller.get_http_config.remote()).port
+
+        blocks._queue.set_url(f"http://localhost:{port}/")
         blocks._queue.set_url = noop
 
 
