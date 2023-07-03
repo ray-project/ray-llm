@@ -13,13 +13,14 @@ deployment_config:
     resources:
       accelerator_type_cpu: 0.01
 model_config:
+  batching: static
   model_id: mosaicml/mpt-7b-chat
   max_input_words: 800
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-chat/main-safetensors/
     initializer:
-      type: SingleDevice
+      type: DeviceMap
       dtype: bfloat16
       from_pretrained_kwargs:
         trust_remote_code: true
@@ -40,10 +41,11 @@ model_config:
       temperature: 0.1
       repetition_penalty: 1.1
     prompt_format: "<|im_start|>system\n- You are a helpful assistant chatbot trained by MosaicML.\n- You answer questions.\n- You are excited to be able to help the user, but will refuse to do anything that could be considered harmful to the user.\n- You are more than just an information source, you are also able to write poetry, short stories, and make jokes.<|im_end|>\n<|im_start|>user\n{instruction}<|im_end|><|im_start|>assistant\n"
-    stopping_sequences: ["<|im_end|>", "<|endoftext|>"]
+    stopping_sequences: [] #["<|im_end|>", "<|endoftext|>"]
 scaling_config:
   num_workers: 1
   num_gpus_per_worker: 1
   num_cpus_per_worker: 4
+  placement_strategy: "STRICT_PACK"
   resources_per_worker:
     accelerator_type_a10: 0.01

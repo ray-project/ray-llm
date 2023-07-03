@@ -1,3 +1,4 @@
+import json
 import os
 import random
 
@@ -64,21 +65,25 @@ class UserTasks(TaskSet):
         models = random.choice(list(SELECTION_DICT.values()))
         if len(models) > 3:
             models = [random.choice(models) for _ in range(3)]
+        models = ["mosaicml/mpt-7b-chat"]
         models = [model.replace("/", "--") for model in models]
 
         def func(model):
             with self.client.post(
-                model,
+                f"/{model}/stream",
                 json={"prompt": prompt},
                 headers={"Authorization": bearer},
                 timeout=120,
                 catch_response=True,
+                stream=True,
             ) as response:
-                if response.status_code != 200:
-                    response.failure("Got wrong response")
-                    print("Got the wrong response!", response)
-                    print("Got the wrong response!", response.status_code)
-                    print("Got the wrong response!", response.text)
+                for chunk in response.iter_lines(chunk_size=None, decode_unicode=True):
+                    chunk = chunk.strip()
+                    if not chunk:
+                        continue
+                    data = json.loads(chunk)
+                    if "error" in data:
+                        raise RuntimeError(data["error"], response=response)
 
         group = Group()
         jobs = [group.spawn(func, model=model) for model in models]

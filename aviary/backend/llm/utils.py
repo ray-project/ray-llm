@@ -5,7 +5,8 @@ import time
 import traceback
 from collections import defaultdict
 from functools import wraps
-from typing import List, Optional
+from typing import Callable, List, Optional
+from unittest.mock import patch
 
 import torch.distributed as dist
 from filelock import FileLock
@@ -145,10 +146,21 @@ def merge_dicts(overwrite: dict, base: dict) -> dict:
     return base
 
 
+def noop(*args, **kwargs):
+    pass
+
+
+def _init_torch_distributed_env_vars_only(*args, **kwargs):
+    """Same as _init_torch_distributed, but only sets env vars."""
+    with patch("torch.distributed.init_process_group", noop):
+        _init_torch_distributed(*args, **kwargs)
+
+
 async def init_torch_dist_process_group_async(
     workers: List[ActorHandle],
     backend: str = "gloo",
     init_method: str = "env",
+    init_function: Callable = _init_torch_distributed,
 ) -> List[int]:
     """Initialize a torch distributed process group asynchronously.
 
@@ -165,6 +177,8 @@ async def init_torch_dist_process_group_async(
             possible choices are "gloo" or "nccl".
         init_method: The initialization method to use,
             possible choices are "env" or "tcp".
+        init_function: The function to use to initialize the
+            torch distributed process group.
 
     Returns:
         Local ranks on their respective nodes for the list of workers.
@@ -203,7 +217,7 @@ async def init_torch_dist_process_group_async(
         local_world_size = len(node_to_workers[node_id])
         setup_futures.append(
             worker.execute.remote(
-                _init_torch_distributed,
+                init_function,
                 init_method=init_method,
                 backend=backend,
                 rank=rank,

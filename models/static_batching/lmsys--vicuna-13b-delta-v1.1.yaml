@@ -1,0 +1,51 @@
+deployment_config:
+  autoscaling_config:
+    min_replicas: 1
+    initial_replicas: 1
+    max_replicas: 8
+    target_num_ongoing_requests_per_replica: 1.0
+    metrics_interval_s: 10.0
+    look_back_period_s: 30.0
+    smoothing_factor: 1.0
+    downscale_delay_s: 300.0
+    upscale_delay_s: 90.0
+  ray_actor_options:
+    resources:
+      accelerator_type_cpu: 0.01
+model_config:
+  model_id: lmsys/vicuna-13b-delta-v1.1
+  max_input_words: 800
+  model_description: "Vicuna is an open-source chatbot trained by fine-tuning LLaMA on user-shared conversations collected from ShareGPT. It is an auto-regressive language model, based on the transformer architecture."
+  initialization:
+    s3_mirror_config:
+      bucket_uri: s3://large-dl-models-mirror/restricted/models--lmsys--vicuna-13b-delta-v1.1/main-safetensors/
+    initializer:
+      type: DeepSpeed
+      dtype: float16
+      from_pretrained_kwargs:
+        use_cache: true
+      use_kernel: false
+      use_bettertransformer: true
+      torch_compile:
+        backend: inductor
+        mode: max-autotune
+      max_tokens: 1536
+    pipeline: transformers
+  generation:
+    max_batch_size: 6
+    generate_kwargs:
+      do_sample: true
+      max_new_tokens: 512
+      min_new_tokens: 16
+      temperature: 0.4
+      top_p: 1.0
+      repetition_penalty: 1.02
+      return_token_type_ids: false
+    prompt_format: "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. The assistant uses English. USER: {instruction} ASSISTANT: "
+    stopping_sequences: []
+scaling_config:
+  num_workers: 2
+  num_gpus_per_worker: 1
+  num_cpus_per_worker: 4
+  resources_per_worker:
+    accelerator_type_a10: 0.01

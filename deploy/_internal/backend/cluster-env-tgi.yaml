@@ -1,0 +1,2 @@
+docker_image: anyscale/aviary:latest-tgi
+ray_version: nightly

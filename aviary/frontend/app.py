@@ -188,7 +188,7 @@ async def do_query(prompt, model1, model2, model3, unused_raw=None):
                     stats[i]["generation_time"] += response["generation_time"]
                 outs[i] = stats[i]
             yield [
-                *["".join(t) for t in all_text],
+                *["".join(t).strip() for t in all_text],
                 *[gen_stats(s) if s else "" for s in stats],
                 "",
                 outs,

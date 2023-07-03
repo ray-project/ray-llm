@@ -1,0 +1,51 @@
+# Use Anyscale base image
+FROM anyscale/ray:nightly-py310-cu118
+SHELL ["/bin/bash", "-c"]
+
+# Add extra dependencies
+ARG DEBIAN_FRONTEND=noninteractive
+RUN sudo apt-get update && sudo apt-get install -y axel nfs-common zip unzip awscli curl libssl-dev gcc pkg-config libc6-dev && sudo apt-get clean
+
+ENV RAY_SERVE_ENABLE_EXPERIMENTAL_STREAMING=1
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
+ENV SAFETENSORS_FAST_GPU=1
+ENV XDG_CACHE_HOME=/mnt/local_storage/data/cache
+ENV TORCH_HOME=/mnt/local_storage/data/cache/torch
+
+RUN wget "https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init" && chmod +x rustup-init && ./rustup-init -y && rm rustup-init && source "$HOME/.cargo/env"
+RUN source "$HOME/.cargo/env" && PROTOC_ZIP=protoc-21.12-linux-x86_64.zip && curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v21.12/$PROTOC_ZIP && sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc && sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*' && rm -f $PROTOC_ZIP
+RUN source "$HOME/.cargo/env" && pip install -i https://download.pytorch.org/whl/cu118 torch torchvision torchaudio
+RUN source "$HOME/.cargo/env" && pip install tensorboard ninja text-generation
+RUN source "$HOME/.cargo/env" && export FORCE_CUDA=1 && git clone https://github.com/huggingface/text-generation-inference && cd text-generation-inference && git checkout 1da07e85aae8ce417dda3effd516691394dc31a1 && BUILD_EXTENSIONS=True make install
+RUN source "$HOME/.cargo/env" && export FORCE_CUDA=1 && cd text-generation-inference/server && BUILD_EXTENSIONS=True make install-flash-attention
+RUN source "$HOME/.cargo/env" && export FORCE_CUDA=1 && cd text-generation-inference/server && rm Makefile && mv Makefile-vllm Makefile && make install-vllm
+
+RUN export FORCE_CUDA=1 NVCC_PREPEND_FLAGS="--forward-unknown-opts" DS_BUILD_OPS=1 DS_BUILD_AIO=0 DS_BUILD_SPARSE_ATTN=0 TORCH_CUDA_ARCH_LIST="7.0 7.2 7.5 8.0 8.6" && pip install \
+  "awscrt" \
+  "Jinja2" \
+  "numexpr>=2.7.3" \
+  "git+https://github.com/Yard1/DeepSpeed.git@aviary" \
+  "numpy<1.24" \
+  "ninja"
+RUN pip install --no-deps "git+https://github.com/huggingface/optimum.git"
+RUN source "$HOME/.cargo/env" && pip install boto3
+
+# Created by build_aviary_wheel.sh
+COPY "./dist" "/home/ray/dist"
+RUN cd /home/ray/dist && pip install "$(ls *.whl | head -n1)[backend]"
+
+# The build context should be the root of the repo
+# So this gives the model definitions
+COPY "./models" "/home/ray/models"
+
+# (Optional) Verify that dependencies from the base image still work. This
+# is useful for catching dependency conflicts at build time.
+RUN echo "Testing Ray Import..." && python -c "import ray"
+RUN ray --version
+RUN jupyter --version
+RUN anyscale --version
+RUN sudo supervisord --version
+
+RUN echo "Testing aviary install" && python -c "import aviary.backend"
+
+RUN pip cache purge && conda clean -a && rm -rf ~/.cache

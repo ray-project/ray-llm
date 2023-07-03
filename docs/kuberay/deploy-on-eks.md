@@ -117,7 +117,7 @@ export HEAD_POD=$(kubectl get pods --selector=ray.io/node-type=head -o custom-co
 kubectl exec -it $HEAD_POD -- bash
 
 # Step 7.2: Deploy a `mosaicml/mpt-7b-chat` model
-aviary run --model ./models/mosaicml--mpt-7b-chat.yaml
+aviary run --model ./models/static_batching/mosaicml--mpt-7b-chat.yaml
 
 # Step 7.3: Check the Serve application status
 serve status

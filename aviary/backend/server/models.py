@@ -5,7 +5,6 @@ import torch
 import yaml
 from huggingface_hub import hf_hub_download, hf_hub_url
 from markdown_it import MarkdownIt
-from mdit_py_plugins.front_matter import front_matter_plugin
 from pydantic import BaseModel, Extra, Field, root_validator, validator
 from ray.air import ScalingConfig as AIRScalingConfig
 from ray.serve.config import AutoscalingConfig
@@ -14,6 +13,8 @@ from typing_extensions import Annotated
 
 def markdown_extract_first_paragraph(markdown_text: str):
     """Extract the first paragraph from a markdown-formatted string."""
+    from mdit_py_plugins.front_matter import front_matter_plugin
+
     md = MarkdownIt("commonmark", {"breaks": True, "html": True}).use(
         front_matter_plugin
     )
@@ -106,6 +107,8 @@ class ComputedPropertyMixin:
 class Prompt(BaseModelExtended):
     prompt: str
     use_prompt_format: bool = True
+    parameters: Optional[Dict[str, Any]] = None
+    stopping_sequences: Optional[List[str]] = None
 
     def __str__(self) -> str:
         return self.prompt
@@ -346,16 +349,33 @@ class LlamaCpp(Initializer):
         return {"llamacpp"}
 
 
+class Continuous(Initializer):
+    type: str
+
+
+class TextGenerationInference(Continuous):
+    type: Literal["TextGenerationInference"]
+    model_init_kwargs: Dict[str, Any] = {}
+
+    def get_initializer_kwargs(self) -> dict:
+        return {
+            **self.dict(exclude={"type", "model_init_kwargs"}),
+            **self.model_init_kwargs,
+        }
+
+    @property
+    def allowed_pipelines(self) -> Set[str]:
+        return {"TextGenerationInference"}
+
+
 class S3MirrorConfig(BaseModelExtended):
     bucket_uri: Optional[str] = None
     s3_sync_args: Optional[List[str]] = None
 
 
 class InitializationConfig(BaseModelExtended):
-    initializer: Annotated[
-        Union[DeepSpeed, DeviceMap, SingleDevice, LlamaCpp], Field(discriminator="type")
-    ]
-    pipeline: Union[Literal["transformers"], Literal["llamacpp"], Literal["default"]]
+    initializer: Initializer
+    pipeline: str
     s3_mirror_config: Optional[S3MirrorConfig] = None
     runtime_env: Optional[Dict[str, Any]] = None
     hf_model_id: Optional[str] = None
@@ -381,10 +401,25 @@ class InitializationConfig(BaseModelExtended):
         return values
 
 
+class StaticBatchingInitializationConfig(InitializationConfig):
+    initializer: Annotated[
+        Union[DeepSpeed, DeviceMap, SingleDevice, LlamaCpp],
+        Field(discriminator="type"),
+    ]
+    pipeline: Union[
+        Literal["transformers"],
+        Literal["llamacpp"],
+        Literal["default"],
+    ]
+
+
+class ContinuousBatchingInitializationConfig(InitializationConfig):
+    initializer: TextGenerationInference
+    pipeline: Literal["TextGenerationInference"] = "TextGenerationInference"
+
+
 class GenerationConfig(BaseModelExtended):
     prompt_format: Optional[str] = None
-    max_batch_size: int = 1
-    batch_wait_timeout_s: int = 1
     generate_kwargs: Dict[str, Any] = {
         "max_new_tokens": 256,
         "do_sample": True,
@@ -420,14 +455,56 @@ class GenerationConfig(BaseModelExtended):
         return {"stopping_sequences": self.stopping_sequences, **self.generate_kwargs}
 
 
+class StaticBatchingGenerationConfig(GenerationConfig):
+    max_batch_size: int = 1
+    batch_wait_timeout_s: int = 1
+
+
+class ContinuousBatchingGenerationConfig(GenerationConfig):
+    # Max total tokens (input+output) in a batch of multiple requests
+    max_batch_total_tokens: int = 16000
+    # Max total tokens (input+output) in a single request. Shouldn't be higher than
+    # context length of the model.
+    max_total_tokens: int = 2048
+    # This setting defines how many tokens can be passed before forcing the waiting
+    # queries to be put on the batch (if the size of the batch allows for it).
+    max_waiting_tokens: int = 20
+    # Max input tokens in a single request. Note: this is not validated yet
+    max_input_length: int = 1024
+    # Limits the number of tokens for the prefill operation.
+    max_batch_prefill_tokens: int = 4096
+    # This represents the ratio of waiting queries vs running queries where
+    # you want to start considering pausing the running queries to include the waiting
+    # ones into the same batch.
+    waiting_served_ratio: float = 1.2
+
+    @root_validator
+    def validate_values(cls, values):
+        if values.get("max_input_length") > values.get("max_batch_prefill_tokens"):
+            raise ValueError(
+                f"max_batch_prefill_tokens ({values.get('max_batch_prefill_tokens')}) must be >= max_input_length ({values.get('max_input_length')})"
+            )
+        if values.get("max_batch_prefill_tokens") > values.get(
+            "max_batch_total_tokens"
+        ):
+            raise ValueError(
+                f"max_batch_prefill_tokens ({values.get('max_batch_prefill_tokens')}) must be <= max_batch_total_tokens ({values.get('max_batch_total_tokens')})"
+            )
+        if values.get("max_total_tokens") > values.get("max_batch_total_tokens"):
+            raise ValueError(
+                f"max_total_tokens ({values.get('max_total_tokens')}) must be <= max_batch_total_tokens ({values.get('max_batch_total_tokens')})"
+            )
+        return values
+
+
 class LLMConfig(BaseModelExtended):
     model_id: str
-    initialization: InitializationConfig
-    generation: GenerationConfig
     model_url: Optional[str] = None
     model_description: Optional[str] = None
     # TODO make this token-based
     max_input_words: int = 400
+    initialization: InitializationConfig
+    generation: GenerationConfig
 
     @root_validator(pre=True)
     def resolve_model_url_and_description(cls, values):
@@ -460,6 +537,18 @@ class LLMConfig(BaseModelExtended):
         return self.initialization.hf_model_id or self.model_id
 
 
+class StaticBatchingModel(LLMConfig):
+    batching: Literal["static"]
+    initialization: StaticBatchingInitializationConfig
+    generation: StaticBatchingGenerationConfig
+
+
+class ContinuousBatchingModel(LLMConfig):
+    batching: Literal["continuous"]
+    initialization: ContinuousBatchingInitializationConfig
+    generation: ContinuousBatchingGenerationConfig
+
+
 class ScalingConfig(BaseModelExtended):
     num_workers: int
     num_gpus_per_worker: float = 1
@@ -483,8 +572,22 @@ class ScalingConfig(BaseModelExtended):
 
 
 class Args(BaseModelExtended):
-    model_config: LLMConfig
+    model_config: Annotated[
+        Union[StaticBatchingModel, ContinuousBatchingModel],
+        Field(discriminator="batching"),
+    ]
     scaling_config: ScalingConfig
+
+    @root_validator
+    def strict_pack_continuous(cls, values):
+        model_config = values.get("model_config")
+        if model_config and model_config.batching == "continuous":
+            scaling_config = values.get("scaling_config")
+            if scaling_config and scaling_config.placement_strategy != "STRICT_PACK":
+                raise ValueError(
+                    "Continuous batching only supports scaling_config.placement_strategy='STRICT_PACK'"
+                )
+        return values
 
     @property
     def air_scaling_config(self) -> AIRScalingConfig:

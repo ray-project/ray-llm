@@ -1,17 +1,16 @@
 import asyncio
 import traceback
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
+from abc import ABC, abstractmethod
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Type, Union
 
 import async_timeout
-import ray
-import ray.util
 from fastapi import FastAPI
 from ray import serve
 from ray.exceptions import RayActorError
 from starlette.requests import Request
 from starlette.responses import StreamingResponse
 
-from aviary.backend.llm.predictor import LLMPredictor
+from aviary.backend.llm.predictor import ContinuousBatchingPredictor, LLMPredictor
 from aviary.backend.logger import get_logger
 from aviary.backend.server.batch import QueuePriority, _PriorityBatchQueue
 from aviary.backend.server.exceptions import PromptTooLongError
@@ -24,6 +23,7 @@ from aviary.backend.server.models import (
 )
 from aviary.common.constants import GATEWAY_TIMEOUT_S
 
+EOS_SENTINELS = (None, StopIteration, StopAsyncIteration)
 logger = get_logger(__name__)
 
 app = FastAPI()
@@ -36,61 +36,22 @@ async def _until_disconnected(request: Request):
         await asyncio.sleep(1)
 
 
-@serve.deployment(
-    autoscaling_config={
-        "min_replicas": 1,
-        "initial_replicas": 2,
-        "max_replicas": 8,
-    },
-    max_concurrent_queries=2,  # Maximum backlog for a single replica
-    health_check_period_s=10,
-    health_check_timeout_s=30,
-)
 @serve.ingress(app)
-class LLMDeployment(LLMPredictor):
+class LLMDeployment(ABC):
+    _predictor_cls: Type[LLMPredictor] = LLMPredictor
+
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         self.args = None
         # Keep track of requests to cancel them gracefully
         self.requests_ids: Dict[int, bool] = {}
         self.curr_request_id: int = 0
-        super().__init__()
+        self.predictor = self._predictor_cls(
+            self.args.model_config if self.args else None
+        )
 
+    @abstractmethod
     def _should_reinit_worker_group(self, new_args: Args) -> bool:
-        old_args = self.args
-
-        if not old_args:
-            return True
-
-        old_scaling_config = self.args.air_scaling_config
-        new_scaling_config = new_args.scaling_config.as_air_scaling_config()
-
-        if not self.base_worker_group:
-            return True
-
-        if old_scaling_config != new_scaling_config:
-            return True
-
-        if not old_args:
-            return True
-
-        if old_args.model_config.initialization != new_args.model_config.initialization:
-            return True
-
-        if (
-            old_args.model_config.generation.max_batch_size
-            != new_args.model_config.generation.max_batch_size
-            and isinstance(new_args.model_config.initialization.initializer, DeepSpeed)
-        ):
-            return True
-
-        # TODO: Allow this
-        if (
-            old_args.model_config.generation.prompt_format
-            != new_args.model_config.generation.prompt_format
-        ):
-            return True
-
-        return False
+        pass
 
     async def reconfigure(
         self,
@@ -106,28 +67,13 @@ class LLMDeployment(LLMPredictor):
         should_reinit_worker_group = force or self._should_reinit_worker_group(new_args)
 
         self.args = new_args
+        self.predictor.model_config = new_args.model_config
         if should_reinit_worker_group:
-            await self.rollover(
+            await self.predictor.rollover(
                 self.args.air_scaling_config,
                 pg_timeout_s=self.args.scaling_config.pg_timeout_s,
             )
         logger.info("Reconfigured.")
-
-    @property
-    def max_batch_size(self):
-        return self.args.model_config.generation.max_batch_size
-
-    @property
-    def batch_wait_timeout_s(self):
-        return self.args.model_config.generation.batch_wait_timeout_s
-
-    @property
-    def _ray_serve_max_batch_size(self):
-        return self.max_batch_size
-
-    @property
-    def _ray_serve_batch_wait_timeout_s(self):
-        return self.batch_wait_timeout_s
 
     async def validate_prompt(self, prompt: Prompt) -> None:
         if len(prompt.prompt.split()) > self.args.model_config.max_input_words:
@@ -167,6 +113,10 @@ class LLMDeployment(LLMPredictor):
                 priority=priority,
                 # start_timestamp=start_timestamp,
             ):
+                if isinstance(t, list):
+                    t = t[0]
+                if t in EOS_SENTINELS:
+                    continue
                 responses.append(t)
             return Response.merge_stream(*responses)
 
@@ -185,7 +135,14 @@ class LLMDeployment(LLMPredictor):
                     priority=QueuePriority.GENERATE_TEXT,
                     # start_timestamp=start_timestamp,
                 ):
-                    yield t.json() + "\n"
+                    if isinstance(t, (list, tuple)):
+                        if t[0] in EOS_SENTINELS:
+                            continue
+                        yield t[0].json() + "\n"
+                    else:
+                        if t in EOS_SENTINELS:
+                            continue
+                        yield t.json() + "\n"
             except Exception as e:
                 yield ErrorResponse(
                     error="".join(traceback.format_exception_only(type(e), e)).strip(),
@@ -212,6 +169,7 @@ class LLMDeployment(LLMPredictor):
         )
         return texts
 
+    @abstractmethod
     async def generate_text_batch(
         self,
         prompt: Prompt,
@@ -221,68 +179,15 @@ class LLMDeployment(LLMPredictor):
         timeout_s: Union[float, List[float]] = GATEWAY_TIMEOUT_S - 10,
         **kwargs,
     ) -> AsyncGenerator:
-        """Generate text from the given prompts in batch.
+        pass
 
-        Args:
-            prompts (List[Prompt]): Batch of prompts to generate text from.
-            start_timestamp (Optional[float], optional): Timestamp of when the
-                batch was created. Defaults to None. If set, will early stop
-                the generation.
-            timeout_s (float, optional): Timeout for the generation. Defaults
-                to GATEWAY_TIMEOUT_S-10. Ignored if start_timestamp is None.
-            **kwargs: Additional arguments to pass to the batch function.
-        """
-        curr_request_id = self.curr_request_id
-        self.requests_ids[curr_request_id] = False
-        self.curr_request_id += 1
-        async_generator = self._generate_text_batch(
-            (prompt, curr_request_id),
-            start_timestamp=start_timestamp,
-            timeout_s=timeout_s,
-            **kwargs,
-        )
-        # The purpose of this loop is to ensure that the underlying
-        # generator is fully consumed even if the client disconnects.
-        # If the loop is not consumed, then the PredictionWorker will
-        # be stuck.
-        # TODO: Revisit this - consider catching asyncio.CancelledError
-        # and/or setting a Ray Event to cancel the PredictionWorker generator.
-        while True:
-            try:
-                future = async_generator.__anext__()
-
-                if not self.requests_ids[curr_request_id]:
-                    future = asyncio.ensure_future(future)
-                    done, pending = await asyncio.wait(
-                        (future, _until_disconnected(request)),
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
-                    if future in done:
-                        yield await future
-                    else:
-                        # We caught the disconnect
-                        logger.info(f"Request {curr_request_id} disconnected.")
-                        self.requests_ids[curr_request_id] = True
-                        await future
-                else:
-                    await future
-            except StopAsyncIteration:
-                break
-        del self.requests_ids[curr_request_id]
-
-    @serve.batch(
-        # batch size & timeout will be read from
-        # _ray_serve_max_batch_size and
-        # _ray_serve_batch_wait_timeout_s
-        batch_queue_cls=_PriorityBatchQueue,
-    )
-    async def _generate_text_batch(
+    async def _generate_text_stream(
         self,
         prompts_and_request_ids: List[Tuple[Prompt, int]],
         *,
         start_timestamp: Optional[Union[float, List[float]]] = None,
         timeout_s: Union[float, List[float]] = GATEWAY_TIMEOUT_S - 10,
-        priority: QueuePriority = QueuePriority.GENERATE_TEXT,  # used by the PriorityBatchQueue
+        **kwargs,
     ):
         prompts, request_ids = zip(*prompts_and_request_ids)
         if isinstance(start_timestamp, list) and start_timestamp[0]:
@@ -297,15 +202,15 @@ class LLMDeployment(LLMPredictor):
         logger.info(
             f"Received {len(prompts)} prompts {prompts} request_ids {request_ids}. start_timestamp {start_timestamp} timeout_s {timeout_s}"
         )
-        data_ref = ray.put(prompts)
 
-        while not self.base_worker_group:
+        while not self.predictor.is_initialized():
             logger.info("Waiting for worker group to be initialized...")
             await asyncio.sleep(1)
 
         try:
-            async for result in self._stream_async(
-                data_ref,
+            logger.info(f"calling _stream_async on {request_ids}")
+            async for result in self.predictor._stream_async(
+                prompts,
                 timeout_s=timeout_s,
                 start_timestamp=start_timestamp,
             ):
@@ -325,20 +230,236 @@ class LLMDeployment(LLMPredictor):
 
     # Called by Serve to check the replica's health.
     async def check_health(self):
-        if self._new_worker_group_lock.locked():
-            logger.info("Rollover in progress, skipping health check")
-            return
-        if self.pg and self.base_worker_group:
-            dead_actors = []
-            for actor in self.base_worker_group:
-                actor_state = ray.state.actors(actor._ray_actor_id.hex())
-                if actor_state["State"] == "DEAD":
-                    dead_actors.append(actor)
-            if dead_actors:
-                raise RuntimeError(
-                    f"At least one prediction worker is dead. Dead workers: {dead_actors}. "
-                    "Reinitializing worker group."
-                )
+        self.predictor.check_health()
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}:{self.args.model_config.model_id}"
+
+
+@serve.deployment(
+    autoscaling_config={
+        "min_replicas": 1,
+        "initial_replicas": 2,
+        "max_replicas": 8,
+    },
+    max_concurrent_queries=10,  # Maximum backlog for a single replica
+    health_check_period_s=10,
+    health_check_timeout_s=30,
+)
+class StaticBatchingLLMDeployment(LLMDeployment):
+    def _should_reinit_worker_group(self, new_args: Args) -> bool:
+        old_args = self.args
+
+        if not old_args:
+            return True
+
+        old_scaling_config = self.args.air_scaling_config
+        new_scaling_config = new_args.scaling_config.as_air_scaling_config()
+
+        if not self.predictor.is_initialized():
+            return True
+
+        if old_scaling_config != new_scaling_config:
+            return True
+
+        if not old_args:
+            return True
+
+        if old_args.model_config.initialization != new_args.model_config.initialization:
+            return True
+
+        if (
+            old_args.model_config.generation.max_batch_size
+            != new_args.model_config.generation.max_batch_size
+            and isinstance(new_args.model_config.initialization.initializer, DeepSpeed)
+        ):
+            return True
+
+        # TODO: Allow this
+        if (
+            old_args.model_config.generation.prompt_format
+            != new_args.model_config.generation.prompt_format
+        ):
+            return True
+
+        return False
+
+    @property
+    def max_batch_size(self):
+        return self.args.model_config.generation.max_batch_size
+
+    @property
+    def batch_wait_timeout_s(self):
+        return self.args.model_config.generation.batch_wait_timeout_s
+
+    @property
+    def _ray_serve_max_batch_size(self):
+        return self.max_batch_size
+
+    @property
+    def _ray_serve_batch_wait_timeout_s(self):
+        return self.batch_wait_timeout_s
+
+    async def generate_text_batch(
+        self,
+        prompt: Prompt,
+        request: Request,
+        *,
+        start_timestamp: Optional[Union[float, List[float]]] = None,
+        timeout_s: Union[float, List[float]] = GATEWAY_TIMEOUT_S - 10,
+        **kwargs,
+    ) -> AsyncGenerator:
+        """Generate text from the given prompts in batch.
+
+        Args:
+            prompts (List[Prompt]): Batch of prompts to generate text from.
+            request (Request): Request object.
+            start_timestamp (Optional[float], optional): Timestamp of when the
+                batch was created. Defaults to None. If set, will early stop
+                the generation.
+            timeout_s (float, optional): Timeout for the generation. Defaults
+                to GATEWAY_TIMEOUT_S-10. Ignored if start_timestamp is None.
+            **kwargs: Additional arguments to pass to the batch function.
+        """
+        curr_request_id = self.curr_request_id
+        self.requests_ids[curr_request_id] = False
+        self.curr_request_id += 1
+        async_generator = self._generate_text_stream(
+            (prompt, curr_request_id),
+            start_timestamp=start_timestamp,
+            timeout_s=timeout_s,
+            **kwargs,
+        )
+        # The purpose of this loop is to ensure that the underlying
+        # generator is fully consumed even if the client disconnects.
+        # If the loop is not consumed, then the PredictionWorker will
+        # be stuck.
+        # TODO: Revisit this - consider catching asyncio.CancelledError
+        # and/or setting a Ray Event to cancel the PredictionWorker generator.
+        logger.info(f"self.requests_ids {self.requests_ids}")
+        logger.info(f"starting request {curr_request_id}")
+        while True:
+            try:
+                future = async_generator.__anext__()
+
+                if not self.requests_ids[curr_request_id]:
+                    future = asyncio.ensure_future(future)
+                    done, pending = await asyncio.wait(
+                        (future, _until_disconnected(request)),
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if future in done:
+                        logger.info(f"yielding request {curr_request_id}")
+                        yield await future
+                    else:
+                        # We caught the disconnect
+                        logger.info(f"Request {curr_request_id} disconnected.")
+                        self.requests_ids[curr_request_id] = True
+                        await future
+                else:
+                    logger.info(f"processing {curr_request_id}")
+                    await future
+            except StopAsyncIteration:
+                break
+        del self.requests_ids[curr_request_id]
+
+    @serve.batch(
+        # batch size & timeout will be read from
+        # _ray_serve_max_batch_size and
+        # _ray_serve_batch_wait_timeout_s
+        batch_queue_cls=_PriorityBatchQueue,
+    )
+    async def _generate_text_stream(
+        self,
+        prompts_and_request_ids: List[Tuple[Prompt, int]],
+        *,
+        start_timestamp: Optional[Union[float, List[float]]] = None,
+        timeout_s: Union[float, List[float]] = GATEWAY_TIMEOUT_S - 10,
+        priority: QueuePriority = QueuePriority.GENERATE_TEXT,  # used by the PriorityBatchQueue
+    ):
+        async for result in super()._generate_text_stream(
+            prompts_and_request_ids,
+            start_timestamp=start_timestamp,
+            timeout_s=timeout_s,
+        ):
+            yield result
+
+
+@serve.deployment(
+    autoscaling_config={
+        "min_replicas": 1,
+        "initial_replicas": 2,
+        "max_replicas": 8,
+    },
+    max_concurrent_queries=10,  # Maximum backlog for a single replica
+    health_check_period_s=10,
+    health_check_timeout_s=30,
+)
+class ContinuousBatchingLLMDeployment(LLMDeployment):
+    _predictor_cls: Type[LLMPredictor] = ContinuousBatchingPredictor
+
+    def _should_reinit_worker_group(self, new_args: Args) -> bool:
+        old_args = self.args
+
+        if not old_args:
+            return True
+
+        old_scaling_config = self.args.air_scaling_config
+        new_scaling_config = new_args.scaling_config.as_air_scaling_config()
+
+        if not self.predictor.is_initialized():
+            return True
+
+        if old_scaling_config != new_scaling_config:
+            return True
+
+        if not old_args:
+            return True
+
+        if old_args.model_config.initialization != new_args.model_config.initialization:
+            return True
+
+        # TODO: Allow this
+        if (
+            old_args.model_config.generation.prompt_format
+            != new_args.model_config.generation.prompt_format
+        ):
+            return True
+
+        return False
+
+    async def generate_text_batch(
+        self,
+        prompt: Prompt,
+        request: Request,
+        *,
+        start_timestamp: Optional[Union[float, List[float]]] = None,
+        timeout_s: Union[float, List[float]] = GATEWAY_TIMEOUT_S - 10,
+        **kwargs,
+    ) -> AsyncGenerator:
+        """Generate text from the given prompts in batch.
+
+        Args:
+            prompts (List[Prompt]): Batch of prompts to generate text from.
+            request (Request): Request object.
+            start_timestamp (Optional[float], optional): Timestamp of when the
+                batch was created. Defaults to None. If set, will early stop
+                the generation.
+            timeout_s (float, optional): Timeout for the generation. Defaults
+                to GATEWAY_TIMEOUT_S-10. Ignored if start_timestamp is None.
+            **kwargs: Additional arguments to pass to the batch function.
+        """
+        curr_request_id = self.curr_request_id
+        self.requests_ids[curr_request_id] = False
+        self.curr_request_id += 1
+        async_generator = self._generate_text_stream(
+            [(prompt, curr_request_id)],
+            start_timestamp=start_timestamp,
+            timeout_s=timeout_s,
+            **kwargs,
+        )
+        try:
+            async for result in async_generator:
+                yield result
+        finally:
+            del self.requests_ids[curr_request_id]

@@ -4,8 +4,16 @@ from typing import List, Union
 import ray._private.usage.usage_lib
 from ray import serve
 
-from aviary.backend.server.app import LLMDeployment
-from aviary.backend.server.models import AppArgs, LLMApp
+from aviary.backend.server.app import (
+    ContinuousBatchingLLMDeployment,
+    StaticBatchingLLMDeployment,
+)
+from aviary.backend.server.models import (
+    AppArgs,
+    ContinuousBatchingModel,
+    LLMApp,
+    StaticBatchingModel,
+)
 from aviary.backend.server.utils import parse_args
 
 
@@ -14,10 +22,21 @@ def llm_model(model: LLMApp):
     user_config = model.dict()
     deployment_config = model.deployment_config.dict()
     deployment_config = deployment_config.copy()
-    max_concurrent_queries = deployment_config.pop(
-        "max_concurrent_queries", None
-    ) or user_config["model_config"]["generation"].get("max_batch_size", 1)
-    return LLMDeployment.options(
+
+    if isinstance(model.model_config, StaticBatchingModel):
+        deployment_cls = StaticBatchingLLMDeployment
+        max_concurrent_queries = deployment_config.pop(
+            "max_concurrent_queries", None
+        ) or user_config["model_config"]["generation"].get("max_batch_size", 1)
+    elif isinstance(model.model_config, ContinuousBatchingModel):
+        deployment_cls = ContinuousBatchingLLMDeployment
+        max_concurrent_queries = deployment_config.pop("max_concurrent_queries", None)
+        if max_concurrent_queries is None:
+            raise ValueError(
+                "deployment_config.max_concurrent_queries must be specified for continuous batching models."
+            )
+
+    return deployment_cls.options(
         name=model.model_config.model_id.replace("/", "--").replace(".", "_"),
         max_concurrent_queries=max_concurrent_queries,
         user_config=user_config,
