@@ -37,3 +37,6 @@ post_build_cmds:
     "einops" \
     "markdown-it-py[plugins]" \
     "fastapi_versioning"
+  
+  sudo apt-get install -y postgresql postgresql-client postgresql-contrib
+  pip install asyncpg sqlmodel sqlalchemy async_lru
