@@ -1,17 +1,20 @@
 import sys
-from typing import List, Union
+from typing import Dict, List, Tuple, Union
 
 import ray._private.usage.usage_lib
 from ray import serve
 
 from aviary.backend.server.app import (
     ContinuousBatchingLLMDeployment,
+    RouterDeployment,
     StaticBatchingLLMDeployment,
 )
 from aviary.backend.server.models import (
     AppArgs,
     ContinuousBatchingModel,
     LLMApp,
+    LLMConfig,
+    RouterArgs,
     StaticBatchingModel,
 )
 from aviary.backend.server.utils import parse_args
@@ -44,6 +47,37 @@ def llm_model(model: LLMApp):
     ).bind()
 
 
+def _parse_config_for_router(model_config: LLMConfig) -> Tuple[str, str, str]:
+    deployment_name = model_config.model_id.replace("/", "--").replace(".", "_")
+    deployment_route = f"/{deployment_name}"
+    full_deployment_name = f"{deployment_name}_{deployment_name}"
+    return deployment_name, deployment_route, full_deployment_name
+
+
+def router_deployment(models: Dict[str, Union[str, LLMApp]]):
+    app_names = {}
+    deployment_routes = {}
+    full_deployment_names = {}
+    model_configs = {}
+    for id, model in models.items():
+        model = parse_args(model)[0]
+        model_configs[id] = model
+        (
+            deployment_name,
+            deployment_route,
+            full_deployment_name,
+        ) = _parse_config_for_router(model.model_config)
+        app_name = deployment_name
+        app_names[model.model_config.model_id] = app_name
+        deployment_routes[model.model_config.model_id] = deployment_route
+        full_deployment_names[model.model_config.model_id] = full_deployment_name
+
+    router_deployment = RouterDeployment.bind(
+        full_deployment_names, deployment_routes, model_configs
+    )
+    return router_deployment
+
+
 def llm_server(args: Union[str, LLMApp, List[Union[LLMApp, str]]]):
     """Serve LLM Models
 
@@ -68,6 +102,9 @@ def llm_server(args: Union[str, LLMApp, List[Union[LLMApp, str]]]):
 
     # For each model, create a deployment
     deployments = {}
+    app_names = {}
+    deployment_routes = {}
+    full_deployment_names = {}
     model_configs = {}
     for model in models:
         if model.model_config.model_id in model_configs:
@@ -80,7 +117,19 @@ def llm_server(args: Union[str, LLMApp, List[Union[LLMApp, str]]]):
         model_configs[model.model_config.model_id] = model
         deployments[model.model_config.model_id] = llm_model(model)
 
-    return deployments, model_configs
+        (
+            deployment_name,
+            deployment_route,
+            full_deployment_name,
+        ) = _parse_config_for_router(model.model_config)
+        app_name = deployment_name
+        app_names[model.model_config.model_id] = app_name
+        deployment_routes[model.model_config.model_id] = deployment_route
+        full_deployment_names[model.model_config.model_id] = full_deployment_name
+
+    router = router_deployment(model_configs)
+
+    return router, deployments, deployment_routes, app_names
 
 
 def llm_application(args):
@@ -91,6 +140,11 @@ def llm_application(args):
     serve_args = AppArgs.parse_obj(args)
     model = parse_args(serve_args.model)[0]
     return llm_model(model)
+
+
+def router_application(args):
+    serve_args = RouterArgs.parse_obj(args)
+    return router_deployment(serve_args.models)
 
 
 def run(*models: Union[LLMApp, str]):
@@ -105,17 +159,21 @@ def run(*models: Union[LLMApp, str]):
        run({...LLMApp})         # run a single LLMApp
        run("models/model1.yaml", "models/model2.yaml", {...LLMApp}) # mix and match
     """
-    deployments, model_configs = llm_server(list(models))
+    router_app, deployments, deployment_routes, app_names = llm_server(list(models))
+
     ray._private.usage.usage_lib.record_library_usage("aviary")
-    for model_id, deployment in deployments.items():
-        model_id = model_id.replace("/", "--").replace(".", "_")
+
+    for model_id in deployments.keys():
+        app = deployments[model_id]
+        route = deployment_routes[model_id]
+        app_name = app_names[model_id]
         serve.run(
-            deployment,
-            name=model_id,
-            route_prefix=f"/{model_id}",
-            host="0.0.0.0",
-            _blocking=False,
+            app, name=app_name, route_prefix=route, host="0.0.0.0", _blocking=False
         )
+
+    serve.run(
+        router_app, name="router", route_prefix="/", host="0.0.0.0", _blocking=False
+    )
 
 
 if __name__ == "__main__":

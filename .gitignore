@@ -242,3 +242,7 @@ results/
 aviary-output.json
 evaluation-output.json
 prompts.txt
+
+
+# docs build
+site/

@@ -48,9 +48,14 @@ class BackendController:
         service["version"] = version if version else ""
         models = parse_args(service.pop("models"))
         applications = service["ray_serve_config"]["applications"]
-        application_template = applications[0]
+        llm_application_template = next(
+            app for app in (applications) if app["name"] == "::param:app_name::"
+        )
+        router_application_template = next(
+            app for app in (applications) if app["name"] == "router"
+        )
 
-        def build_application(model, template):
+        def build_llm_application(model, template):
             app = deepcopy(template)
             app["name"] = model.model_config.model_id.replace("/", "--").replace(
                 ".", "_"
@@ -59,9 +64,20 @@ class BackendController:
             app["args"] = {"model": model.yaml()}
             return app
 
+        def build_router(configs, template):
+            app = deepcopy(template)
+            app["args"] = {
+                "model_configs": {
+                    model.model_config.model_id: model.yaml() for model in configs
+                }
+            }
+            return app
+
         applications = [
-            build_application(model, application_template) for model in models
+            build_llm_application(model, llm_application_template) for model in models
         ]
+        applications += [build_router(models, router_application_template)]
+
         service["ray_serve_config"]["applications"] = applications
 
         with open(self.service_final_path, "w") as f:

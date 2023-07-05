@@ -1,4 +1,4 @@
-name: Documentation build and deploy
+name: 🦜🔍 Documentation build and deploy
 
 on:
   push:

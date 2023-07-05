@@ -622,3 +622,7 @@ class ServeArgs(BaseModel):
 
 class AppArgs(BaseModel):
     model: Union[str, LLMApp]
+
+
+class RouterArgs(BaseModel):
+    models: Dict[str, Union[str, LLMApp]]
