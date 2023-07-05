@@ -11,26 +11,28 @@ docker:
     # Use this image instead for continuous batching:
     # image: "anyscale/aviary:latest-tgi"
     container_name: "aviary"
+    run_options:
+      - --entrypoint ""
 
 # All the 'conda activate' are necessary to ensure we are in the
 # python 3.10 conda env.
 setup_commands:
-    - echo "conda activate" >> ~/.bashrc
+    - echo "(conda activate || true)" >> ~/.bashrc
 
 head_setup_commands:
-    - conda activate && pip install 'boto3>=1.4.8'
+    - (conda activate || true) && pip install 'boto3>=1.4.8'
 
 worker_setup_commands: []
 
 head_start_ray_commands:
-    - conda activate && ray stop
-    - conda activate && ulimit -n 65536; ray start --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml --dashboard-host=0.0.0.0
+    - (conda activate || true) && ray stop
+    - (conda activate || true) && ulimit -n 65536; ray start --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml --dashboard-host=0.0.0.0
 
 worker_start_ray_commands:
-    - conda activate && ray stop
+    - (conda activate || true) && ray stop
     # We need to make sure RAY_HEAD_IP env var is accessible
     # after conda activate.
-    - export RAY_HEAD_IP && echo "export RAY_HEAD_IP=$RAY_HEAD_IP" >> ~/.bashrc && conda activate && ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076
+    - export RAY_HEAD_IP && echo "export RAY_HEAD_IP=$RAY_HEAD_IP" >> ~/.bashrc && (conda activate || true) && ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076
 
 available_node_types:
   head_node_type:
