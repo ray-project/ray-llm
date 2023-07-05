@@ -6,12 +6,6 @@ SHELL ["/bin/bash", "-c"]
 ARG DEBIAN_FRONTEND=noninteractive
 RUN sudo apt-get update && sudo apt-get install -y axel nfs-common zip unzip awscli curl libssl-dev gcc pkg-config libc6-dev && sudo apt-get clean
 
-ENV RAY_SERVE_ENABLE_EXPERIMENTAL_STREAMING=1
-ENV HF_HUB_ENABLE_HF_TRANSFER=1
-ENV SAFETENSORS_FAST_GPU=1
-ENV XDG_CACHE_HOME=/mnt/local_storage/data/cache
-ENV TORCH_HOME=/mnt/local_storage/data/cache/torch
-
 RUN wget "https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init" && chmod +x rustup-init && ./rustup-init -y && rm rustup-init && source "$HOME/.cargo/env"
 RUN source "$HOME/.cargo/env" && PROTOC_ZIP=protoc-21.12-linux-x86_64.zip && curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v21.12/$PROTOC_ZIP && sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc && sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*' && rm -f $PROTOC_ZIP
 RUN source "$HOME/.cargo/env" && pip install -i https://download.pytorch.org/whl/cu118 torch torchvision torchaudio
@@ -33,11 +27,15 @@ RUN source "$HOME/.cargo/env" && pip install boto3
 
 # Created by build_aviary_wheel.sh
 COPY "./dist" "/home/ray/dist"
-RUN cd /home/ray/dist && pip install --no-deps "$(ls *.whl | head -n1)[backend, frontend]"
+RUN cd /home/ray/dist && pip install "$(ls *.whl | head -n1)[frontend]"
 
 # The build context should be the root of the repo
 # So this gives the model definitions
 COPY "./models" "/home/ray/models"
+
+ENV RAY_SERVE_ENABLE_EXPERIMENTAL_STREAMING=1
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
+ENV SAFETENSORS_FAST_GPU=1
 
 # (Optional) Verify that dependencies from the base image still work. This
 # is useful for catching dependency conflicts at build time.
