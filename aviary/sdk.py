@@ -3,20 +3,24 @@ import os
 import warnings
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+import pydantic
 import requests
 
-from aviary.api.utils import (
-    AviaryBackend,
-    BackendError,
+from aviary.common.constants import TIMEOUT
+from aviary.common.models import ChatCompletion, Completion, Model
+from aviary.common.utils import (
+    ResponseError,
     _convert_to_aviary_format,
     _get_langchain_model,
     _is_aviary_model,
     _supports_batching,
     assert_has_backend,
 )
-from aviary.common.constants import DEFAULT_API_VERSION, TIMEOUT
 
 __all__ = [
+    "Model",
+    "Completion",
+    "ChatCompletion",
     "models",
     "metadata",
     "completions",
@@ -25,6 +29,18 @@ __all__ = [
     "get_aviary_backend",
     "stream",
 ]
+
+
+class AviaryResource:
+    """Stores information about the Aviary backend configuration."""
+
+    def __init__(self, backend_url: str, bearer: str):
+        assert "::param" not in backend_url, "backend_url not set correctly"
+        assert "::param" not in bearer, "bearer not set correctly"
+
+        self.backend_url = backend_url
+        self.bearer = bearer
+        self.header = {"Authorization": self.bearer}
 
 
 def get_aviary_backend():
@@ -38,7 +54,7 @@ def get_aviary_backend():
     variables are required.
 
     Returns:
-        backend: An instance of the Backend class.
+        An instance of the AviaryResource class.
     """
     aviary_url = os.getenv("AVIARY_URL")
     assert aviary_url, "AVIARY_URL must be set"
@@ -49,38 +65,110 @@ def get_aviary_backend():
     aviary_url += "/" if not aviary_url.endswith("/") else ""
 
     print("Connecting to Aviary backend at: ", aviary_url)
-    return AviaryBackend(aviary_url, bearer)
+    return AviaryResource(aviary_url, bearer)
 
 
-def models(version: str = DEFAULT_API_VERSION) -> List[str]:
+def _get_result(response: requests.Response) -> Dict[str, Any]:
+    try:
+        result = response.json()
+    except requests.JSONDecodeError as e:
+        raise ResponseError(
+            f"Error decoding JSON from {response.url}. Text response: {response.text}",
+            response=response,
+        ) from e
+    return result
+
+
+def model_list(cls) -> Model:
+    """List all available Aviary models"""
+    backend = get_aviary_backend()
+    request_url = backend.backend_url + "v1/models"
+    response = requests.get(request_url, headers=backend.header, timeout=TIMEOUT)
+    result = _get_result(response)
+    return Model(**result)
+
+
+Model.list = classmethod(model_list)
+
+
+def completion_create(
+    cls,
+    model: str,
+    prompt: str,
+    use_prompt_format: bool = True,
+) -> Completion:
+    """Create a completion from a prompt."""
+    backend = get_aviary_backend()
+    url = backend.backend_url + "v1/completions/" + model.replace("/", "--")
+    response = requests.post(
+        url,
+        headers=backend.header,
+        json={"prompt": {"prompt": prompt, "use_prompt_format": use_prompt_format}},
+        timeout=TIMEOUT,
+    )
+    try:
+        return Completion(**_get_result(response))
+    except pydantic.ValidationError as e:
+        raise ResponseError(
+            f"Error decoding response from {response.url}. Text response: {response.text}",
+            response=response,
+        ) from e
+
+
+Completion.create = classmethod(completion_create)
+
+
+def chat_completion_create(
+    cls,
+    model: str,
+    messages: List[Dict[str, str]],
+    use_prompt_format: bool = True,
+) -> ChatCompletion:
+    """Create a chat completion from a list of messages."""
+    backend = get_aviary_backend()
+    url = backend.backend_url + "v1/chat/completions/" + model.replace("/", "--")
+    response = requests.post(
+        url,
+        headers=backend.header,
+        json={"messages": messages},
+        timeout=TIMEOUT,
+    )
+    try:
+        return ChatCompletion(**_get_result(response))
+    except pydantic.ValidationError as e:
+        raise ResponseError(
+            f"Error decoding response from {response.url}. Text response: {response.text}",
+            response=response,
+        ) from e
+
+
+ChatCompletion.create = classmethod(chat_completion_create)
+
+
+def models() -> List[str]:
     """List available models"""
     backend = get_aviary_backend()
-    request_url = backend.backend_url + "-/routes"
+    request_url = backend.backend_url + "models"
     response = requests.get(request_url, headers=backend.header, timeout=TIMEOUT)
     try:
         result = response.json()
     except requests.JSONDecodeError as e:
-        raise BackendError(
-            f"Error decoding JSON from {request_url}. Text response: {response.text}",
+        raise ResponseError(
+            f"Error decoding JSON from {response.url}. Text response: {response.text}",
             response=response,
         ) from e
-    result = sorted(
-        [k.lstrip("/").replace("--", "/") for k in result.keys() if "--" in k]
-    )
     return result
 
 
-def metadata(
-    model_id: str, version: str = DEFAULT_API_VERSION
-) -> Dict[str, Dict[str, Any]]:
+def metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
     """Get model metadata"""
     backend = get_aviary_backend()
-    url = backend.backend_url + model_id.replace("/", "--") + "/" + version + "metadata"
+    url = backend.backend_url + "metadata/" + model_id.replace("/", "--")
     response = requests.get(url, headers=backend.header, timeout=TIMEOUT)
     try:
         result = response.json()
     except requests.JSONDecodeError as e:
-        raise BackendError(
+        raise ResponseError(
             f"Error decoding JSON from {url}. Text response: {response.text}",
             response=response,
         ) from e
@@ -91,14 +179,13 @@ def completions(
     model: str,
     prompt: str,
     use_prompt_format: bool = True,
-    version: str = DEFAULT_API_VERSION,
     **kwargs,
 ) -> Dict[str, Union[str, float, int]]:
     """Get completions from Aviary models."""
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        url = backend.backend_url + model.replace("/", "--") + "/" + version + "query"
+        url = backend.backend_url + "query/batch/" + model.replace("/", "--")
         response = requests.post(
             url,
             headers=backend.header,
@@ -108,7 +195,7 @@ def completions(
         try:
             return response.json()
         except requests.JSONDecodeError as e:
-            raise BackendError(
+            raise ResponseError(
                 f"Error decoding JSON from {url}. Text response: {response.text}",
                 response=response,
             ) from e
@@ -120,7 +207,6 @@ def query(
     model: str,
     prompt: str,
     use_prompt_format: bool = True,
-    version: str = DEFAULT_API_VERSION,
     **kwargs,
 ) -> Dict[str, Union[str, float, int]]:
     warnings.warn(
@@ -128,14 +214,13 @@ def query(
         DeprecationWarning,
         stacklevel=2,
     )
-    return completions(model, prompt, use_prompt_format, version)
+    return completions(model, prompt, use_prompt_format, **kwargs)
 
 
 def batch_completions(
     model: str,
     prompts: List[str],
     use_prompt_format: Optional[List[bool]] = None,
-    version: str = DEFAULT_API_VERSION,
     kwargs: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Union[str, float, int]]]:
     """Get batch completions from Aviary models."""
@@ -148,7 +233,7 @@ def batch_completions(
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        url = backend.backend_url + model.replace("/", "--") + "/" + version + "batch"
+        url = backend.backend_url + "query/batch/" + model.replace("/", "--")
         response = requests.post(
             url,
             headers=backend.header,
@@ -161,7 +246,7 @@ def batch_completions(
         try:
             return response.json()
         except requests.JSONDecodeError as e:
-            raise BackendError(
+            raise ResponseError(
                 f"Error decoding JSON from {url}. Text response: {response.text}",
                 response=response,
             ) from e
@@ -180,13 +265,12 @@ def stream(
     model: str,
     prompt: str,
     use_prompt_format: bool = True,
-    version: str = DEFAULT_API_VERSION,
     **kwargs,
 ) -> Iterator[Dict[str, Union[str, float, int]]]:
     """Query Aviary and stream response"""
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        url = backend.backend_url + model.replace("/", "--") + "/" + version + "stream"
+        url = backend.backend_url + "stream/" + model.replace("/", "--")
         response = requests.post(
             url,
             headers=backend.header,
@@ -202,10 +286,10 @@ def stream(
                     continue
                 data = json.loads(chunk)
                 if "error" in data:
-                    raise BackendError(data["error"], response=response)
+                    raise ResponseError(data["error"], response=response)
                 yield data
         except ConnectionError as e:
-            raise BackendError(str(e) + "\n" + chunk, response=response) from e
+            raise ResponseError(str(e) + "\n" + chunk, response=response) from e
     else:
         # TODO implement streaming for langchain models
         raise RuntimeError("Streaming is currently only supported for aviary models")
@@ -215,7 +299,6 @@ def batch_query(
     model: str,
     prompts: List[str],
     use_prompt_format: Optional[List[bool]] = None,
-    version: str = DEFAULT_API_VERSION,
     kwargs: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Union[str, float, int]]]:
     warnings.warn(
@@ -223,7 +306,7 @@ def batch_query(
         DeprecationWarning,
         stacklevel=2,
     )
-    return batch_completions(model, prompts, use_prompt_format, version, kwargs)
+    return batch_completions(model, prompts, use_prompt_format, kwargs)
 
 
 def run(*model: str) -> None:
@@ -238,3 +321,6 @@ def run(*model: str) -> None:
     from aviary.backend.server.run import run
 
     run(*model)
+
+
+Model.deploy = classmethod(run)

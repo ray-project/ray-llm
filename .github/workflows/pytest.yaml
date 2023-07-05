@@ -1,4 +1,4 @@
-name: Aviary testing
+name: 🦜🔍 Aviary Testing
 
 on:
   push:
@@ -29,11 +29,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -U "ray>=2.4.0"
-          pip install -e ".[backend, test]"
+          pip install -e ".[backend, test, frontend]"
+      - name: Run the backend
+        run: |
+          uvicorn tests.mock_app:app &
+          sleep 5
       - name: Test with pytest
         env:
           AVIARY_TOKEN: ${{ secrets.AVIARY_TOKEN }}
-          AVIARY_URL: ${{ secrets.AVIARY_URL }}
+          AVIARY_URL: http://0.0.0.0:8000/
         run: |
-          pytest tests/test_mock_sdk.py
+          pytest tests/test_*

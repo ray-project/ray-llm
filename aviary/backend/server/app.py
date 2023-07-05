@@ -1,9 +1,13 @@
 import asyncio
+import time
 import traceback
+import uuid
 from abc import ABC, abstractmethod
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Type, Union
 
+import aiohttp
 import async_timeout
+import ray
 from fastapi import FastAPI
 from ray import serve
 from ray.exceptions import RayActorError
@@ -22,11 +26,22 @@ from aviary.backend.server.models import (
     Response,
 )
 from aviary.common.constants import GATEWAY_TIMEOUT_S
+from aviary.common.models import (
+    ChatCompletion,
+    Completion,
+    Message,
+    MessageChoices,
+    Model,
+    ModelData,
+    TextChoice,
+    Usage,
+)
 
 EOS_SENTINELS = (None, StopIteration, StopAsyncIteration)
 logger = get_logger(__name__)
 
-app = FastAPI()
+router_app = FastAPI()
+model_app = FastAPI()
 
 
 async def _until_disconnected(request: Request):
@@ -36,7 +51,7 @@ async def _until_disconnected(request: Request):
         await asyncio.sleep(1)
 
 
-@serve.ingress(app)
+@serve.ingress(model_app)
 class LLMDeployment(ABC):
     _predictor_cls: Type[LLMPredictor] = LLMPredictor
 
@@ -83,7 +98,7 @@ class LLMDeployment(ABC):
                 "Please make the prompt shorter."
             )
 
-    @app.get("/metadata")
+    @model_app.get("/metadata")
     async def metadata(self) -> dict:
         return {
             "metadata": self.args.dict(
@@ -95,7 +110,7 @@ class LLMDeployment(ABC):
             )
         }
 
-    @app.post("/query")
+    @model_app.post("/query")
     async def generate_text(self, prompt: Prompt, request: Request) -> Response:
         return await self._generate_text(
             prompt, request, priority=QueuePriority.GENERATE_TEXT
@@ -120,7 +135,7 @@ class LLMDeployment(ABC):
                 responses.append(t)
             return Response.merge_stream(*responses)
 
-    @app.post("/stream")
+    @model_app.post("/stream")
     async def generate_text_stream(
         self, prompt: Prompt, request: Request
     ) -> StreamingResponse:
@@ -152,7 +167,7 @@ class LLMDeployment(ABC):
 
         return StreamingResponse(wrapper(), status_code=200, media_type="text/plain")
 
-    @app.post("/batch")
+    @model_app.post("/batch")
     async def batch_generate_text(
         self, prompts: List[Prompt], request: Request
     ) -> List[Response]:
@@ -463,3 +478,309 @@ class ContinuousBatchingLLMDeployment(LLMDeployment):
                 yield result
         finally:
             del self.requests_ids[curr_request_id]
+
+
+def _replace_prefix(model: str) -> str:
+    return model.replace("--", "/")
+
+
+@serve.deployment(
+    route_prefix="/",
+    # TODO make this configurable in aviary run
+    autoscaling_config={
+        "min_replicas": 1,
+        "initial_replicas": 1,
+        "max_replicas": 16,
+    },
+    max_concurrent_queries=50,  # Maximum backlog for a single replica
+)
+@serve.ingress(router_app)
+class RouterDeployment:
+    def __init__(
+        self,
+        full_deployment_names: Dict[str, str],
+        routes: Dict[str, str],
+        model_configurations: Dict[str, Args],
+    ) -> None:
+        self._model_handles = {
+            model_id: serve.get_deployment(deployment_name).get_handle()
+            for model_id, deployment_name in full_deployment_names.items()
+        }
+        # TODO (shrekris-anyscale): Remove self._routes once deployments can
+        # stream results to other deployments. Use Serve handles instead.
+        self._routes = routes
+        # TODO: Remove this once it is possible to reconfigure models on the fly
+        self._model_configurations = model_configurations
+        # Get the port the serve app is running on
+        controller = ray.serve.context.get_global_client()._controller
+        self.port = ray.get(controller.get_http_config.remote()).port
+
+    async def _get_response_stream(self, route: str, prompt: Prompt):
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            async with session.post(
+                f"http://localhost:{self.port}{route}/stream", json=prompt.dict()
+            ) as response:
+                logger.info("Started receiving streaming response.")
+                async for chunk in response.content:
+                    yield chunk
+
+    @router_app.post("/stream/{model}")
+    async def stream(self, model: str, prompt: Prompt):
+        model = _replace_prefix(model)
+        route = self._routes[model]
+        return StreamingResponse(
+            self._get_response_stream(route, prompt), media_type="text/plain"
+        )
+
+    @router_app.post("/query/{model}")
+    async def query(self, model: str, prompt: Prompt) -> Dict[str, Any]:
+        return (await self.batch_query(model, [prompt]))[0]
+
+    @router_app.post("/query/batch/{model}")
+    async def batch_query(
+        self, model: str, prompts: List[Prompt]
+    ) -> List[Dict[str, Any]]:
+        model = _replace_prefix(model)
+        route = self._routes[model]
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            async with session.post(
+                f"http://localhost:{self.port}{route}/batch",
+                json=[p.dict() for p in prompts],
+            ) as response:
+                logger.info(
+                    "Received response from intermediate request. Awaiting json body."
+                )
+                return await response.json()
+
+    @router_app.get("/metadata/{model}")
+    async def metadata(self, model) -> Dict[str, Dict[str, Any]]:
+        model = _replace_prefix(model)
+        # This is what we want to do eventually, but it looks like reconfigure
+        # is blocking when called on replica init
+        # metadata = await asyncio.gather(
+        #     *(await asyncio.gather(*[self._models[model].metadata.remote()]))
+        # )
+        # metadata = metadata[0]
+        metadata = self._model_configurations[model].dict(
+            exclude={
+                "model_config": {"initialization": {"s3_mirror_config", "runtime_env"}}
+            }
+        )
+        logger.info(metadata)
+        return {"metadata": metadata}
+
+    @router_app.get("/models")
+    async def models_v0(self) -> List[str]:
+        return list(self._model_handles.keys())
+
+    @router_app.get("/v1/models", response_model=Model)
+    async def models(self) -> Model:
+        """OpenAI API-compliant endpoint to get all Aviary models."""
+        model_ids = list(self._model_handles.keys())
+        model_data = []
+        for model_id in model_ids:
+            model_data.append(
+                ModelData(
+                    id=model_id,
+                    object="model",
+                    owned_by="organization-owner",  # TODO: define owner (metadata)
+                    permission=[],  # TODO: define permissions (metadata)
+                )
+            )
+        return Model(data=model_data)
+
+    @router_app.get("/v1/models/{model}", response_model=ModelData)
+    async def model_data(self, model: str) -> ModelData:
+        """OpenAI API-compliant endpoint to get one Aviary model.
+
+        :param model: The Aviary model ID (e.g. "amazon/LightGPT")
+        """
+        # TODO: should we integrate "metadata" here?
+        return ModelData(
+            id=model,
+            object="model",
+            owned_by="organization-owner",  # TODO
+            permission=[],  # TODO
+        )
+
+    @router_app.post("/v1/completions/{model}")
+    async def completions(
+        self,
+        model: str,
+        prompt: Prompt,
+        request: Request,
+        suffix: str = None,
+        max_tokens: int = 32,
+        temperature: float = 1.0,
+        top_p: float = 1.0,
+        n: int = 1,
+        stream: bool = False,
+        logprobs: int = None,
+        echo: bool = False,
+        stop: str = None,
+        presence_penalty: float = 0.0,
+        frequency_penalty: float = 0.0,
+        best_of: int = 1,
+        logit_bias: Dict[str, float] = None,
+        user: str = None,
+    ) -> Completion:
+        """Given a prompt, the model will return one or more predicted completions,
+        and can also return the probabilities of alternative tokens at each position.
+
+        Args:
+            model: The model to query.
+            prompt: The prompt(s) to generate completions for, encoded as string
+                or list of strings.
+            suffix: The suffix that comes after a completion of inserted text.
+            max_tokens: The maximum number of tokens to generate.
+            temperature: What sampling temperature to use.
+            top_p: An alternative to sampling with temperature, called nucleus sampling.
+            n: How many completions to generate for each prompt.
+            stream: Whether to stream back partial progress.
+            logprobs: Include the log probabilities on the `logprobs` most likely
+                tokens, as well the chosen tokens.
+            echo: Echo back the prompt in addition to the completion.
+            stop: Up to 4 sequences where the API will stop generating further tokens.
+                The returned text will not contain the stop sequence.
+            presence_penalty: Number between -2.0 and 2.0.
+                Positive values penalize new tokens based on whether they appear in
+                the text so far, increasing the model's likelihood to talk about
+                new topics.
+            frequency_penalty: Number between -2.0 and 2.0. Positive values penalize
+                new tokens based on their existing frequency in the text so far,
+                decreasing the model's likelihood to repeat the same line verbatim.
+            best_of: Generates `best_of` completions server-side and returns the "best".
+            logit_bias: Modify the likelihood of specified tokens appearing in
+                the completion.
+            user: A unique identifier representing your end-user, which can help us
+                to monitor and detect abuse. Learn more.
+
+        Returns:
+            A response object with completions.
+        """
+        model = _replace_prefix(model)
+        route = self._routes[model]
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            async with session.post(
+                f"http://localhost:{self.port}{route}/query", json=prompt.dict()
+            ) as response:
+                logger.info(
+                    "Received response from intermediate request. Awaiting json body."
+                )
+                results = await response.json()
+
+        logger.info(results)
+
+        choices = [
+            TextChoice(
+                text=results["generated_text"],
+                index=0,
+                logprobs={},
+                finish_reason="length",
+            )
+        ]
+        usage = Usage(
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+        )
+        # TODO: pick up parameters that make sense, remove the rest
+
+        return Completion(
+            id=model + "-" + str(uuid.uuid4()),
+            object="text_completion",
+            created=int(time.time()),
+            model=model,
+            choices=choices,
+            usage=usage,
+        )
+
+    @router_app.post("/v1/chat/completions/{model}")
+    async def chat(
+        self,
+        model: str,
+        messages: List[Message],
+        request: Request,
+        temperature: float = 1.0,
+        top_p: float = 1.0,
+        n: int = 1,
+        stream: bool = False,
+        logprobs: int = None,
+        echo: bool = False,
+        stop: str = None,
+        presence_penalty: float = 0.0,
+        frequency_penalty: float = 0.0,
+        logit_bias: Dict[str, float] = None,
+        user: str = None,
+    ) -> ChatCompletion:
+        """Given a prompt, the model will return one or more predicted completions,
+        and can also return the probabilities of alternative tokens at each position.
+
+        Args:
+            model: The model to query.
+            messages: A list of messages describing the conversation so far.
+                Contains a required "role", which is the role of the author of this
+                message. One of "system", "user", or "assistant".
+                Also contains required "content", the contents of the message, and
+                an optional "name", the name of the author of this message.
+            temperature: What sampling temperature to use.
+            top_p: An alternative to sampling with temperature, called nucleus sampling.
+            n: How many completions to generate for each prompt.
+            stream: Whether to stream back partial progress.
+            logprobs: Include the log probabilities on the `logprobs` most likely
+                tokens, as well the chosen tokens.
+            echo: Echo back the prompt in addition to the completion.
+            stop: Up to 4 sequences where the API will stop generating further tokens.
+                The returned text will not contain the stop sequence.
+            presence_penalty: Number between -2.0 and 2.0.
+                Positive values penalize new tokens based on whether they appear in
+                the text so far, increasing the model's likelihood to talk about
+                new topics.
+            frequency_penalty: Number between -2.0 and 2.0. Positive values penalize
+                new tokens based on their existing frequency in the text so far,
+                decreasing the model's likelihood to repeat the same line verbatim.
+            logit_bias: Modify the likelihood of specified tokens appearing in
+                the completion.
+            user: A unique identifier representing your end-user, which can help us
+                to monitor and detect abuse. Learn more.
+
+        Returns:
+            A response object with completions.
+        """
+        model = _replace_prefix(model)
+        route = self._routes[model]
+        prompt = messages[-1].content  # FIXME
+        print(prompt)
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            async with session.post(
+                f"http://localhost:{self.port}{route}/query", json={"prompt": prompt}
+            ) as response:
+                logger.info(
+                    "Received response from intermediate request. Awaiting json body."
+                )
+                results = await response.json()
+
+        logger.info(results)
+        # TODO: pick up parameters that make sense, remove the rest
+
+        choices: List[MessageChoices] = [
+            MessageChoices(
+                message=Message(role="assistant", content=results["generated_text"]),
+                index=0,
+                finish_reason="length",
+            )
+        ]
+        usage = Usage(
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+        )
+
+        return ChatCompletion(
+            id=model + "-" + str(uuid.uuid4()),
+            object="text_completion",
+            created=int(time.time()),
+            model=model,
+            choices=choices,
+            usage=usage,
+        )
