@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 import async_timeout
 import ray
 import ray.util
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from ray import serve
 from ray.exceptions import RayActorError
 from ray.serve.deployment import ClassNode
@@ -34,8 +34,6 @@ from aviary.common.models import (
 )
 
 logger = get_logger(__name__)
-
-app = FastAPI()
 
 
 @serve.deployment(
@@ -133,7 +131,6 @@ class LLMDeployment(LLMPredictor):
                 "Please make the prompt shorter."
             )
 
-    @app.get("/metadata", include_in_schema=False)
     async def metadata(self) -> dict:
         return self.args.dict(
             exclude={
@@ -141,7 +138,6 @@ class LLMDeployment(LLMPredictor):
             }
         )
 
-    @app.post("/", include_in_schema=False)
     async def generate_text(self, prompt: Prompt):
         await self.validate_prompt(prompt)
         time.time()
@@ -153,7 +149,6 @@ class LLMDeployment(LLMPredictor):
             )
             return text
 
-    @app.post("/batch", include_in_schema=False)
     async def batch_generate_text(self, prompts: List[Prompt]):
         for prompt in prompts:
             await self.validate_prompt(prompt)
@@ -256,33 +251,56 @@ def _replace_prefix(model: str) -> str:
     return model.replace("--", "/")
 
 
-@serve.deployment(
-    route_prefix="/",
-    # TODO make this configurable in aviary run
-    autoscaling_config={
-        "min_replicas": 2,
-        "initial_replicas": 2,
-        "max_replicas": 16,
-    },
-    max_concurrent_queries=50,  # Maximum backlog for a single replica
-)
-@serve.ingress(app)
-class RouterDeployment:
+class ExecutionHooks:
+    def __init__(self):
+        self.hooks = []
+
+    def add_post_execution_hook(self, fn):
+        self.hooks.append(fn)
+
+    async def trigger_post_execution_hook(
+        self, request: Request, model_id: str, input_str: str, output_str: str
+    ):
+        # Run the token hooks in parallel
+        # If a token hook fails, the request will fail
+        assert len(self.hooks) > 0, "There should be at least 1 token hook."
+        await asyncio.gather(
+            *[fn(request, model_id, input_str, output_str) for fn in self.hooks]
+        )
+
+
+app = FastAPI()
+
+
+class Router:
     def __init__(
-        self, models: Dict[str, ClassNode], model_configurations: Dict[str, Args]
+        self,
+        models: Dict[str, ClassNode],
+        model_configurations: Dict[str, Args],
+        hooks=None,
     ) -> None:
         self._models = models
         # TODO: Remove this once it is possible to reconfigure models on the fly
         self._model_configurations = model_configurations
+        self.hooks = hooks or ExecutionHooks()
 
     @app.post("/query/{model}")
-    async def query(self, model: str, prompt: Prompt) -> Dict[str, Dict[str, Any]]:
+    async def query(
+        self, model: str, prompt: Prompt, request: Request
+    ) -> Dict[str, Dict[str, Any]]:
         model = _replace_prefix(model)
         results = await asyncio.gather(
             *(await asyncio.gather(*[self._models[model].generate_text.remote(prompt)]))
         )
         results = results[0]
         logger.info(results)
+        print("Query results", results)
+
+        # Set execution state on the request object for middlewares
+        await self.hooks.trigger_post_execution_hook(
+            request, model, prompt.prompt, results
+        )
+
         return {model: results}
 
     @app.post("/query/batch/{model}")
@@ -515,3 +533,15 @@ class RouterDeployment:
             choices=choices,
             usage=usage,
         )
+
+
+RouterDeployment = serve.deployment(
+    route_prefix="/",
+    # TODO make this configurable in aviary run
+    autoscaling_config={
+        "min_replicas": 2,
+        "initial_replicas": 2,
+        "max_replicas": 16,
+    },
+    max_concurrent_queries=50,  # Maximum backlog for a single replica
+)(serve.ingress(app)(Router))
