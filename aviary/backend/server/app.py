@@ -691,17 +691,7 @@ class Router:
         Returns:
             A response object with completions.
         """
-        model = _replace_prefix(model)
-        route = self._routes[model]
-        async with aiohttp.ClientSession(raise_for_status=True) as session:
-            async with session.post(
-                f"http://localhost:{self.port}{route}/query", json=prompt.dict()
-            ) as response:
-                logger.info(
-                    "Received response from intermediate request. Awaiting json body."
-                )
-                results = await response.json()
-
+        results = await self.query(model, prompt, request)
         logger.info(results)
 
         choices = [
@@ -712,11 +702,7 @@ class Router:
                 finish_reason="length",
             )
         ]
-        usage = Usage(
-            prompt_tokens=0,
-            completion_tokens=0,
-            total_tokens=0,
-        )
+        usage = Usage.from_response(results)
         # TODO: pick up parameters that make sense, remove the rest
 
         return Completion(
@@ -780,20 +766,9 @@ class Router:
         Returns:
             A response object with completions.
         """
-        model = _replace_prefix(model)
-        route = self._routes[model]
         prompt = messages[-1].content  # FIXME
-        print(prompt)
-        async with aiohttp.ClientSession(raise_for_status=True) as session:
-            async with session.post(
-                f"http://localhost:{self.port}{route}/query", json={"prompt": prompt}
-            ) as response:
-                logger.info(
-                    "Received response from intermediate request. Awaiting json body."
-                )
-                results = await response.json()
+        results = await self.query(model, Prompt(prompt=prompt), request)
 
-        logger.info(results)
         # TODO: pick up parameters that make sense, remove the rest
 
         choices: List[MessageChoices] = [
@@ -803,11 +778,7 @@ class Router:
                 finish_reason="length",
             )
         ]
-        usage = Usage(
-            prompt_tokens=0,
-            completion_tokens=0,
-            total_tokens=0,
-        )
+        usage = Usage.from_response(results)
 
         return ChatCompletion(
             id=model + "-" + str(uuid.uuid4()),
