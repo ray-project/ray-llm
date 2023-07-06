@@ -1,4 +1,4 @@
-from typing import Dict, List, TypeVar
+from typing import Any, Dict, List, TypeVar
 
 from pydantic import BaseModel
 
@@ -34,6 +34,15 @@ class Usage(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+
+    @classmethod
+    def from_response(cls, response: Dict[str, Any]) -> "Usage":
+        return cls(
+            prompt_tokens=response["num_input_tokens"],
+            completion_tokens=response["num_generated_tokens"],
+            total_tokens=response["num_input_tokens"]
+            + response["num_generated_tokens"],
+        )
 
 
 class Completion(BaseModel):
