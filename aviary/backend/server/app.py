@@ -498,13 +498,13 @@ class ExecutionHooks:
         self.hooks.append(fn)
 
     async def trigger_post_execution_hook(
-        self, request: Request, model_id: str, input_str: str, output_str: str
+        self, request: Request, model_id: str, input_str: str, output: Response
     ):
         # Run the token hooks in parallel
         # If a token hook fails, the request will fail
         if len(self.hooks) > 0:
             await asyncio.gather(
-                *[fn(request, model_id, input_str, output_str) for fn in self.hooks]
+                *[fn(request, model_id, input_str, Response) for fn in self.hooks]
             )
 
 
@@ -575,7 +575,7 @@ class Router:
                     "Received response from intermediate request. Awaiting json body."
                 )
 
-                completions = await response.json()
+                completions = Response.parse_obj(await response.json())
 
                 # Set execution state on the request object for middlewares
                 for completion, prompt in zip(completions, prompts):
