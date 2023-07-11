@@ -504,7 +504,7 @@ class ExecutionHooks:
         # If a token hook fails, the request will fail
         if len(self.hooks) > 0:
             await asyncio.gather(
-                *[fn(request, model_id, input_str, Response) for fn in self.hooks]
+                *[fn(request, model_id, input_str, output) for fn in self.hooks]
             )
 
 
@@ -539,11 +539,21 @@ class Router:
             ) as response:
                 logger.info("Started receiving streaming response.")
                 async for chunk in response.content:
+                    pieces = chunk.split(b"\n")
+
+                    # Track each chunk individually
+                    # TODO(tchordia): we could maybe make this more efficient by combining
+                    # these
+                    await asyncio.gather(
+                        *[
+                            self.hooks.trigger_post_execution_hook(
+                                request, model, prompt.prompt, Response.parse_raw(p)
+                            )
+                            for p in pieces
+                            if p
+                        ]
+                    )
                     yield chunk
-        # TODO make this work for streaming
-        # await self.hooks.trigger_post_execution_hook(
-        #     request, model, prompt.prompt, chunk
-        # )
 
     @router_app.post("/stream/{model}")
     async def stream(self, model: str, prompt: Prompt, request: Request):
