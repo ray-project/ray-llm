@@ -18,7 +18,6 @@ from starlette.responses import StreamingResponse
 from aviary.backend.llm.predictor import ContinuousBatchingPredictor, LLMPredictor
 from aviary.backend.logger import get_logger
 from aviary.backend.server.batch import QueuePriority, _PriorityBatchQueue
-from aviary.backend.server.exceptions import PromptTooLongError
 from aviary.backend.server.models import (
     Args,
     DeepSpeed,
@@ -92,14 +91,6 @@ class LLMDeployment(ABC):
             )
         logger.info("Reconfigured.")
 
-    async def validate_prompt(self, prompt: Prompt) -> None:
-        if len(prompt.prompt.split()) > self.args.model_config.max_input_words:
-            raise PromptTooLongError(
-                f"Prompt exceeds max input words of "
-                f"{self.args.model_config.max_input_words}. "
-                "Please make the prompt shorter."
-            )
-
     # TODO Remove once we can stream from serve handles
     @model_app.get("/metadata")
     async def metadata(self) -> dict:
@@ -123,7 +114,7 @@ class LLMDeployment(ABC):
     async def _generate_text(
         self, prompt: Prompt, request: Request, *, priority: QueuePriority
     ) -> Response:
-        await self.validate_prompt(prompt)
+        self.predictor.validate_prompt(prompt)
         with async_timeout.timeout(GATEWAY_TIMEOUT_S):
             responses = []
             async for t in self.generate_text_batch(
@@ -144,7 +135,7 @@ class LLMDeployment(ABC):
     async def generate_text_stream(
         self, prompt: Prompt, request: Request
     ) -> StreamingResponse:
-        await self.validate_prompt(prompt)
+        self.predictor.validate_prompt(prompt)
 
         async def wrapper():
             """Wrapper to always yield json-formatted strings"""
@@ -221,7 +212,7 @@ class LLMDeployment(ABC):
             timeout_s = timeout_s[0]
 
         logger.info(
-            f"Received {len(prompts)} prompts {prompts} request_ids {request_ids}. start_timestamp {start_timestamp} timeout_s {timeout_s}"
+            f"Received {len(prompts)} prompts, request_ids {request_ids}. start_timestamp {start_timestamp} timeout_s {timeout_s}"
         )
 
         while not self.predictor.is_initialized():
@@ -229,7 +220,6 @@ class LLMDeployment(ABC):
             await asyncio.sleep(1)
 
         try:
-            logger.info(f"calling _stream_async on {request_ids}")
             async for result in self.predictor._stream_async(
                 prompts,
                 timeout_s=timeout_s,
@@ -246,8 +236,6 @@ class LLMDeployment(ABC):
                 "Try again in a few minutes. "
                 f"Traceback:\n{traceback.print_exc()}"
             ) from e
-        finally:
-            logger.info(f"Batch for {request_ids} finished")
 
     # Called by Serve to check the replica's health.
     async def check_health(self):
@@ -807,6 +795,7 @@ RouterDeployment = serve.deployment(
         "min_replicas": 2,
         "initial_replicas": 2,
         "max_replicas": 16,
+        "target_num_ongoing_requests_per_replica": 100,
     },
-    max_concurrent_queries=50,  # Maximum backlog for a single replica
+    max_concurrent_queries=500,  # Maximum backlog for a single replica
 )(serve.ingress(router_app)(Router))

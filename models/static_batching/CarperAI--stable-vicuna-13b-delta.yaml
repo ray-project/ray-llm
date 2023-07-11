@@ -15,7 +15,6 @@ deployment_config:
 model_config:
   batching: static
   model_id: CarperAI/stable-vicuna-13b-delta
-  max_input_words: 800
   initialization:
     runtime_env:
       pip:
@@ -35,6 +34,7 @@ model_config:
       max_tokens: 1536
     pipeline: transformers
   generation:
+    max_input_words: 800
     max_batch_size: 6
     generate_kwargs:
       do_sample: true

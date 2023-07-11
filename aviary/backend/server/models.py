@@ -467,6 +467,8 @@ class GenerationConfig(BaseModelExtended):
 class StaticBatchingGenerationConfig(GenerationConfig):
     max_batch_size: int = 1
     batch_wait_timeout_s: int = 1
+    # TODO make this token-based
+    max_input_words: int = 400
 
 
 class ContinuousBatchingGenerationConfig(GenerationConfig):
@@ -510,8 +512,6 @@ class LLMConfig(BaseModelExtended):
     model_id: str
     model_url: Optional[str] = None
     model_description: Optional[str] = None
-    # TODO make this token-based
-    max_input_words: int = 400
     initialization: InitializationConfig
     generation: GenerationConfig
 

@@ -16,7 +16,6 @@ deployment_config:
 model_config:
   model_id: OpenAssistant/falcon-40b-sft-top1-560
   batching: static
-  max_input_words: 800
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--OpenAssistant--falcon-40b-sft-top1-560/main-safetensors/
@@ -29,6 +28,7 @@ model_config:
       max_tokens: 1536
     pipeline: transformers
   generation:
+    max_input_words: 800
     max_batch_size: 8
     generate_kwargs:
       do_sample: true

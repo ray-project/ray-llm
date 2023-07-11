@@ -15,7 +15,6 @@ deployment_config:
 model_config:
   batching: static
   model_id: amazon/LightGPT
-  max_input_words: 800
   initialization:
     runtime_env:
       pip:
@@ -31,6 +30,7 @@ model_config:
       max_tokens: 1536
     pipeline: transformers
   generation:
+    max_input_words: 800
     max_batch_size: 18
     generate_kwargs:
       do_sample: true
