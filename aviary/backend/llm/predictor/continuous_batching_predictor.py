@@ -381,7 +381,6 @@ class ContinuousBatchingPredictor(LLMPredictor):
             if not isinstance(e, ValidationError):
                 logger.info(f"Stream cancelled for {request_id}")
                 result.end()
-                self.scheduler.cancel_request(result)
             raise
         # Debug code
         # generated_text = (result._generated_text or "").strip()

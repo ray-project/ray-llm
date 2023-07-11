@@ -190,7 +190,6 @@ class InferenceScheduler:
         self._stop = False
         self._stats = Stats()
         self._has_oom = False
-        self._cancelled_requests = set()
         self.scheduling_loop_task = None
         if not inline:
             self.scheduling_loop_task = run_background_task(self._run_scheduling_loop())
@@ -227,9 +226,6 @@ class InferenceScheduler:
             params=params,
         )
         return self._add_request(request)
-
-    def cancel_request(self, request_id: int) -> bool:
-        self._cancelled_requests.add(request_id)
 
     def _add_request(self, request: Request) -> TokenStream:
         pending_request = InferenceRequest.from_request(
@@ -388,22 +384,18 @@ class InferenceScheduler:
                 and generation.generated_text.finish_reason > 0
             ):
                 request.output_stream.put(generation.token_text)
-            if (
-                generation.generated_text is not None
-                or request.id in self._cancelled_requests
-            ):
+            if generation.generated_text is not None or request.is_finished:
                 if generation.generated_text is not None:
                     text = generation.generated_text.text
                 else:
                     text = ""
                 self._stats.request_finished()
                 logger.info(
-                    f"Request {request.id} (cancelled: {request.id in self._cancelled_requests}) (generation.request_id {generation.request_id}) finished, response: {generation.generated_text}"
+                    f"Request {request.id} (cancelled: {request.is_finished}) finished, response: {generation.generated_text}"
                 )
                 request.output_stream.end(text)
                 some_request_finished = True
                 self._request_selection_policy.request_finished(request)
-                self._cancelled_requests.discard(request.id)
             else:
                 unfinished_requests.append(request)
         return unfinished_requests, some_request_finished
