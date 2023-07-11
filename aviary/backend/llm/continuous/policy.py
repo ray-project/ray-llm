@@ -132,7 +132,7 @@ class QuotaBasedRequestSelectionPolicy(RequestSelectionPolicy):
 
             if requires_padding:
                 max_input_length = max(
-                    r.request_input_length for r in hypothetical_results
+                    r.request_input_length for r in (hypothetical_results + [request])
                 )
                 prefill_tokens = (len(hypothetical_results) + 1) * max_input_length
             else:
