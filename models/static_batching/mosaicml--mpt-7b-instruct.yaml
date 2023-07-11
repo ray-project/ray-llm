@@ -15,7 +15,6 @@ deployment_config:
 model_config:
   model_id: mosaicml/mpt-7b-instruct
   batching: static
-  max_input_words: 800
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-instruct/main-safetensors/
@@ -31,6 +30,7 @@ model_config:
         mode: max-autotune
     pipeline: transformers
   generation:
+    max_input_words: 800
     max_batch_size: 8
     generate_kwargs:
       do_sample: true

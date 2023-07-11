@@ -12,6 +12,7 @@ from ray.air import ScalingConfig
 from ray.air.util.torch_dist import TorchDistributedWorker
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 
+from aviary.backend.llm.exceptions import PromptTooLongError
 from aviary.backend.llm.initializers import get_initializer_cls_by_name
 from aviary.backend.llm.pipelines import get_pipeline_cls_by_name
 from aviary.backend.llm.pipelines._base import (
@@ -146,7 +147,7 @@ class PredictionWorker(TorchDistributedWorker):
         # will raise CUDA errors if use_kernel=True.
         batch_size = self.llm_config.generation.max_batch_size or 1
         full_warmup = self.llm_config.initialization.full_warmup
-        n_repeats = self.llm_config.max_input_words if full_warmup else 1
+        n_repeats = self.llm_config.generation.max_input_words if full_warmup else 1
         prompt = [WARMUP_PROMPT] * max(
             1, (int(n_repeats / (len(WARMUP_PROMPT.split()) + 1)))
         )
@@ -256,6 +257,14 @@ class PredictionWorker(TorchDistributedWorker):
             **kwargs,
         ):
             yield result
+
+    def validate_prompt(self, prompt: Prompt) -> None:
+        if len(prompt.prompt.split()) > self.llm_config.generation.max_input_words:
+            raise PromptTooLongError(
+                f"Prompt exceeds max input words of "
+                f"{self.llm_config.generation.max_input_words}. "
+                "Please make the prompt shorter."
+            )
 
     @timeit
     def generate(
@@ -543,7 +552,7 @@ class LLMPredictor:
         )[0]
         return prediction
 
-    def check_health(self):
+    def check_health(self) -> None:
         if self._new_worker_group_lock.locked():
             logger.info("Rollover in progress, skipping health check")
             return

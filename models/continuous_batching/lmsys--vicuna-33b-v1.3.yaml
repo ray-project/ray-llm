@@ -16,7 +16,6 @@ deployment_config:
 model_config:
   batching: continuous
   model_id: lmsys/vicuna-33b-v1.3
-  max_input_words: 800
   model_description: "Vicuna is a chat assistant trained by fine-tuning LLaMA on user-shared conversations collected from ShareGPT."
   initialization:
     s3_mirror_config:
@@ -32,7 +31,7 @@ model_config:
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
-      min_new_tokens: 16
+      min_new_tokens: 8
       temperature: 0.4
       top_p: 1.0
       repetition_penalty: 1.02

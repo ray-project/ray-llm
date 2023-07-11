@@ -2,7 +2,7 @@ import asyncio
 import gc
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type, Union
 from unittest.mock import patch
 
 import ray
@@ -26,6 +26,7 @@ from text_generation_server.pb.generate_pb2 import (
     Request as GenerationRequest,
 )
 
+from ..error_handling import ErrorReason, OutOfMemory
 from ..worker import AbstractInferenceWorker
 from .logits_processors import MinNewTokensLogitsProcessor
 
@@ -52,6 +53,7 @@ def postprocess_batch(batch: "CausalLMBatch") -> "CausalLMBatch":
             scores = self.min_new_length_preprocessor(input_ids, scores)
             return super().__call__(input_ids, scores)
 
+    # TODO support MinNewTokens for stopping sequences in addition to eos_token_id
     if hasattr(batch, "next_token_chooser") and isinstance(
         batch.next_token_chooser, HeterogeneousNextTokenChooser
     ):
@@ -61,7 +63,7 @@ def postprocess_batch(batch: "CausalLMBatch") -> "CausalLMBatch":
                 {
                     i: MinNewTokensLogitsProcessor(
                         batch.stopping_criterias[i].current_tokens,
-                        8,  # TODO make this configurable
+                        batch.requests[i].min_new_tokens,
                         batch.stopping_criterias[i].eos_token_id,
                     )
                     for i in range(len(batch.input_lengths))
@@ -78,7 +80,7 @@ def postprocess_batch(batch: "CausalLMBatch") -> "CausalLMBatch":
                 i
             ].min_new_length_preprocessor = MinNewTokensLogitsProcessor(
                 batch.stopping_criterias[i].current_tokens,
-                8,  # TODO make this configurable
+                batch.requests[i].min_new_tokens,
                 batch.stopping_criterias[i].eos_token_id,
             )
     return batch
@@ -136,10 +138,14 @@ def _flatten_list(lst: list) -> list:
 class TGIRayInferenceWorker(AsyncInferenceWorker):
     def __init__(self, worker_group: List[ray.ObjectRef]):
         self.worker_group = worker_group
+        self._requires_padding = ray.get(self.worker_group[0].requires_padding.remote())
+
+    def requires_padding(self) -> bool:
+        return self._requires_padding
 
     def process_new_batch(
         self, requests: List["Request"], batch_id: int
-    ) -> Tuple[List["Generation"], int]:
+    ) -> Tuple[List[Union["Generation", ErrorReason]], int]:
         ret = ray.get(
             [
                 worker.process_new_batch.remote(requests, batch_id)
@@ -147,13 +153,15 @@ class TGIRayInferenceWorker(AsyncInferenceWorker):
             ]
         )
         return (
-            _flatten_list([x[0] for x in ret]) if ret[0][0] is not None else ret[0][0],
+            _flatten_list([x[0] for x in ret])
+            if isinstance(ret[0][0], list)
+            else ret[0][0],
             ret[0][1],
         )
 
     def generate_next_token(
         self, batch_ids: List[int]
-    ) -> Tuple[List["Generation"], Optional[int]]:
+    ) -> Tuple[List[Union["Generation", ErrorReason]], Optional[int]]:
         ret = ray.get(
             [
                 worker.generate_next_token.remote(batch_ids)
@@ -161,7 +169,9 @@ class TGIRayInferenceWorker(AsyncInferenceWorker):
             ]
         )
         return (
-            _flatten_list([x[0] for x in ret]) if ret[0][0] is not None else ret[0][0],
+            _flatten_list([x[0] for x in ret])
+            if isinstance(ret[0][0], list)
+            else ret[0][0],
             ret[0][1],
         )
 
@@ -175,7 +185,7 @@ class TGIRayInferenceWorker(AsyncInferenceWorker):
 
     async def process_new_batch_async(
         self, requests: List["Request"], batch_id: int
-    ) -> Tuple[List["Generation"], int]:
+    ) -> Tuple[List[Union["Generation", ErrorReason]], int]:
         ret = await asyncio.gather(
             *[
                 worker.process_new_batch.remote(requests, batch_id)
@@ -184,13 +194,15 @@ class TGIRayInferenceWorker(AsyncInferenceWorker):
         )
         logger.debug(f"process_new_batch_async returns {ret}")
         return (
-            _flatten_list([x[0] for x in ret]) if ret[0][0] is not None else ret[0][0],
+            _flatten_list([x[0] for x in ret])
+            if isinstance(ret[0][0], list)
+            else ret[0][0],
             ret[0][1],
         )
 
     async def generate_next_token_async(
         self, batch_ids: List[int]
-    ) -> Tuple[List["Generation"], Optional[int]]:
+    ) -> Tuple[List[Union["Generation", ErrorReason]], Optional[int]]:
         ret = await asyncio.gather(
             *[
                 worker.generate_next_token.remote(batch_ids)
@@ -199,7 +211,9 @@ class TGIRayInferenceWorker(AsyncInferenceWorker):
         )
         logger.debug(f"generate_next_token_async returns {ret}")
         return (
-            _flatten_list([x[0] for x in ret]) if ret[0][0] is not None else ret[0][0],
+            _flatten_list([x[0] for x in ret])
+            if isinstance(ret[0][0], list)
+            else ret[0][0],
             ret[0][1],
         )
 
@@ -225,13 +239,24 @@ class InferenceWorker(AbstractInferenceWorker):
 
     def process_new_batch(
         self, requests: List["GenerationRequest"], batch_id: int
-    ) -> Tuple[List["Generation"], int]:
+    ) -> Tuple[List[Union["Generation", ErrorReason]], Optional[int]]:
         # TGI expects sorted requests
         requests = sorted(requests, key=lambda x: x.id)
         batch_state = create_batch(self._model, requests, batch_id)
-        generations, batch_state = self._model.generate_token(batch_state)
         try:
-            logger.debug(f"Batch state ID: { batch_state.batch_id}")
+            generations, batch_state = self._model.generate_token(batch_state)
+        except torch.cuda.OutOfMemoryError as e:
+            logger.error(f"OOM error happened: {repr(e)}")
+            return OutOfMemory(str(e)), None
+        except Exception as e:
+            if "CUDA" in str(e) or "cache blocks" in str(e):
+                logger.error(f"CUDA error happened, treating as OOM error: {repr(e)}")
+                return OutOfMemory(str(e)), None
+            # logger.error(f"generate_next_token error happened: {repr(e)}")
+            # return IrrecoverableError(str(e)), None
+            raise
+        try:
+            logger.debug(f"Batch state ID: {batch_state.batch_id}")
         except Exception as e:
             logger.error(f"Failed to get batch state id {repr(e)}")
         logger.debug(
@@ -245,7 +270,7 @@ class InferenceWorker(AbstractInferenceWorker):
 
     def generate_next_token(
         self, batch_ids: List[int]
-    ) -> Tuple[List["Generation"], Optional[int]]:
+    ) -> Tuple[List[Union["Generation", ErrorReason]], Optional[int]]:
         if len(batch_ids) == 0:
             raise ValueError("Must provide at least one batch")
         batch_states = []
@@ -268,11 +293,24 @@ class InferenceWorker(AbstractInferenceWorker):
             # stats = batch_state.stats()
             # logger.info(f"generate_next_token batch_state { batch_state}")
             generations, batch_state = self._model.generate_token(batch_state)
-        except Exception as e:
-            logger.error(f"generate_next_token error happened: {repr(e)}")
-            #  Error happens when populate the new batch, we have to restart
+        except torch.cuda.OutOfMemoryError as e:
+            logger.error(f"OOM error happened: {repr(e)}")
             self._batch_state_cache.clear()
-            return None, None
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            return OutOfMemory(str(e)), None
+        except Exception as e:
+            self._batch_state_cache.clear()
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            if "CUDA" in str(e) or "cache blocks" in str(e):
+                logger.error(f"CUDA error happened, treating as OOM error: {repr(e)}")
+                return OutOfMemory(str(e)), None
+            # logger.error(f"generate_next_token error happened: {repr(e)}")
+            # return IrrecoverableError(str(e)), None
+            raise
 
         logger.debug(
             f"generate_next_token returns {(generations, batch_state.batch_id if batch_state else None)}"
@@ -419,3 +457,6 @@ class TGIInferenceWorker(InferenceWorker):
                     trust_remote_code=trust_remote_code,
                 )
             )
+
+    def requires_padding(self) -> bool:
+        return self._model.requires_padding

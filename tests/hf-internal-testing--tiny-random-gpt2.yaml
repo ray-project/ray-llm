@@ -17,7 +17,6 @@ deployment_config:
 model_config:
   batching: static
   model_id: hf-internal-testing/tiny-random-gpt2
-  max_input_words: 800
   initialization:
     initializer:
       type: SingleDevice

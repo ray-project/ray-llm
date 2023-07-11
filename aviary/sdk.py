@@ -185,7 +185,7 @@ def completions(
 
     if _is_aviary_model(model):
         backend = get_aviary_backend()
-        url = backend.backend_url + "query/batch/" + model.replace("/", "--")
+        url = backend.backend_url + "query/" + model.replace("/", "--")
         response = requests.post(
             url,
             headers=backend.header,

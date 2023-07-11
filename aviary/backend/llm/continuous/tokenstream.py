@@ -10,14 +10,17 @@ class TokenStream:
         self._queue = asyncio.Queue()
         self._num_tokens = 0
         self._generated_text = None
+        self.is_finished = False
 
     def end(self, generated_text=None):
+        self.is_finished = True
         self._generated_text = generated_text
         self._queue.put_nowait(StopIteration)
 
     def put(self, item):
-        self._queue.put_nowait(item)
-        self._num_tokens += 1
+        if not self.is_finished:
+            self._queue.put_nowait(item)
+            self._num_tokens += 1
 
     def num_tokens(self):
         return self._num_tokens

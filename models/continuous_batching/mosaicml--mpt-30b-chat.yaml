@@ -16,7 +16,6 @@ deployment_config:
 model_config:
   batching: continuous
   model_id: mosaicml/mpt-30b-chat
-  max_input_words: 800
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-30b-chat/main-safetensors/
@@ -31,7 +30,7 @@ model_config:
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
-      min_new_tokens: 16
+      min_new_tokens: 8
       top_p: 1.0
       top_k: 0
       temperature: 0.1

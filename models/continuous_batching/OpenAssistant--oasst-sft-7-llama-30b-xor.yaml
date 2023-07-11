@@ -16,7 +16,6 @@ deployment_config:
 model_config:
   model_id: OpenAssistant/oasst-sft-7-llama-30b-xor
   batching: continuous
-  max_input_words: 800
   model_description: "Open Assistant is a project meant to give everyone access to a great chat based large language model.\nWe believe that by doing this we will create a revolution in innovation in language. In the same way that stable-diffusion helped the world make art and images in new ways we hope Open Assistant can help improve the world by improving language itself."
   initialization:
     s3_mirror_config:
@@ -32,7 +31,7 @@ model_config:
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
-      min_new_tokens: 16
+      min_new_tokens: 8
       temperature: 0.7
       top_p: 0.95
       repetition_penalty: 1.2
