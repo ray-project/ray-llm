@@ -76,8 +76,8 @@ def _get_result(response: requests.Response) -> Dict[str, Any]:
             f"Error decoding JSON from {response.url}. Text response: {response.text}",
             response=response,
         ) from e
-    if "error" in response:
-        raise ResponseError(response["error"], response=response)
+    if result.get("error"):
+        raise ResponseError(result["error"], response=response)
     return result
 
 
@@ -302,7 +302,7 @@ def completions(
                 f"Error decoding JSON from {url}. Text response: {response.text}",
                 response=response,
             ) from e
-        if "error" in response:
+        if response.get("error"):
             raise ResponseError(response["error"], response=response)
         return response
     llm = _get_langchain_model(model)

@@ -527,7 +527,7 @@ class Router:
             ) as response:
                 logger.info("Started receiving streaming response.")
                 async for chunk in response.content:
-                    pieces = chunk.split("\n")
+                    pieces = chunk.split(b"\n")
 
                     # Track each chunk individually
                     # TODO(tchordia): we could maybe make this more efficient by combining
