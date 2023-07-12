@@ -1,4 +1,5 @@
 import asyncio
+import json
 import time
 import traceback
 import uuid
@@ -21,7 +22,6 @@ from aviary.backend.server.batch import QueuePriority, _PriorityBatchQueue
 from aviary.backend.server.models import (
     Args,
     DeepSpeed,
-    ErrorResponse,
     Prompt,
     Response,
 )
@@ -155,7 +155,7 @@ class LLMDeployment(ABC):
                             continue
                         yield t.json() + "\n"
             except Exception as e:
-                yield ErrorResponse(
+                yield Response(
                     error="".join(traceback.format_exception_only(type(e), e)).strip(),
                     error_type=e.__class__.__name__,
                 ).json() + "\n"
@@ -527,7 +527,7 @@ class Router:
             ) as response:
                 logger.info("Started receiving streaming response.")
                 async for chunk in response.content:
-                    pieces = chunk.split(b"\n")
+                    pieces = chunk.split("\n")
 
                     # Track each chunk individually
                     # TODO(tchordia): we could maybe make this more efficient by combining
@@ -572,13 +572,12 @@ class Router:
                 logger.info(
                     "Received response from intermediate request. Awaiting json body."
                 )
-
-                completions = Response.parse_obj(await response.json())
+                completions = await response.json()
 
                 # Set execution state on the request object for middlewares
                 for completion, prompt in zip(completions, prompts):
                     await self.hooks.trigger_post_execution_hook(
-                        request, model, prompt.prompt, completion
+                        request, model, prompt.prompt, Response.parse_obj(completion)
                     )
 
                 return completions
@@ -640,21 +639,21 @@ class Router:
         model: str,
         prompt: Prompt,
         request: Request,
-        suffix: str = None,
+        suffix: Optional[str] = None,
         max_tokens: int = 32,
         temperature: float = 1.0,
         top_p: float = 1.0,
         n: int = 1,
         stream: bool = False,
-        logprobs: int = None,
+        logprobs: Optional[int] = None,
         echo: bool = False,
-        stop: str = None,
+        stop: Optional[List[str]] = None,
         presence_penalty: float = 0.0,
         frequency_penalty: float = 0.0,
         best_of: int = 1,
         logit_bias: Dict[str, float] = None,
         user: str = None,
-    ) -> Completion:
+    ):
         """Given a prompt, the model will return one or more predicted completions,
         and can also return the probabilities of alternative tokens at each position.
 
@@ -689,28 +688,72 @@ class Router:
         Returns:
             A response object with completions.
         """
-        results = await self.query(model, prompt, request)
-        logger.info(results)
+        prompt.parameters = {
+            "temperature": temperature,
+            "max_new_tokens": max_tokens,
+            "top_p": top_p,
+            "repetition_penalty": frequency_penalty,
+            "stopping_sequences": stop,
+        }
 
-        choices = [
-            TextChoice(
-                text=results["generated_text"],
-                index=0,
-                logprobs={},
-                finish_reason="length",
+        if stream:
+            model = _replace_prefix(model)
+            route = self._routes[model]
+
+            async def completions_wrapper():
+                async for response in self._get_response_stream(
+                    route, model, prompt, request
+                ):
+                    response = json.loads(response)
+                    if response.get("error"):
+                        yield Response(**results).json() + "\n"
+                    else:
+                        choices = [
+                            TextChoice(
+                                text=response["generated_text"],
+                                index=0,
+                                logprobs={},
+                                finish_reason="length",
+                            )
+                        ]
+                        usage = Usage.from_response(response)
+                        yield Completion(
+                            id=model + "-" + str(uuid.uuid4()),
+                            object="text_completion",
+                            created=int(time.time()),
+                            model=model,
+                            choices=choices,
+                            usage=usage,
+                        )
+
+            return StreamingResponse(
+                completions_wrapper(),
+                media_type="text/plain",
             )
-        ]
-        usage = Usage.from_response(results)
-        # TODO: pick up parameters that make sense, remove the rest
+        else:
+            results = await self.query(model, prompt, request)
+            if results.get("error"):
+                return Response(**results)
 
-        return Completion(
-            id=model + "-" + str(uuid.uuid4()),
-            object="text_completion",
-            created=int(time.time()),
-            model=model,
-            choices=choices,
-            usage=usage,
-        )
+            choices = [
+                TextChoice(
+                    text=results["generated_text"],
+                    index=0,
+                    logprobs={},
+                    finish_reason="length",
+                )
+            ]
+            usage = Usage.from_response(results)
+            # TODO: pick up parameters that make sense, remove the rest
+
+            return Completion(
+                id=model + "-" + str(uuid.uuid4()),
+                object="text_completion",
+                created=int(time.time()),
+                model=model,
+                choices=choices,
+                usage=usage,
+            )
 
     @router_app.post("/v1/chat/completions/{model}")
     async def chat(
@@ -722,14 +765,14 @@ class Router:
         top_p: float = 1.0,
         n: int = 1,
         stream: bool = False,
-        logprobs: int = None,
+        logprobs: Optional[int] = None,
         echo: bool = False,
-        stop: str = None,
+        stop: Optional[List[str]] = None,
         presence_penalty: float = 0.0,
         frequency_penalty: float = 0.0,
         logit_bias: Dict[str, float] = None,
         user: str = None,
-    ) -> ChatCompletion:
+    ):
         """Given a prompt, the model will return one or more predicted completions,
         and can also return the probabilities of alternative tokens at each position.
 
@@ -764,28 +807,75 @@ class Router:
         Returns:
             A response object with completions.
         """
-        prompt = messages[-1].content  # FIXME
-        results = await self.query(model, Prompt(prompt=prompt), request)
+        prompt = Prompt(prompt=messages[-1].content)  # FIXME
+        prompt.parameters = {
+            "temperature": temperature,
+            "top_p": top_p,
+            "repetition_penalty": frequency_penalty,
+            "stopping_sequences": stop,
+        }
 
-        # TODO: pick up parameters that make sense, remove the rest
+        if stream:
+            model = _replace_prefix(model)
+            route = self._routes[model]
 
-        choices: List[MessageChoices] = [
-            MessageChoices(
-                message=Message(role="assistant", content=results["generated_text"]),
-                index=0,
-                finish_reason="length",
+            async def completions_wrapper():
+                async for response in self._get_response_stream(
+                    route, model, prompt, request
+                ):
+                    response = json.loads(response)
+                    if response.get("error"):
+                        yield Response(**results).json() + "\n"
+                    else:
+                        choices: List[MessageChoices] = [
+                            MessageChoices(
+                                message=Message(
+                                    role="assistant", content=response["generated_text"]
+                                ),
+                                index=0,
+                                finish_reason="length",
+                            )
+                        ]
+                        usage = Usage.from_response(response)
+                        yield ChatCompletion(
+                            id=model + "-" + str(uuid.uuid4()),
+                            object="text_completion",
+                            created=int(time.time()),
+                            model=model,
+                            choices=choices,
+                            usage=usage,
+                        )
+
+            return StreamingResponse(
+                completions_wrapper(),
+                media_type="text/plain",
             )
-        ]
-        usage = Usage.from_response(results)
+        else:
+            results = await self.query(model, prompt, request)
+            if results.get("error"):
+                return Response(**results)
 
-        return ChatCompletion(
-            id=model + "-" + str(uuid.uuid4()),
-            object="text_completion",
-            created=int(time.time()),
-            model=model,
-            choices=choices,
-            usage=usage,
-        )
+            # TODO: pick up parameters that make sense, remove the rest
+
+            choices: List[MessageChoices] = [
+                MessageChoices(
+                    message=Message(
+                        role="assistant", content=results["generated_text"]
+                    ),
+                    index=0,
+                    finish_reason="length",
+                )
+            ]
+            usage = Usage.from_response(results)
+
+            return ChatCompletion(
+                id=model + "-" + str(uuid.uuid4()),
+                object="text_completion",
+                created=int(time.time()),
+                model=model,
+                choices=choices,
+                usage=usage,
+            )
 
 
 RouterDeployment = serve.deployment(

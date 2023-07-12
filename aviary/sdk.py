@@ -76,6 +76,8 @@ def _get_result(response: requests.Response) -> Dict[str, Any]:
             f"Error decoding JSON from {response.url}. Text response: {response.text}",
             response=response,
         ) from e
+    if "error" in response:
+        raise ResponseError(response["error"], response=response)
     return result
 
 
@@ -96,23 +98,77 @@ def completion_create(
     model: str,
     prompt: str,
     use_prompt_format: bool = True,
+    max_tokens: int = 32,
+    temperature: float = 1.0,
+    top_p: float = 1.0,
+    stream: bool = False,
+    stop: Optional[List[str]] = None,
+    frequency_penalty: float = 0.0,
 ) -> Completion:
     """Create a completion from a prompt."""
     backend = get_aviary_backend()
     url = backend.backend_url + "v1/completions/" + model.replace("/", "--")
-    response = requests.post(
-        url,
-        headers=backend.header,
-        json={"prompt": {"prompt": prompt, "use_prompt_format": use_prompt_format}},
-        timeout=TIMEOUT,
-    )
-    try:
-        return Completion(**_get_result(response))
-    except pydantic.ValidationError as e:
-        raise ResponseError(
-            f"Error decoding response from {response.url}. Text response: {response.text}",
-            response=response,
-        ) from e
+    if stream:
+
+        def gen():
+            response = requests.post(
+                url,
+                headers=backend.header,
+                json={
+                    "prompt": {
+                        "prompt": prompt,
+                        "use_prompt_format": use_prompt_format,
+                    },
+                    "temperature": temperature,
+                    "max_new_tokens": max_tokens,
+                    "top_p": top_p,
+                    "repetition_penalty": frequency_penalty,
+                    "stopping_sequences": stop,
+                },
+                timeout=TIMEOUT,
+                stream=True,
+            )
+            chunk = ""
+            try:
+                for chunk in response.iter_lines(chunk_size=None, decode_unicode=True):
+                    chunk = chunk.strip()
+                    if not chunk:
+                        continue
+                    data = json.loads(chunk)
+                    if data.get("error"):
+                        raise ResponseError(data["error"], response=response)
+                    try:
+                        yield Completion(**data)
+                    except pydantic.ValidationError as e:
+                        raise ResponseError(
+                            f"Error decoding response from {response.url}. Text response: {response.text}",
+                            response=response,
+                        ) from e
+            except ConnectionError as e:
+                raise ResponseError(str(e) + "\n" + chunk, response=response) from e
+
+        return gen()
+    else:
+        response = requests.post(
+            url,
+            headers=backend.header,
+            json={
+                "prompt": {"prompt": prompt, "use_prompt_format": use_prompt_format},
+                "temperature": temperature,
+                "max_new_tokens": max_tokens,
+                "top_p": top_p,
+                "repetition_penalty": frequency_penalty,
+                "stopping_sequences": stop,
+            },
+            timeout=TIMEOUT,
+        )
+        try:
+            return Completion(**_get_result(response))
+        except pydantic.ValidationError as e:
+            raise ResponseError(
+                f"Error decoding response from {response.url}. Text response: {response.text}",
+                response=response,
+            ) from e
 
 
 Completion.create = classmethod(completion_create)
@@ -122,24 +178,71 @@ def chat_completion_create(
     cls,
     model: str,
     messages: List[Dict[str, str]],
-    use_prompt_format: bool = True,
+    temperature: float = 1.0,
+    top_p: float = 1.0,
+    stream: bool = False,
+    stop: Optional[List[str]] = None,
+    frequency_penalty: float = 0.0,
 ) -> ChatCompletion:
     """Create a chat completion from a list of messages."""
     backend = get_aviary_backend()
     url = backend.backend_url + "v1/chat/completions/" + model.replace("/", "--")
-    response = requests.post(
-        url,
-        headers=backend.header,
-        json={"messages": messages},
-        timeout=TIMEOUT,
-    )
-    try:
-        return ChatCompletion(**_get_result(response))
-    except pydantic.ValidationError as e:
-        raise ResponseError(
-            f"Error decoding response from {response.url}. Text response: {response.text}",
-            response=response,
-        ) from e
+    if stream:
+
+        def gen():
+            response = requests.post(
+                url,
+                headers=backend.header,
+                json={
+                    "messages": messages,
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "repetition_penalty": frequency_penalty,
+                    "stopping_sequences": stop,
+                },
+                timeout=TIMEOUT,
+                stream=True,
+            )
+            chunk = ""
+            try:
+                for chunk in response.iter_lines(chunk_size=None, decode_unicode=True):
+                    chunk = chunk.strip()
+                    if not chunk:
+                        continue
+                    data = json.loads(chunk)
+                    if data.get("error"):
+                        raise ResponseError(data["error"], response=response)
+                    try:
+                        yield ChatCompletion(**data)
+                    except pydantic.ValidationError as e:
+                        raise ResponseError(
+                            f"Error decoding response from {response.url}. Text response: {response.text}",
+                            response=response,
+                        ) from e
+            except ConnectionError as e:
+                raise ResponseError(str(e) + "\n" + chunk, response=response) from e
+
+        return gen()
+    else:
+        response = requests.post(
+            url,
+            headers=backend.header,
+            json={
+                "messages": messages,
+                "temperature": temperature,
+                "top_p": top_p,
+                "repetition_penalty": frequency_penalty,
+                "stopping_sequences": stop,
+            },
+            timeout=TIMEOUT,
+        )
+        try:
+            return ChatCompletion(**_get_result(response))
+        except pydantic.ValidationError as e:
+            raise ResponseError(
+                f"Error decoding response from {response.url}. Text response: {response.text}",
+                response=response,
+            ) from e
 
 
 ChatCompletion.create = classmethod(chat_completion_create)
@@ -193,12 +296,15 @@ def completions(
             timeout=TIMEOUT,
         )
         try:
-            return response.json()
+            response = response.json()
         except requests.JSONDecodeError as e:
             raise ResponseError(
                 f"Error decoding JSON from {url}. Text response: {response.text}",
                 response=response,
             ) from e
+        if "error" in response:
+            raise ResponseError(response["error"], response=response)
+        return response
     llm = _get_langchain_model(model)
     return llm.predict(prompt)
 
@@ -285,7 +391,7 @@ def stream(
                 if not chunk:
                     continue
                 data = json.loads(chunk)
-                if "error" in data:
+                if data.get("error"):
                     raise ResponseError(data["error"], response=response)
                 yield data
         except ConnectionError as e:

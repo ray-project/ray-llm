@@ -41,7 +41,7 @@ async def stream(
                         if not chunk:
                             continue
                         data = json.loads(chunk)
-                        if "error" in data:
+                        if data.get("error"):
                             raise ResponseError(
                                 data["error"],
                                 response=response(data["error"], r.status),

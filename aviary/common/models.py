@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, TypeVar
+from typing import Any, Dict, List, Optional, TypeVar
 
 from pydantic import BaseModel
 
@@ -59,6 +59,12 @@ class Completion(BaseModel):
         model: str,
         prompt: str,
         use_prompt_format: bool = True,
+        max_tokens: int = 32,
+        temperature: float = 1.0,
+        top_p: float = 1.0,
+        stream: bool = False,
+        stop: Optional[List[str]] = None,
+        frequency_penalty: float = 0.0,
     ) -> TCompletion:
         pass
 
@@ -87,6 +93,10 @@ class ChatCompletion(BaseModel):
         cls,
         model: str,
         messages: List[Dict[str, str]],
-        use_prompt_format: bool = True,
+        temperature: float = 1.0,
+        top_p: float = 1.0,
+        stream: bool = False,
+        stop: Optional[List[str]] = None,
+        frequency_penalty: float = 0.0,
     ) -> TChatCompletion:
         pass

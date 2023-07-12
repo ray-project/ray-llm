@@ -70,7 +70,7 @@ class ConstantUser(HttpUser):
                             time_since_last_chunk = time.monotonic()
                             chunks.append(chunk)
                             data = json.loads(chunk)
-                            if "error" in data:
+                            if data.get("error"):
                                 raise RuntimeError(
                                     f"* Data chunk contained an error: {data}"
                                     f"\n* Chunks so far: {chunks}"
