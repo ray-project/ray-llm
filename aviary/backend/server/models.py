@@ -114,19 +114,24 @@ class Prompt(BaseModelExtended):
         return self.prompt
 
 
-class ErrorResponse(BaseModelExtended):
-    error: str
-    error_type: str
-
-
 class Response(ComputedPropertyMixin, BaseModelExtended):
-    generated_text: str
+    generated_text: Optional[str] = None
     num_input_tokens: Optional[int] = None
     num_input_tokens_batch: Optional[int] = None
     num_generated_tokens: Optional[int] = None
     num_generated_tokens_batch: Optional[int] = None
     preprocessing_time: Optional[float] = None
     generation_time: Optional[float] = None
+    error: Optional[str] = None
+    error_type: Optional[str] = None
+
+    @root_validator
+    def text_or_error(cls, values):
+        if values.get("generated_text") is None and values.get("error") is None:
+            raise ValueError("Either 'generated_text' or 'error' must be set")
+        if values.get("error") and not values.get("error_type"):
+            raise ValueError("'error_type' must be set if 'error' is set")
+        return values
 
     @classmethod
     def merge_stream(cls, *responses: "Response") -> "Response":

@@ -34,3 +34,32 @@ def test_chat():
 
     # print the chat completion
     print(chat_completion.choices[0].message.content)
+
+
+def test_completions_stream():
+    for completion in openai.Completion.create(
+        model=TEST_MODEL, prompt="Hello world", stream=True
+    ):
+        assert completion
+        assert completion.usage
+        assert completion.id
+        assert type(completion.choices) == list
+        assert completion.choices[0].text
+        print(completion.choices[0].text)
+
+
+def test_chat_stream():
+    # create a chat completion
+    for chat_completion in openai.ChatCompletion.create(
+        model=TEST_MODEL,
+        messages=[{"role": "user", "content": "Hello world"}],
+        stream=True,
+    ):
+        assert chat_completion
+        assert chat_completion.usage
+        assert chat_completion.id
+        assert type(chat_completion.choices) == list
+        assert chat_completion.choices[0].message.content
+
+        # print the chat completion
+        print(chat_completion.choices[0].message.content)

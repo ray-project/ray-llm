@@ -345,7 +345,10 @@ class ContinuousBatchingPredictor(LLMPredictor):
             if prompt.parameters is not None
             else model_config.generation.generate_kwargs
         )
-        max_new_tokens = min(generate_kwargs.get("max_new_tokens", 512), 512)
+        max_new_tokens = min(
+            generate_kwargs.get("max_new_tokens", 512),
+            self.max_total_tokens - self.max_input_length,
+        )
 
         result = self.process_request(
             prompt_text,
