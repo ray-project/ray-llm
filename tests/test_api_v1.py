@@ -37,24 +37,28 @@ def test_chat():
 
 
 def test_completions_stream():
+    i = 0
     for completion in openai.Completion.create(
         model=TEST_MODEL, prompt="Hello world", stream=True
     ):
+        i += 1
         assert completion
         assert completion.usage
         assert completion.id
         assert type(completion.choices) == list
         assert completion.choices[0].text
         print(completion.choices[0].text)
+    assert i > 4
 
 
 def test_chat_stream():
-    # create a chat completion
+    i = 0
     for chat_completion in openai.ChatCompletion.create(
         model=TEST_MODEL,
         messages=[{"role": "user", "content": "Hello world"}],
         stream=True,
     ):
+        i += 1
         assert chat_completion
         assert chat_completion.usage
         assert chat_completion.id
@@ -63,3 +67,4 @@ def test_chat_stream():
 
         # print the chat completion
         print(chat_completion.choices[0].message.content)
+    assert i > 4

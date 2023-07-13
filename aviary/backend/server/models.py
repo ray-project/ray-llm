@@ -10,6 +10,8 @@ from ray.air import ScalingConfig as AIRScalingConfig
 from ray.serve.config import AutoscalingConfig
 from typing_extensions import Annotated
 
+from aviary.common.models import Prompt  # noqa
+
 
 def markdown_extract_first_paragraph(markdown_text: str):
     """Extract the first paragraph from a markdown-formatted string."""
@@ -102,16 +104,6 @@ class ComputedPropertyMixin:
         )
 
         return super().json(*args, **kwargs)
-
-
-class Prompt(BaseModelExtended):
-    prompt: str
-    use_prompt_format: bool = True
-    parameters: Optional[Dict[str, Any]] = None
-    stopping_sequences: Optional[List[str]] = None
-
-    def __str__(self) -> str:
-        return self.prompt
 
 
 class Response(ComputedPropertyMixin, BaseModelExtended):

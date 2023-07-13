@@ -6,7 +6,8 @@ import torch
 from aviary.backend.llm.continuous.error_handling import ErrorReason
 from aviary.backend.llm.continuous.scheduler import Request
 from aviary.backend.logger import get_logger
-from aviary.backend.server.models import Prompt, Response
+from aviary.backend.server.models import Response
+from aviary.common.models import Prompt
 
 from ._base import AsyncStreamingPipeline
 from .utils import (

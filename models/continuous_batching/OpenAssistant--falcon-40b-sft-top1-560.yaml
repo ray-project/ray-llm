@@ -2,7 +2,7 @@ deployment_config:
   autoscaling_config:
     min_replicas: 1
     initial_replicas: 1
-    max_replicas: 1
+    max_replicas: 4
     target_num_ongoing_requests_per_replica: 100.0
     metrics_interval_s: 10.0
     look_back_period_s: 30.0
@@ -25,7 +25,7 @@ model_config:
         trust_remote_code: true
     pipeline: TextGenerationInference
   generation:
-    max_batch_total_tokens: 240000
+    max_batch_total_tokens: 210000
     max_batch_prefill_tokens: 65536
     generate_kwargs:
       do_sample: true
