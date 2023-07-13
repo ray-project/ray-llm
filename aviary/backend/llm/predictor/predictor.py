@@ -258,14 +258,6 @@ class PredictionWorker(TorchDistributedWorker):
         ):
             yield result
 
-    def validate_prompt(self, prompt: Prompt) -> None:
-        if len(prompt.prompt.split()) > self.llm_config.generation.max_input_words:
-            raise PromptTooLongError(
-                f"Prompt exceeds max input words of "
-                f"{self.llm_config.generation.max_input_words}. "
-                "Please make the prompt shorter."
-            )
-
     @timeit
     def generate(
         self,
@@ -567,3 +559,11 @@ class LLMPredictor:
                     f"At least one prediction worker is dead. Dead workers: {dead_actors}. "
                     "Reinitializing worker group."
                 )
+
+    def validate_prompt(self, prompt: Prompt) -> None:
+        if len(prompt.prompt.split()) > self.model_config.generation.max_input_words:
+            raise PromptTooLongError(
+                f"Prompt exceeds max input words of "
+                f"{self.model_config.generation.max_input_words}. "
+                "Please make the prompt shorter."
+            )

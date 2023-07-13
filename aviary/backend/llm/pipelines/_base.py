@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, Iterator, List, Optional, Union
 import torch
 
 from aviary.backend.logger import get_logger
-from aviary.backend.server.models import Prompt, Response
+from aviary.backend.server.models import Response
+from aviary.common.models import Prompt
 
 if TYPE_CHECKING:
     from ..initializers._base import LLMInitializer

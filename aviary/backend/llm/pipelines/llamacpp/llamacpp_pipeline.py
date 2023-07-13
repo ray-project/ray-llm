@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 import torch
 
 from aviary.backend.logger import get_logger
-from aviary.backend.server.models import Prompt, Response
+from aviary.backend.server.models import Response
+from aviary.common.models import Prompt
 
 from ...initializers.llamacpp import LlamaCppInitializer, LlamaCppTokenizer
 from .._base import StreamingPipeline

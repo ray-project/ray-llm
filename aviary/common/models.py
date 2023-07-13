@@ -100,3 +100,13 @@ class ChatCompletion(BaseModel):
         frequency_penalty: float = 0.0,
     ) -> TChatCompletion:
         pass
+
+
+class Prompt(BaseModel):
+    prompt: str
+    use_prompt_format: bool = True
+    parameters: Optional[Dict[str, Any]] = None
+    stopping_sequences: Optional[List[str]] = None
+
+    def __str__(self) -> str:
+        return self.prompt

@@ -17,7 +17,8 @@ from transformers.pipelines.text_generation import ReturnType
 from transformers.utils import ModelOutput
 
 from aviary.backend.logger import get_logger
-from aviary.backend.server.models import Prompt, Response
+from aviary.backend.server.models import Response
+from aviary.common.models import Prompt
 
 from .._base import StreamingPipeline
 from ..utils import (

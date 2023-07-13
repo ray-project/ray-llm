@@ -25,7 +25,8 @@ from aviary.backend.llm.utils import (
     _init_torch_distributed_env_vars_only,
     init_torch_dist_process_group_async,
 )
-from aviary.backend.server.models import ContinuousBatchingModel, Prompt, Response
+from aviary.backend.server.models import ContinuousBatchingModel, Response
+from aviary.common.models import Prompt
 
 from ..utils import get_logger
 from .predictor import LLMPredictor, PredictionWorker

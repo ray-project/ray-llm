@@ -6,11 +6,16 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Type, Union
 
+try:
+    from typing import Annotated
+except ImportError:
+    from typing_extensions import Annotated
+
 import aiohttp
 import async_timeout
 import ray
 import ray.util
-from fastapi import FastAPI
+from fastapi import Body, FastAPI
 from ray import serve
 from ray.exceptions import RayActorError
 from starlette.requests import Request
@@ -639,20 +644,20 @@ class Router:
         model: str,
         prompt: Prompt,
         request: Request,
-        suffix: Optional[str] = None,
-        max_tokens: int = 32,
-        temperature: float = 1.0,
-        top_p: float = 1.0,
-        n: int = 1,
-        stream: bool = False,
-        logprobs: Optional[int] = None,
-        echo: bool = False,
-        stop: Optional[List[str]] = None,
-        presence_penalty: float = 0.0,
-        frequency_penalty: float = 0.0,
-        best_of: int = 1,
-        logit_bias: Dict[str, float] = None,
-        user: str = None,
+        suffix: Annotated[Optional[str], Body()] = None,
+        max_tokens: Annotated[int, Body()] = 32,
+        temperature: Annotated[float, Body()] = 1.0,
+        top_p: Annotated[float, Body()] = 1.0,
+        n: Annotated[int, Body()] = 1,
+        stream: Annotated[bool, Body()] = False,
+        logprobs: Annotated[Optional[int], Body()] = None,
+        echo: Annotated[bool, Body()] = False,
+        stop: Annotated[Optional[List[str]], Body()] = None,
+        presence_penalty: Annotated[float, Body()] = 0.0,
+        frequency_penalty: Annotated[float, Body()] = 0.0,
+        best_of: Annotated[int, Body()] = 1,
+        logit_bias: Annotated[Optional[Dict[str, float]], Body()] = None,
+        user: Annotated[Optional[str], Body()] = None,
     ):
         """Given a prompt, the model will return one or more predicted completions,
         and can also return the probabilities of alternative tokens at each position.
@@ -695,7 +700,6 @@ class Router:
             "repetition_penalty": frequency_penalty,
             "stopping_sequences": stop,
         }
-
         if stream:
             model = _replace_prefix(model)
             route = self._routes[model]
@@ -724,7 +728,7 @@ class Router:
                             model=model,
                             choices=choices,
                             usage=usage,
-                        )
+                        ).json() + "\n"
 
             return StreamingResponse(
                 completions_wrapper(),
@@ -761,17 +765,17 @@ class Router:
         model: str,
         messages: List[Message],
         request: Request,
-        temperature: float = 1.0,
-        top_p: float = 1.0,
-        n: int = 1,
-        stream: bool = False,
-        logprobs: Optional[int] = None,
-        echo: bool = False,
-        stop: Optional[List[str]] = None,
-        presence_penalty: float = 0.0,
-        frequency_penalty: float = 0.0,
-        logit_bias: Dict[str, float] = None,
-        user: str = None,
+        temperature: Annotated[float, Body()] = 1.0,
+        top_p: Annotated[float, Body()] = 1.0,
+        n: Annotated[int, Body()] = 1,
+        stream: Annotated[bool, Body()] = False,
+        logprobs: Annotated[Optional[int], Body()] = None,
+        echo: Annotated[bool, Body()] = False,
+        stop: Annotated[Optional[List[str]], Body()] = None,
+        presence_penalty: Annotated[float, Body()] = 0.0,
+        frequency_penalty: Annotated[float, Body()] = 0.0,
+        logit_bias: Annotated[Optional[Dict[str, float]], Body()] = None,
+        user: Annotated[Optional[str], Body()] = None,
     ):
         """Given a prompt, the model will return one or more predicted completions,
         and can also return the probabilities of alternative tokens at each position.
@@ -844,7 +848,7 @@ class Router:
                             model=model,
                             choices=choices,
                             usage=usage,
-                        )
+                        ).json() + "\n"
 
             return StreamingResponse(
                 completions_wrapper(),

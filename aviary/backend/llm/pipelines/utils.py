@@ -3,7 +3,7 @@ from typing import List, Sequence, TypeVar, Union
 import torch
 from transformers import PreTrainedTokenizer
 
-from aviary.backend.server.models import Prompt
+from aviary.common.models import Prompt
 
 T = TypeVar("T")
 

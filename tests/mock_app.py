@@ -1,8 +1,14 @@
 import time
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI
+try:
+    from typing import Annotated
+except ImportError:
+    from typing_extensions import Annotated
+
+from fastapi import Body, FastAPI, Request
+from starlette.responses import StreamingResponse
 
 from aviary.common.models import (
     ChatCompletion,
@@ -11,6 +17,7 @@ from aviary.common.models import (
     MessageChoices,
     Model,
     ModelData,
+    Prompt,
     TextChoice,
     Usage,
 )
@@ -86,56 +93,142 @@ def model_data(model: str) -> ModelData:
 @app.post("/v1/completions/{model}", response_model=Completion)
 def completions(
     model: str,
-) -> Completion:
+    prompt: Prompt,
+    request: Request,
+    suffix: Annotated[Optional[str], Body()] = None,
+    max_tokens: Annotated[int, Body()] = 32,
+    temperature: Annotated[float, Body()] = 1.0,
+    top_p: Annotated[float, Body()] = 1.0,
+    n: Annotated[int, Body()] = 1,
+    stream: Annotated[bool, Body()] = False,
+    logprobs: Annotated[Optional[int], Body()] = None,
+    echo: Annotated[bool, Body()] = False,
+    stop: Annotated[Optional[List[str]], Body()] = None,
+    presence_penalty: Annotated[float, Body()] = 0.0,
+    frequency_penalty: Annotated[float, Body()] = 0.0,
+    best_of: Annotated[int, Body()] = 1,
+    logit_bias: Annotated[Optional[Dict[str, float]], Body()] = None,
+    user: Annotated[Optional[str], Body()] = None,
+):
     model = model.replace("--", "/")
-    choices = [
-        TextChoice(
-            text=dummy_generation["generated_text"],
-            index=0,
-            logprobs={},
-            finish_reason="length",
-        )
-    ]
-    usage = Usage(
-        prompt_tokens=0,
-        completion_tokens=0,
-        total_tokens=0,
-    )
+    if stream:
 
-    return Completion(
-        id=model + "-" + str(uuid.uuid4()),
-        object="text_completion",
-        created=int(time.time()),
-        model=model,
-        choices=choices,
-        usage=usage,
-    )
+        def gen():
+            for word in dummy_generation["generated_text"].split():
+                choices = [
+                    TextChoice(
+                        text=word,
+                        index=0,
+                        logprobs={},
+                        finish_reason="length",
+                    )
+                ]
+                usage = Usage(
+                    prompt_tokens=0,
+                    completion_tokens=0,
+                    total_tokens=0,
+                )
+
+                yield Completion(
+                    id=model + "-" + str(uuid.uuid4()),
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=model,
+                    choices=choices,
+                    usage=usage,
+                ).json() + "\n"
+
+        return StreamingResponse(gen(), media_type="text/plain")
+    else:
+        choices = [
+            TextChoice(
+                text=dummy_generation["generated_text"],
+                index=0,
+                logprobs={},
+                finish_reason="length",
+            )
+        ]
+        usage = Usage(
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+        )
+
+        return Completion(
+            id=model + "-" + str(uuid.uuid4()),
+            object="text_completion",
+            created=int(time.time()),
+            model=model,
+            choices=choices,
+            usage=usage,
+        )
 
 
 @app.post("/v1/chat/completions/{model}", response_model=ChatCompletion)
 def chat(
     model: str,
-) -> ChatCompletion:
-    choices: List[MessageChoices] = [
-        MessageChoices(
-            message=Message(
-                role="assistant", content=dummy_generation["generated_text"]
-            ),
-            index=0,
-            finish_reason="length",
-        )
-    ]
-    usage = Usage(
-        prompt_tokens=0,
-        completion_tokens=0,
-        total_tokens=0,
-    )
+    messages: List[Message],
+    request: Request,
+    temperature: Annotated[float, Body()] = 1.0,
+    top_p: Annotated[float, Body()] = 1.0,
+    n: Annotated[int, Body()] = 1,
+    stream: Annotated[bool, Body()] = False,
+    logprobs: Annotated[Optional[int], Body()] = None,
+    echo: Annotated[bool, Body()] = False,
+    stop: Annotated[Optional[List[str]], Body()] = None,
+    presence_penalty: Annotated[float, Body()] = 0.0,
+    frequency_penalty: Annotated[float, Body()] = 0.0,
+    logit_bias: Annotated[Optional[Dict[str, float]], Body()] = None,
+    user: Annotated[Optional[str], Body()] = None,
+):
+    if stream:
 
-    return ChatCompletion(
-        id=model + "-" + str(uuid.uuid4()),
-        object="text_completion",
-        created=int(time.time()),
-        model=model,
-        choices=choices,
-        usage=usage,
-    )
+        def gen():
+            for word in dummy_generation["generated_text"].split():
+                choices: List[MessageChoices] = [
+                    MessageChoices(
+                        message=Message(role="assistant", content=word),
+                        index=0,
+                        finish_reason="length",
+                    )
+                ]
+                usage = Usage(
+                    prompt_tokens=0,
+                    completion_tokens=0,
+                    total_tokens=0,
+                )
+
+                yield ChatCompletion(
+                    id=model + "-" + str(uuid.uuid4()),
+                    object="text_completion",
+                    created=int(time.time()),
+                    model=model,
+                    choices=choices,
+                    usage=usage,
+                ).json() + "\n"
+
+        return StreamingResponse(gen(), media_type="text/plain")
+    else:
+        choices: List[MessageChoices] = [
+            MessageChoices(
+                message=Message(
+                    role="assistant", content=dummy_generation["generated_text"]
+                ),
+                index=0,
+                finish_reason="length",
+            )
+        ]
+        usage = Usage(
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+        )
+
+        return ChatCompletion(
+            id=model + "-" + str(uuid.uuid4()),
+            object="text_completion",
+            created=int(time.time()),
+            model=model,
+            choices=choices,
+            usage=usage,
+        )
