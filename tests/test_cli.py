@@ -40,6 +40,7 @@ def test_query():
             "hello",
         ],
     )
+    print(result.stdout)
     assert result.exit_code == 0
     assert result.stdout
 
@@ -56,6 +57,7 @@ def test_batch_query():
             "hello",
         ],
     )
+    print(result.stdout)
     assert result.exit_code == 0
     assert result.stdout
 
@@ -71,6 +73,7 @@ def test_batch_query():
             "world",
         ],
     )
+    print(result.stdout)
     assert result.exit_code == 0
     assert result.stdout
 
@@ -101,7 +104,7 @@ def test_multi_query():
             output_file,
         ],
     )
-
+    print(result.stdout)
     assert result.exit_code == 0
 
 
@@ -126,6 +129,7 @@ def test_eval():
     assert result.exit_code == 0
 
 
+@pytest.mark.skip(reason="Streaming is not yet available in CI")
 def test_stream():
     result = runner.invoke(
         app,
@@ -137,5 +141,6 @@ def test_stream():
             "hello",
         ],
     )
+    print(result.stdout)
     assert result.exit_code == 0
     assert result.stdout

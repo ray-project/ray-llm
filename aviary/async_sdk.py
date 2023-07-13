@@ -4,11 +4,11 @@ from typing import AsyncIterator, Dict, Union
 
 import aiohttp
 
-from aviary.api.utils import (
-    BackendError,
+from aviary.common.constants import DEFAULT_API_VERSION, TIMEOUT
+from aviary.common.utils import (
+    ResponseError,
     _is_aviary_model,
 )
-from aviary.common.constants import DEFAULT_API_VERSION, TIMEOUT
 
 from .sdk import get_aviary_backend
 
@@ -42,16 +42,16 @@ async def stream(
                             continue
                         data = json.loads(chunk)
                         if "error" in data:
-                            raise BackendError(
+                            raise ResponseError(
                                 data["error"],
                                 response=response(data["error"], r.status),
                             )
                         yield data
         except Exception as e:
-            if isinstance(e, BackendError):
+            if isinstance(e, ResponseError):
                 raise e
             else:
-                raise BackendError(
+                raise ResponseError(
                     str(e), response=response(chunk.decode("utf-8"), r.status)
                 ) from e
     else:
