@@ -25,26 +25,22 @@ all_models = ["hf-internal-testing--tiny-random-gpt2"]
 
 
 @app.post("/query/{model}")
-def query(model: str) -> Dict[str, Dict[str, Any]]:
+def query(model: str) -> Dict[str, Any]:
     model = model.replace("--", "/")
     return {
-        model: {
-            "generated_text": dummy_generation,
-            "total_time": 1.0,
-            "num_total_tokens": 42,
-        }
+        "generated_text": dummy_generation,
+        "total_time": 1.0,
+        "num_total_tokens": 42,
     }
 
 
 @app.post("/query/batch/{model}")
-def batch_query(model: str) -> Dict[str, List[Dict[str, Any]]]:
+def batch_query(model: str) -> List[Dict[str, Any]]:
     model = model.replace("--", "/")
-    return {
-        model: [
-            {"generated_text": dummy_generation},
-            {"generated_text": dummy_generation},
-        ]
-    }
+    return [
+        {"generated_text": dummy_generation},
+        {"generated_text": dummy_generation},
+    ]
 
 
 @app.get("/metadata/{model}")

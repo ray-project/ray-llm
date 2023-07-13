@@ -8,6 +8,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Type, Union
 import aiohttp
 import async_timeout
 import ray
+import ray.util
 from fastapi import FastAPI
 from ray import serve
 from ray.exceptions import RayActorError
@@ -51,6 +52,7 @@ async def _until_disconnected(request: Request):
         await asyncio.sleep(1)
 
 
+# TODO Remove once we can stream from serve handles
 @serve.ingress(model_app)
 class LLMDeployment(ABC):
     _predictor_cls: Type[LLMPredictor] = LLMPredictor
@@ -98,6 +100,7 @@ class LLMDeployment(ABC):
                 "Please make the prompt shorter."
             )
 
+    # TODO Remove once we can stream from serve handles
     @model_app.get("/metadata")
     async def metadata(self) -> dict:
         return {
@@ -110,6 +113,7 @@ class LLMDeployment(ABC):
             )
         }
 
+    # TODO Remove once we can stream from serve handles
     @model_app.post("/query")
     async def generate_text(self, prompt: Prompt, request: Request) -> Response:
         return await self._generate_text(
@@ -135,6 +139,7 @@ class LLMDeployment(ABC):
                 responses.append(t)
             return Response.merge_stream(*responses)
 
+    # TODO Remove once we can stream from serve handles
     @model_app.post("/stream")
     async def generate_text_stream(
         self, prompt: Prompt, request: Request
@@ -167,6 +172,7 @@ class LLMDeployment(ABC):
 
         return StreamingResponse(wrapper(), status_code=200, media_type="text/plain")
 
+    # TODO Remove once we can stream from serve handles
     @model_app.post("/batch")
     async def batch_generate_text(
         self, prompts: List[Prompt], request: Request
@@ -484,23 +490,31 @@ def _replace_prefix(model: str) -> str:
     return model.replace("--", "/")
 
 
-@serve.deployment(
-    route_prefix="/",
-    # TODO make this configurable in aviary run
-    autoscaling_config={
-        "min_replicas": 1,
-        "initial_replicas": 1,
-        "max_replicas": 16,
-    },
-    max_concurrent_queries=50,  # Maximum backlog for a single replica
-)
-@serve.ingress(router_app)
-class RouterDeployment:
+class ExecutionHooks:
+    def __init__(self):
+        self.hooks = []
+
+    def add_post_execution_hook(self, fn):
+        self.hooks.append(fn)
+
+    async def trigger_post_execution_hook(
+        self, request: Request, model_id: str, input_str: str, output_str: str
+    ):
+        # Run the token hooks in parallel
+        # If a token hook fails, the request will fail
+        if len(self.hooks) > 0:
+            await asyncio.gather(
+                *[fn(request, model_id, input_str, output_str) for fn in self.hooks]
+            )
+
+
+class Router:
     def __init__(
         self,
         full_deployment_names: Dict[str, str],
         routes: Dict[str, str],
         model_configurations: Dict[str, Args],
+        hooks: Optional[ExecutionHooks] = None,
     ) -> None:
         self._model_handles = {
             model_id: serve.get_deployment(deployment_name).get_handle()
@@ -514,8 +528,11 @@ class RouterDeployment:
         # Get the port the serve app is running on
         controller = ray.serve.context.get_global_client()._controller
         self.port = ray.get(controller.get_http_config.remote()).port
+        self.hooks = hooks or ExecutionHooks()
 
-    async def _get_response_stream(self, route: str, prompt: Prompt):
+    async def _get_response_stream(
+        self, route: str, model: str, prompt: Prompt, request: Request
+    ):
         async with aiohttp.ClientSession(raise_for_status=True) as session:
             async with session.post(
                 f"http://localhost:{self.port}{route}/stream", json=prompt.dict()
@@ -523,22 +540,29 @@ class RouterDeployment:
                 logger.info("Started receiving streaming response.")
                 async for chunk in response.content:
                     yield chunk
+        # TODO make this work for streaming
+        # await self.hooks.trigger_post_execution_hook(
+        #     request, model, prompt.prompt, chunk
+        # )
 
     @router_app.post("/stream/{model}")
-    async def stream(self, model: str, prompt: Prompt):
+    async def stream(self, model: str, prompt: Prompt, request: Request):
         model = _replace_prefix(model)
         route = self._routes[model]
         return StreamingResponse(
-            self._get_response_stream(route, prompt), media_type="text/plain"
+            self._get_response_stream(route, model, prompt, request),
+            media_type="text/plain",
         )
 
     @router_app.post("/query/{model}")
-    async def query(self, model: str, prompt: Prompt) -> Dict[str, Any]:
-        return (await self.batch_query(model, [prompt]))[0]
+    async def query(
+        self, model: str, prompt: Prompt, request: Request
+    ) -> Dict[str, Any]:
+        return (await self.batch_query(model, [prompt], request))[0]
 
     @router_app.post("/query/batch/{model}")
     async def batch_query(
-        self, model: str, prompts: List[Prompt]
+        self, model: str, prompts: List[Prompt], request: Request
     ) -> List[Dict[str, Any]]:
         model = _replace_prefix(model)
         route = self._routes[model]
@@ -550,7 +574,16 @@ class RouterDeployment:
                 logger.info(
                     "Received response from intermediate request. Awaiting json body."
                 )
-                return await response.json()
+
+                completions = await response.json()
+
+                # Set execution state on the request object for middlewares
+                for completion, prompt in zip(completions, prompts):
+                    await self.hooks.trigger_post_execution_hook(
+                        request, model, prompt.prompt, completion
+                    )
+
+                return completions
 
     @router_app.get("/metadata/{model}")
     async def metadata(self, model) -> Dict[str, Dict[str, Any]]:
@@ -784,3 +817,15 @@ class RouterDeployment:
             choices=choices,
             usage=usage,
         )
+
+
+RouterDeployment = serve.deployment(
+    route_prefix="/",
+    # TODO make this configurable in aviary run
+    autoscaling_config={
+        "min_replicas": 2,
+        "initial_replicas": 2,
+        "max_replicas": 16,
+    },
+    max_concurrent_queries=50,  # Maximum backlog for a single replica
+)(serve.ingress(router_app)(Router))
