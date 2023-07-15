@@ -73,7 +73,6 @@ def init_model(
     pipeline = get_pipeline_cls_by_name(pipeline_name).from_initializer(
         initializer,
         llm_config.actual_hf_model_id,
-        prompt_format=llm_config.generation.prompt_format,
     )
 
     return pipeline
@@ -216,8 +215,11 @@ class PredictionWorker(TorchDistributedWorker):
             torch.cuda.set_device(self.current_device)
         if not isinstance(self.generator, StreamingPipeline):
             raise RuntimeError(f"Pipeline {self.generator} does not support streaming.")
+        prompt_text = [
+            self.llm_config.generation.prompt_format.generate_prompt(p) for p in prompts
+        ]
         yield from self.generator.stream(
-            prompts,
+            prompt_text,
             timeout_s=timeout_s,
             start_timestamp=start_timestamp,
             **kwargs,
@@ -250,8 +252,11 @@ class PredictionWorker(TorchDistributedWorker):
             raise RuntimeError(
                 f"Pipeline {self.generator} does not support async streaming."
             )
+        prompt_text = [
+            self.llm_config.generation.prompt_format.generate_prompt(p) for p in prompts
+        ]
         async for result in self.generator.async_stream(
-            prompts,
+            prompt_text,
             timeout_s=timeout_s,
             start_timestamp=start_timestamp,
             **kwargs,
@@ -282,9 +287,13 @@ class PredictionWorker(TorchDistributedWorker):
         """
         if self.current_device:
             torch.cuda.set_device(self.current_device)
+
+        prompt_text = [
+            self.llm_config.generation.prompt_format.generate_prompt(p) for p in prompts
+        ]
         try:
             outputs = self.generator(
-                prompts,
+                prompt_text,
                 timeout_s=timeout_s,
                 start_timestamp=start_timestamp,
                 **kwargs,
@@ -298,18 +307,18 @@ class PredictionWorker(TorchDistributedWorker):
                     "[FIXME] Prediction failed due to CUDA OOM, trying again...\n"
                     f"{traceback.format_exc()}"
                 )
-                prompts_1, prompts_2 = (
-                    prompts[: len(prompts) // 2],
-                    prompts[len(prompts) // 2 :],
+                prompt_text_1, prompt_text_2 = (
+                    prompt_text[: len(prompt_text) // 2],
+                    prompt_text[len(prompt_text) // 2 :],
                 )
                 responses_1 = self.generator(
-                    prompts_1,
+                    prompt_text_1,
                     timeout_s=timeout_s,
                     start_timestamp=start_timestamp,
                     **kwargs,
                 )
                 responses_2 = self.generator(
-                    prompts_2,
+                    prompt_text_2,
                     timeout_s=timeout_s,
                     start_timestamp=start_timestamp,
                     **kwargs,
@@ -408,6 +417,14 @@ class LLMPredictor:
         )
         return worker_group
 
+    def _prepare_worker_runtime_env(self) -> dict:
+        runtime_env = self.model_config.initialization.runtime_env or {}
+        runtime_env.setdefault("env_vars", {})
+        runtime_env["env_vars"].setdefault(
+            "PYTORCH_CUDA_ALLOC_CONF", "backend:cudaMallocAsync"
+        )
+        return runtime_env
+
     async def _create_worker_group(
         self,
         scaling_config: ScalingConfig,
@@ -433,7 +450,7 @@ class LLMPredictor:
                 placement_group=self.pg, placement_group_capture_child_tasks=True
             ),
         )
-        runtime_env = llm_config.initialization.runtime_env or {}
+        runtime_env = self._prepare_worker_runtime_env()
         remote_prediction_worker_cls = ray.remote(prediction_worker_cls).options(
             **scaling_options, runtime_env=runtime_env
         )
@@ -454,6 +471,13 @@ class LLMPredictor:
                 )
                 for i in range(scaling_config.num_workers)
             ]
+        )
+
+        # Download just the tokenizer for the predictor
+        initialize_node(
+            llm_config.actual_hf_model_id,
+            llm_config.initialization.s3_mirror_config,
+            tokenizer_only=True,
         )
 
         worker_group = await self._start_prediction_workers(
@@ -561,7 +585,8 @@ class LLMPredictor:
                 )
 
     def validate_prompt(self, prompt: Prompt) -> None:
-        if len(prompt.prompt.split()) > self.model_config.generation.max_input_words:
+        text = self.model_config.generation.prompt_format.generate_prompt(prompt)
+        if len(text.split()) > self.model_config.generation.max_input_words:
             raise PromptTooLongError(
                 f"Prompt exceeds max input words of "
                 f"{self.model_config.generation.max_input_words}. "

@@ -25,8 +25,8 @@ model_config:
         trust_remote_code: true
     pipeline: TextGenerationInference
   generation:
-    max_batch_total_tokens: 6144
-    max_batch_prefill_tokens: 6144
+    max_batch_total_tokens: 7000
+    max_batch_prefill_tokens: 7000
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
@@ -35,7 +35,12 @@ model_config:
       top_k: 0
       temperature: 0.8
       repetition_penalty: 1.02
-    prompt_format: ""
+    prompt_format:
+      system: "{instruction}"
+      assistant: "{instruction}"
+      trailing_assistant: ""
+      user: "{instruction}"
+      default_system_message: ""
     stopping_sequences: []
 scaling_config:
   num_workers: 1

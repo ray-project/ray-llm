@@ -40,7 +40,12 @@ model_config:
       top_k: 0
       temperature: 0.1
       repetition_penalty: 1.1
-    prompt_format: "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n### Instruction:\n{instruction}\n### Response:\n"
+    prompt_format:
+      system: "{instruction}\n"
+      assistant: "### Response:\n{instruction}\n"
+      trailing_assistant: "### Response:\n"
+      user: "### Instruction:\n{instruction}\n"
+      default_system_message: "Below is an instruction that describes a task. Write a response that appropriately completes the request."
     stopping_sequences: ["### Response:", "### End"]
 scaling_config:
   num_workers: 1

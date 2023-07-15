@@ -97,7 +97,6 @@ def completion_create(
     cls,
     model: str,
     prompt: str,
-    use_prompt_format: bool = True,
     max_tokens: int = 32,
     temperature: float = 1.0,
     top_p: float = 1.0,
@@ -115,14 +114,11 @@ def completion_create(
                 url,
                 headers=backend.header,
                 json={
-                    "prompt": {
-                        "prompt": prompt,
-                        "use_prompt_format": use_prompt_format,
-                    },
+                    "prompt": prompt,
                     "temperature": temperature,
                     "max_new_tokens": max_tokens,
                     "top_p": top_p,
-                    "repetition_penalty": frequency_penalty,
+                    "frequency_penalty": frequency_penalty,
                     "stopping_sequences": stop,
                     "stream": True,
                 },
@@ -142,7 +138,7 @@ def completion_create(
                         yield Completion(**data)
                     except pydantic.ValidationError as e:
                         raise ResponseError(
-                            f"Error decoding response from {response.url}. Text response: {response.text}",
+                            f"Error decoding response from {response.url}.",
                             response=response,
                         ) from e
             except ConnectionError as e:
@@ -154,11 +150,11 @@ def completion_create(
             url,
             headers=backend.header,
             json={
-                "prompt": {"prompt": prompt, "use_prompt_format": use_prompt_format},
+                "prompt": prompt,
                 "temperature": temperature,
                 "max_new_tokens": max_tokens,
                 "top_p": top_p,
-                "repetition_penalty": frequency_penalty,
+                "frequency_penalty": frequency_penalty,
                 "stopping_sequences": stop,
             },
             timeout=TIMEOUT,
@@ -167,7 +163,7 @@ def completion_create(
             return Completion(**_get_result(response))
         except pydantic.ValidationError as e:
             raise ResponseError(
-                f"Error decoding response from {response.url}. Text response: {response.text}",
+                f"Error decoding response from {response.url}.",
                 response=response,
             ) from e
 
@@ -198,7 +194,7 @@ def chat_completion_create(
                     "messages": messages,
                     "temperature": temperature,
                     "top_p": top_p,
-                    "repetition_penalty": frequency_penalty,
+                    "frequency_penalty": frequency_penalty,
                     "stopping_sequences": stop,
                     "stream": True,
                 },
@@ -218,7 +214,7 @@ def chat_completion_create(
                         yield ChatCompletion(**data)
                     except pydantic.ValidationError as e:
                         raise ResponseError(
-                            f"Error decoding response from {response.url}. Text response: {response.text}",
+                            f"Error decoding response from {response.url}.",
                             response=response,
                         ) from e
             except ConnectionError as e:
@@ -233,7 +229,7 @@ def chat_completion_create(
                 "messages": messages,
                 "temperature": temperature,
                 "top_p": top_p,
-                "repetition_penalty": frequency_penalty,
+                "frequency_penalty": frequency_penalty,
                 "stopping_sequences": stop,
             },
             timeout=TIMEOUT,
@@ -242,7 +238,7 @@ def chat_completion_create(
             return ChatCompletion(**_get_result(response))
         except pydantic.ValidationError as e:
             raise ResponseError(
-                f"Error decoding response from {response.url}. Text response: {response.text}",
+                f"Error decoding response from {response.url}.",
                 response=response,
             ) from e
 

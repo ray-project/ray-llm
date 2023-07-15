@@ -10,7 +10,7 @@ from ray.air import ScalingConfig as AIRScalingConfig
 from ray.serve.config import AutoscalingConfig
 from typing_extensions import Annotated
 
-from aviary.common.models import Prompt  # noqa
+from aviary.common.models import Prompt, PromptFormat  # noqa
 
 
 def markdown_extract_first_paragraph(markdown_text: str):
@@ -425,7 +425,7 @@ class ContinuousBatchingInitializationConfig(InitializationConfig):
 
 
 class GenerationConfig(BaseModelExtended):
-    prompt_format: Optional[str] = None
+    prompt_format: PromptFormat
     generate_kwargs: Dict[str, Any] = {
         "max_new_tokens": 256,
         "do_sample": True,
@@ -433,14 +433,6 @@ class GenerationConfig(BaseModelExtended):
         "top_k": 0,
     }
     stopping_sequences: Optional[List[Union[str, int, List[Union[str, int]]]]] = None
-
-    @validator("prompt_format")
-    def check_prompt_format(cls, value):
-        if value:
-            assert (
-                "{instruction}" in value
-            ), "prompt_format must be None, empty string or string containing '{instruction}'"
-        return value
 
     @validator("stopping_sequences")
     def check_stopping_sequences(cls, value):

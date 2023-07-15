@@ -7,7 +7,6 @@ from aviary.backend.llm.continuous.error_handling import ErrorReason
 from aviary.backend.llm.continuous.scheduler import Request
 from aviary.backend.logger import get_logger
 from aviary.backend.server.models import Response
-from aviary.common.models import Prompt
 
 from ._base import AsyncStreamingPipeline
 from .utils import (
@@ -56,7 +55,6 @@ class TextGenerationInferencePipeline(AsyncStreamingPipeline):
         self,
         model: "TGIInferenceWorker",
         tokenizer,
-        prompt_format: Union[str, None] = None,
         device: Union[str, int, torch.device, None] = None,
     ) -> None:
         if isinstance(GenerationRequest, Exception):
@@ -73,7 +71,7 @@ class TextGenerationInferencePipeline(AsyncStreamingPipeline):
             else:
                 tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 
-        super().__init__(model, tokenizer, prompt_format, device)
+        super().__init__(model, tokenizer, device)
 
     def get_input_length(self, input_text: str) -> int:
         return self.tokenizer(
@@ -104,6 +102,10 @@ class TextGenerationInferencePipeline(AsyncStreamingPipeline):
         stop_sequences = decode_stopping_sequences_where_needed(
             self.tokenizer, stop_sequences
         )
+        if not do_sample:
+            temperature = 1.0
+        elif temperature <= 0:
+            temperature = 0.01
 
         parameters = NextTokenChooserParameters(
             temperature=temperature,
@@ -124,7 +126,7 @@ class TextGenerationInferencePipeline(AsyncStreamingPipeline):
         return parameters, stopping_parameters, generate_kwargs
 
     # TODO Fix this
-    def __call__(self, inputs: List[Union[str, Prompt]], **kwargs) -> List[Response]:
+    def __call__(self, inputs: List[str], **kwargs) -> List[Response]:
         raise NotImplementedError
 
     def _parse_requests(

@@ -18,9 +18,6 @@ from aviary.backend.llm.continuous.scheduler import (
     TransformersTokenizer,
 )
 from aviary.backend.llm.exceptions import PromptTooLongError, ValidationError
-from aviary.backend.llm.pipelines.utils import (
-    construct_prompts,
-)
 from aviary.backend.llm.utils import (
     _init_torch_distributed_env_vars_only,
     init_torch_dist_process_group_async,
@@ -28,7 +25,7 @@ from aviary.backend.llm.utils import (
 from aviary.backend.server.models import ContinuousBatchingModel, Response
 from aviary.common.models import Prompt
 
-from ..utils import get_logger
+from ..utils import get_logger, merge_dicts
 from .predictor import LLMPredictor, PredictionWorker
 
 try:
@@ -203,6 +200,29 @@ class ContinuousBatchingPredictor(LLMPredictor):
             right = final_max_batch_total_tokens
             final_max_batch_total_tokens = 0
             last_exception_traceback = None
+
+            # First start with max_batch_total_tokens == max_batch_prefill_tokens
+            try:
+                logger.info(
+                    f"[{iters}] Testing max_batch_total_tokens={self.model_config.generation.max_batch_prefill_tokens}"
+                )
+                self.model_config.generation.max_batch_total_tokens = (
+                    self.model_config.generation.max_batch_prefill_tokens
+                )
+                worker_group = await super()._start_prediction_workers(
+                    scaling_config, remote_prediction_worker_cls
+                )
+            except (
+                torch.cuda.OutOfMemoryError,
+                AssertionError,
+                ray.exceptions.RayActorError,
+                RuntimeError,
+            ):
+                # We can fail fast
+                right = float("-inf")
+                last_exception_traceback = traceback.format_exc()
+                logger.warning(last_exception_traceback)
+
             while left <= right:
                 iters += 1
                 mid = (left + right) // 2
@@ -234,8 +254,9 @@ class ContinuousBatchingPredictor(LLMPredictor):
                 raise ValueError(
                     f"Could not find a feasible max_batch_total_tokens value. Please check your config and try again. Last exception:\n{last_exception_traceback}"
                 )
-            final_max_batch_total_tokens = int(
-                final_max_batch_total_tokens * 0.95
+            final_max_batch_total_tokens = max(
+                int(final_max_batch_total_tokens * 0.95),
+                self.model_config.generation.max_batch_prefill_tokens,
             )  # leave a little leeway
             logger.info(
                 f"Full warmup done in {iters} iterations. Final max_batch_total_tokens: {final_max_batch_total_tokens}."
@@ -331,32 +352,25 @@ class ContinuousBatchingPredictor(LLMPredictor):
         assert len(prompts) == 1
 
         prompt = prompts[0]
-        prompt_text = construct_prompts(
-            prompt,
-            prompt_format=self.model_config.generation.prompt_format,
-        )[0]
+        prompt_text = self.model_config.generation.prompt_format.generate_prompt(prompt)
 
         stopping_sequences = (
             prompt.stopping_sequences
             if prompt.stopping_sequences is not None
             else model_config.generation.stopping_sequences
         )
-        generate_kwargs = (
-            prompt.parameters
-            if prompt.parameters is not None
-            else model_config.generation.generate_kwargs
+        generate_kwargs = merge_dicts(
+            prompt.parameters or {}, model_config.generation.generate_kwargs
         )
         max_new_tokens = min(
             generate_kwargs.get("max_new_tokens", 512),
             self.max_total_tokens - self.max_input_length,
         )
-
         result = self.process_request(
             prompt_text,
             max_new_tokens=max_new_tokens,
             sampling_params={
                 **generate_kwargs,
-                "use_prompt_format": prompt.use_prompt_format,
                 "stopping_sequences": stopping_sequences,
             },
         )

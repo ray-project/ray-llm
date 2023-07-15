@@ -25,7 +25,7 @@ model_config:
         trust_remote_code: true
     pipeline: TextGenerationInference
   generation:
-    max_batch_total_tokens: 210000
+    max_batch_total_tokens: 73200
     max_batch_prefill_tokens: 65536
     generate_kwargs:
       do_sample: true
@@ -35,7 +35,12 @@ model_config:
       top_p: 0.9
       repetition_penalty: 1.02
       return_token_type_ids: false
-    prompt_format: "<|prefix_begin|>Below are a series of dialogues between various people and an AI assistant. The AI tries to be helpful, polite, honest, sophisticated, emotionally aware, and humble-but-knowledgeable. The assistant is happy to help with almost anything, and will do its best to understand exactly what is needed. It also tries to avoid giving false or misleading information, and it caveats when it isn't entirely sure about the right answer. That said, the assistant is practical and really does its best, and doesn't let caution get too much in the way of being useful.<|prefix_end|><|prompter|>{instruction}<|endoftext|><|assistant|>"
+    prompt_format:
+      system: "<|prefix_begin|>{instruction}<|prefix_end|>"
+      assistant: "<|assistant|>{instruction}<|endoftext|>"
+      trailing_assistant: "<|assistant|>"
+      user: "<|prompter|>{instruction}<|endoftext|>"
+      default_system_message: "Below are a series of dialogues between various people and an AI assistant. The AI tries to be helpful, polite, honest, sophisticated, emotionally aware, and humble-but-knowledgeable. The assistant is happy to help with almost anything, and will do its best to understand exactly what is needed. It also tries to avoid giving false or misleading information, and it caveats when it isn't entirely sure about the right answer. That said, the assistant is practical and really does its best, and doesn't let caution get too much in the way of being useful."
     stopping_sequences: ["<|prompter|>", "<|assistant|>", "<|endoftext|>"]
 scaling_config:
   num_workers: 2
