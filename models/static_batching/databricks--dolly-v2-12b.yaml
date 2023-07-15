@@ -20,6 +20,8 @@ model_config:
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--databricks--dolly-v2-12b/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeepSpeed
       dtype: float16

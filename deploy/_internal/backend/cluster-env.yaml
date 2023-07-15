@@ -1,41 +1,8 @@
-base_image: anyscale/ray:nightly-py310-cu118
-debian_packages:
-- libaio-dev
-- git-lfs
-- xfsprogs
+docker_image: anyscale/aviary:latest
+ray_version: nightly
 env_vars:
   HF_HUB_ENABLE_HF_TRANSFER: 1
   SAFETENSORS_FAST_GPU: 1
   RAY_SERVE_ENABLE_EXPERIMENTAL_STREAMING: 1
   XDG_CACHE_HOME: /mnt/local_storage/data/cache
   TORCH_HOME: /mnt/local_storage/data/cache/torch
-post_build_cmds:
-- |-
-  echo "dedup version 3. increment this to force a rebuild."
-  pip uninstall -y torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric tensorflow
-  pip install -i https://download.pytorch.org/whl/cu118 torch torchvision torchaudio
-  pip install \
-    "async_timeout" \
-    "markdown-it-py[plugins]" \
-    "accelerate" \
-    "transformers>=4.25.1" \
-    "datasets" \
-    "ftfy" \
-    "tensorboard" \
-    "sentencepiece" \
-    "Jinja2" \
-    "numexpr>=2.7.3" \
-    "hf_transfer" \
-    "evaluate" \
-    "bitsandbytes" \
-    "git+https://github.com/Yard1/DeepSpeed.git@aviary" \
-    "numpy<1.24" \
-    "ninja" \
-    "protobuf<3.21.0" \
-    "git+https://github.com/huggingface/optimum.git" \
-    "torchmetrics" \
-    "safetensors" \
-    "pydantic==1.10.7" \
-    "einops" \
-    "markdown-it-py[plugins]" \
-    "fastapi_versioning"

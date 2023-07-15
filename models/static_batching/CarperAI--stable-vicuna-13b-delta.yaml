@@ -22,6 +22,8 @@ model_config:
         - transformers<4.30
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/restricted/models--CarperAI--stable-vicuna-13b-delta/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeepSpeed
       dtype: float16
