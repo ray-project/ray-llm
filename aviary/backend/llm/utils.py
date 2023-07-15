@@ -28,6 +28,7 @@ def download_model(
     model_id: str,
     bucket_uri: str,
     s3_sync_args: Optional[List[str]] = None,
+    tokenizer_only: bool = False,
 ) -> None:
     """
     Download a model from an S3 bucket and save it in TRANSFORMERS_CACHE for
@@ -68,6 +69,7 @@ def download_model(
             "--quiet",
         ]
         + s3_sync_args
+        + (["--exclude", "*", "--include", "*token*"] if tokenizer_only else [])
         + [
             bucket_uri,
             os.path.join(path, "snapshots", f_hash),
@@ -96,6 +98,7 @@ def timeit(func):
 def initialize_node(
     model_id: Optional[str] = None,
     s3_mirror_config: Optional[S3MirrorConfig] = None,
+    tokenizer_only: bool = False,
 ):
     """
     Performn initialization for a node.
@@ -120,7 +123,12 @@ def initialize_node(
                 bucket_uri = s3_mirror_config.bucket_uri
                 s3_sync_args = s3_mirror_config.s3_sync_args
                 try:
-                    download_model(model_id, bucket_uri, s3_sync_args=s3_sync_args)
+                    download_model(
+                        model_id,
+                        bucket_uri,
+                        s3_sync_args=s3_sync_args,
+                        tokenizer_only=tokenizer_only,
+                    )
                     logger.info("Done downloading the model from bucket!")
                 except RuntimeError:
                     logger.warning(

@@ -642,7 +642,7 @@ class Router:
     async def completions(
         self,
         model: str,
-        prompt: Prompt,
+        prompt: Annotated[str, Body()],
         request: Request,
         suffix: Annotated[Optional[str], Body()] = None,
         max_tokens: Annotated[int, Body()] = 32,
@@ -664,8 +664,7 @@ class Router:
 
         Args:
             model: The model to query.
-            prompt: The prompt(s) to generate completions for, encoded as string
-                or list of strings.
+            prompt: The prompt to generate completions for, encoded as string.
             suffix: The suffix that comes after a completion of inserted text.
             max_tokens: The maximum number of tokens to generate.
             temperature: What sampling temperature to use.
@@ -693,13 +692,18 @@ class Router:
         Returns:
             A response object with completions.
         """
-        prompt.parameters = {
-            "temperature": temperature,
-            "max_new_tokens": max_tokens,
-            "top_p": top_p,
-            "repetition_penalty": frequency_penalty,
-            "stopping_sequences": stop,
-        }
+        prompt = Prompt(
+            prompt=prompt,
+            parameters={
+                "temperature": temperature,
+                "do_sample": temperature > 0,
+                "max_new_tokens": max_tokens,
+                "top_p": top_p,
+                "repetition_penalty": frequency_penalty,
+            },
+            stopping_sequences=stop,
+            use_prompt_format=False,
+        )
         if stream:
             model = _replace_prefix(model)
             route = self._routes[model]
@@ -811,13 +815,16 @@ class Router:
         Returns:
             A response object with completions.
         """
-        prompt = Prompt(prompt=messages[-1].content)  # FIXME
-        prompt.parameters = {
-            "temperature": temperature,
-            "top_p": top_p,
-            "repetition_penalty": frequency_penalty,
-            "stopping_sequences": stop,
-        }
+        prompt = Prompt(
+            prompt=messages,
+            parameters={
+                "temperature": temperature,
+                "do_sample": temperature > 0,
+                "top_p": top_p,
+                "repetition_penalty": frequency_penalty,
+            },
+            stopping_sequences=stop,
+        )
 
         if stream:
             model = _replace_prefix(model)
@@ -886,8 +893,8 @@ RouterDeployment = serve.deployment(
     route_prefix="/",
     # TODO make this configurable in aviary run
     autoscaling_config={
-        "min_replicas": 2,
-        "initial_replicas": 2,
+        "min_replicas": 1,
+        "initial_replicas": 1,
         "max_replicas": 16,
         "target_num_ongoing_requests_per_replica": 100,
     },

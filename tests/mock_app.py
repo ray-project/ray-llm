@@ -17,7 +17,6 @@ from aviary.common.models import (
     MessageChoices,
     Model,
     ModelData,
-    Prompt,
     TextChoice,
     Usage,
 )
@@ -93,7 +92,7 @@ def model_data(model: str) -> ModelData:
 @app.post("/v1/completions/{model}", response_model=Completion)
 def completions(
     model: str,
-    prompt: Prompt,
+    prompt: Annotated[str, Body()],
     request: Request,
     suffix: Annotated[Optional[str], Body()] = None,
     max_tokens: Annotated[int, Body()] = 32,

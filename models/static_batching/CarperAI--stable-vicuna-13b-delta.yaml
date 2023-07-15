@@ -44,7 +44,12 @@ model_config:
       top_p: 1.0
       repetition_penalty: 1.02
       return_token_type_ids: false
-    prompt_format: "### Assistant: I am StableVicuna, a large language model created by CarperAI. I am here to chat!\n### Human: {instruction}\n### Assistant: "
+    prompt_format:
+      system: "### Assistant: {instruction}\n"
+      assistant: "### Assistant: {instruction}\n"
+      trailing_assistant: "### Assistant: "
+      user: "### Human: {instruction}\n"
+      default_system_message: "I am StableVicuna, a large language model created by CarperAI. I am here to chat!"
     stopping_sequences: [835, [13, 2277]]
 scaling_config:
   num_workers: 2

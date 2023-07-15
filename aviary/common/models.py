@@ -1,6 +1,6 @@
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, Dict, List, Literal, Optional, TypeVar, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 TModel = TypeVar("TModel", bound="Model")
 TCompletion = TypeVar("TCompletion", bound="Completion")
@@ -38,10 +38,10 @@ class Usage(BaseModel):
     @classmethod
     def from_response(cls, response: Dict[str, Any]) -> "Usage":
         return cls(
-            prompt_tokens=response["num_input_tokens"],
-            completion_tokens=response["num_generated_tokens"],
-            total_tokens=response["num_input_tokens"]
-            + response["num_generated_tokens"],
+            prompt_tokens=response["num_input_tokens"] or 0,
+            completion_tokens=response["num_generated_tokens"] or 0,
+            total_tokens=(response["num_input_tokens"] or 0)
+            + (response["num_generated_tokens"] or 0),
         )
 
 
@@ -70,8 +70,11 @@ class Completion(BaseModel):
 
 
 class Message(BaseModel):
-    role: str
+    role: Literal["system", "assistant", "user"]
     content: str
+
+    def __str__(self):
+        return self.content
 
 
 class MessageChoices(BaseModel):
@@ -103,10 +106,78 @@ class ChatCompletion(BaseModel):
 
 
 class Prompt(BaseModel):
-    prompt: str
+    prompt: Union[str, List[Message]]
     use_prompt_format: bool = True
     parameters: Optional[Dict[str, Any]] = None
     stopping_sequences: Optional[List[str]] = None
 
-    def __str__(self) -> str:
-        return self.prompt
+
+class PromptFormat(BaseModel):
+    system: str
+    assistant: str
+    trailing_assistant: str
+    user: str
+
+    default_system_message: str = ""
+
+    @validator("system")
+    def check_system(cls, value):
+        if value:
+            assert (
+                "{instruction}" in value
+            ), "system must be empty string or string containing '{instruction}'"
+        return value
+
+    @validator("assistant")
+    def check_assistant(cls, value):
+        if value:
+            assert (
+                "{instruction}" in value
+            ), "assistant must be empty string or string containing '{instruction}'"
+        return value
+
+    @validator("user")
+    def check_user(cls, value):
+        if value:
+            assert (
+                "{instruction}" in value
+            ), "user must be empty string or string containing '{instruction}'"
+        return value
+
+    def generate_prompt(self, messages: Union[Prompt, List[Message]]) -> str:
+        if isinstance(messages, Prompt):
+            if isinstance(messages.prompt, str):
+                if not messages.use_prompt_format:
+                    return messages.prompt
+                messages = [
+                    Message(role="system", content=self.default_system_message),
+                    Message(role="user", content=messages.prompt),
+                ]
+            else:
+                messages = messages.prompt
+
+        # Get system message
+        system_message_index = -1
+        for i, message in enumerate(messages):
+            if message.role == "system":
+                if system_message_index == -1:
+                    system_message_index = i
+                else:
+                    raise ValueError("Only one system message can be specified.")
+
+        if system_message_index != -1:
+            system_message = messages.pop(system_message_index)
+        else:
+            system_message = Message(role="system", content=self.default_system_message)
+        messages.insert(0, system_message)
+
+        prompt = []
+        for message in messages:
+            if message.role == "system":
+                prompt.append(self.system.format(instruction=message.content))
+            elif message.role == "assistant":
+                prompt.append(self.assistant.format(instruction=message.content))
+            elif message.role == "user":
+                prompt.append(self.user.format(instruction=message.content))
+        prompt.append(self.trailing_assistant)
+        return "".join(prompt)
