@@ -21,6 +21,8 @@ model_config:
     full_warmup: true
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--lmsys--vicuna-13b-v1.3/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: TextGenerationInference
       model_init_kwargs:

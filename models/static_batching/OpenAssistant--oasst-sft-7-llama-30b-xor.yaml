@@ -23,6 +23,8 @@ model_config:
         - transformers<4.30
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/restricted/models--OpenAssistant--oasst-sft-7-llama-30b-xor/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeepSpeed
       dtype: float16
