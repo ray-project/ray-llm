@@ -7,7 +7,7 @@ provider:
     region: us-west-2
     cache_stopped_nodes: False
 docker:
-    image: "anyscale/aviary:test"
+    image: "anyscale/aviary:latest"
     # Use this image instead for continuous batching:
     # image: "anyscale/aviary:latest-tgi"
     container_name: "aviary"
