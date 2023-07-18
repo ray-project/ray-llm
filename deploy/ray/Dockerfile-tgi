@@ -12,6 +12,7 @@ RUN source "$HOME/.cargo/env" && pip install -i https://download.pytorch.org/whl
 RUN source "$HOME/.cargo/env" && pip install tensorboard ninja text-generation
 RUN source "$HOME/.cargo/env" && export FORCE_CUDA=1 && TORCH_CUDA_ARCH_LIST="8.0 8.6 9.0" && git clone https://github.com/huggingface/text-generation-inference && cd text-generation-inference && git checkout 5e6ddfd6a4fecc394255d7109f87c420c98b4e15 && BUILD_EXTENSIONS=True make install
 RUN source "$HOME/.cargo/env" && export FORCE_CUDA=1 && TORCH_CUDA_ARCH_LIST="8.0 8.6 9.0" && cd text-generation-inference/server && BUILD_EXTENSIONS=True make install-flash-attention
+RUN source "$HOME/.cargo/env" && export FORCE_CUDA=1 && TORCH_CUDA_ARCH_LIST="8.0 8.6 9.0" && cd text-generation-inference/server && BUILD_EXTENSIONS=True make install-flash-attention-v2
 RUN source "$HOME/.cargo/env" && export FORCE_CUDA=1 && TORCH_CUDA_ARCH_LIST="8.0 8.6 9.0" && cd text-generation-inference/server && make install-vllm
 
 RUN export FORCE_CUDA=1 NVCC_PREPEND_FLAGS="--forward-unknown-opts" DS_BUILD_OPS=1 DS_BUILD_AIO=0 DS_BUILD_SPARSE_ATTN=0 TORCH_CUDA_ARCH_LIST="8.0 8.6 9.0" && pip install \
