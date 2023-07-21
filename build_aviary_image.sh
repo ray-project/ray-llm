@@ -5,7 +5,7 @@ git diff-index --quiet HEAD --
 GIT_COMMIT=`git rev-parse HEAD`
 
 DOCKER_REPO="${AVIARY_DOCKER_REPO:-anyscale/aviary}"
-VERSION="0.1.0"
+VERSION="0.1.1"
 DOCKER_TAG="$DOCKER_REPO:$VERSION-$GIT_COMMIT"
 DOCKER_FILE="${AVIARY_DOCKER_FILE:-deploy/ray/Dockerfile}"
 

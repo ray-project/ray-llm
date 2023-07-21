@@ -16,3 +16,17 @@ ray_serve_config:
       - ".git"
     args:
       model: "::param:model_yaml_path::"
+
+  - name: "router"  # do not change
+    route_prefix: "/"
+    import_path: aviary.backend:router_application
+    runtime_env:
+      # This working dir is relative to the working dir when we run this file
+      working_dir: "."
+      excludes: 
+      - "deploy"
+      - "aviary/frontend"
+      - "**.DS_Store"
+      - ".git"
+    args:
+      model_configs: "::param:model_configs::"

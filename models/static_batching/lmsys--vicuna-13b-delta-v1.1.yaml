@@ -15,11 +15,12 @@ deployment_config:
 model_config:
   batching: static
   model_id: lmsys/vicuna-13b-delta-v1.1
-  max_input_words: 800
   model_description: "Vicuna is an open-source chatbot trained by fine-tuning LLaMA on user-shared conversations collected from ShareGPT. It is an auto-regressive language model, based on the transformer architecture."
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/restricted/models--lmsys--vicuna-13b-delta-v1.1/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeepSpeed
       dtype: float16
@@ -33,6 +34,7 @@ model_config:
       max_tokens: 1536
     pipeline: transformers
   generation:
+    max_input_words: 800
     max_batch_size: 6
     generate_kwargs:
       do_sample: true
@@ -42,7 +44,12 @@ model_config:
       top_p: 1.0
       repetition_penalty: 1.02
       return_token_type_ids: false
-    prompt_format: "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. The assistant uses English. USER: {instruction} ASSISTANT: "
+    prompt_format:
+      system: "{instruction} "
+      assistant: "ASSISTANT: {instruction} "
+      trailing_assistant: "ASSISTANT: "
+      user: "USER: {instruction} "
+      default_system_message: "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. The assistant uses English."
     stopping_sequences: []
 scaling_config:
   num_workers: 2

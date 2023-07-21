@@ -1,4 +1,4 @@
-from aviary.api import mock_sdk
+from . import mock_sdk
 
 
 def test_get_aviary():
@@ -41,7 +41,6 @@ def test_batch_query():
     prompts = ["test batch query", "test batch query 2"]
     result = mock_sdk.batch_completions(llm, prompts)
     assert result
-    print(result)
 
 
 def test_stream():

@@ -19,6 +19,8 @@ model_config:
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-storywriter/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeviceMap
       dtype: bfloat16
@@ -40,7 +42,12 @@ model_config:
       top_k: 0
       temperature: 0.8
       repetition_penalty: 1.02
-    prompt_format: ""
+    prompt_format:
+      system: "{instruction}"
+      assistant: "{instruction}"
+      trailing_assistant: ""
+      user: "{instruction}"
+      default_system_message: ""
     stopping_sequences: []
 scaling_config:
   num_workers: 1

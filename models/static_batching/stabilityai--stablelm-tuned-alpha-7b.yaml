@@ -15,10 +15,11 @@ deployment_config:
 model_config:
   batching: static
   model_id: stabilityai/stablelm-tuned-alpha-7b
-  max_input_words: 800
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--stabilityai--stablelm-tuned-alpha-7b/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeepSpeed
       dtype: float16
@@ -28,6 +29,7 @@ model_config:
       max_tokens: 1536
     pipeline: transformers
   generation:
+    max_input_words: 800
     max_batch_size: 8
     generate_kwargs:
       do_sample: true
@@ -37,7 +39,12 @@ model_config:
       top_k: 1000
       temperature: 1.0
       num_beams: 1
-    prompt_format: "<|SYSTEM|># StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language model developed by StabilityAI.\n- StableLM is excited to be able to help the user, but will refuse to do anything that could be considered harmful to the user.\n- StableLM is more than just an information source, StableLM is also able to write poetry, short stories, and make jokes.\n- StableLM will refuse to participate in anything that could harm a human.<|USER|>{instruction}<|ASSISTANT|>"
+    prompt_format:
+      system: "<|SYSTEM|>{instruction}"
+      assistant: "<|ASSISTANT|>{instruction}"
+      trailing_assistant: "<|ASSISTANT|>"
+      user: "<|USER|>{instruction}"
+      default_system_message: "# StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language model developed by StabilityAI.\n- StableLM is excited to be able to help the user, but will refuse to do anything that could be considered harmful to the user.\n- StableLM is more than just an information source, StableLM is also able to write poetry, short stories, and make jokes.\n- StableLM will refuse to participate in anything that could harm a human."
     stopping_sequences: [50278, 50279, 50277, 1, 0]
 scaling_config:
   num_workers: 2

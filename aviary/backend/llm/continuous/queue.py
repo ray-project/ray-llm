@@ -8,6 +8,7 @@ import ray
 
 from aviary.backend.llm.continuous.tokenstream import TokenStream
 
+from .error_handling import ErrorReason
 from .types import Request
 
 
@@ -18,6 +19,17 @@ class InferenceRequest:
     output_stream: TokenStream
     submit_time_ns: int
     request_input_length: Union[int, ray.ObjectRef]
+
+    def mark_as_invalid(self, reason: ErrorReason):
+        self.output_stream.put(reason)
+        self.mark_as_finished()
+
+    def mark_as_finished(self):
+        self.output_stream.end()
+
+    @property
+    def is_finished(self):
+        return self.output_stream.is_finished
 
     @property
     def request_input_length(self) -> int:

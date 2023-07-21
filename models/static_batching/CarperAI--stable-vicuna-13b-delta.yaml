@@ -15,13 +15,14 @@ deployment_config:
 model_config:
   batching: static
   model_id: CarperAI/stable-vicuna-13b-delta
-  max_input_words: 800
   initialization:
     runtime_env:
       pip:
         - transformers<4.30
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/restricted/models--CarperAI--stable-vicuna-13b-delta/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeepSpeed
       dtype: float16
@@ -35,6 +36,7 @@ model_config:
       max_tokens: 1536
     pipeline: transformers
   generation:
+    max_input_words: 800
     max_batch_size: 6
     generate_kwargs:
       do_sample: true
@@ -44,7 +46,12 @@ model_config:
       top_p: 1.0
       repetition_penalty: 1.02
       return_token_type_ids: false
-    prompt_format: "### Assistant: I am StableVicuna, a large language model created by CarperAI. I am here to chat!\n### Human: {instruction}\n### Assistant: "
+    prompt_format:
+      system: "### Assistant: {instruction}\n"
+      assistant: "### Assistant: {instruction}\n"
+      trailing_assistant: "### Assistant: "
+      user: "### Human: {instruction}\n"
+      default_system_message: "I am StableVicuna, a large language model created by CarperAI. I am here to chat!"
     stopping_sequences: [835, [13, 2277]]
 scaling_config:
   num_workers: 2

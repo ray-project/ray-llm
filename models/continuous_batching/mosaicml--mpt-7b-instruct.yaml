@@ -16,27 +16,33 @@ deployment_config:
 model_config:
   model_id: mosaicml/mpt-7b-instruct
   batching: continuous
-  max_input_words: 800
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-instruct/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: TextGenerationInference
       model_init_kwargs:
         trust_remote_code: true
     pipeline: TextGenerationInference
   generation:
-    max_batch_total_tokens: 6144
-    max_batch_prefill_tokens: 6144
+    max_batch_total_tokens: 7000
+    max_batch_prefill_tokens: 7000
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
-      min_new_tokens: 16
+      min_new_tokens: 8
       top_p: 1.0
       top_k: 0
       temperature: 0.1
       repetition_penalty: 1.1
-    prompt_format: "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n### Instruction:\n{instruction}\n### Response:\n"
+    prompt_format:
+      system: "{instruction}\n"
+      assistant: "### Response:\n{instruction}\n"
+      trailing_assistant: "### Response:\n"
+      user: "### Instruction:\n{instruction}\n"
+      default_system_message: "Below is an instruction that describes a task. Write a response that appropriately completes the request."
     stopping_sequences: ["### Response:", "### End"]
 scaling_config:
   num_workers: 1

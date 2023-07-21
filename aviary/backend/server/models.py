@@ -10,6 +10,8 @@ from ray.air import ScalingConfig as AIRScalingConfig
 from ray.serve.config import AutoscalingConfig
 from typing_extensions import Annotated
 
+from aviary.common.models import Prompt, PromptFormat  # noqa
+
 
 def markdown_extract_first_paragraph(markdown_text: str):
     """Extract the first paragraph from a markdown-formatted string."""
@@ -104,29 +106,24 @@ class ComputedPropertyMixin:
         return super().json(*args, **kwargs)
 
 
-class Prompt(BaseModelExtended):
-    prompt: str
-    use_prompt_format: bool = True
-    parameters: Optional[Dict[str, Any]] = None
-    stopping_sequences: Optional[List[str]] = None
-
-    def __str__(self) -> str:
-        return self.prompt
-
-
-class ErrorResponse(BaseModelExtended):
-    error: str
-    error_type: str
-
-
 class Response(ComputedPropertyMixin, BaseModelExtended):
-    generated_text: str
+    generated_text: Optional[str] = None
     num_input_tokens: Optional[int] = None
     num_input_tokens_batch: Optional[int] = None
     num_generated_tokens: Optional[int] = None
     num_generated_tokens_batch: Optional[int] = None
     preprocessing_time: Optional[float] = None
     generation_time: Optional[float] = None
+    error: Optional[str] = None
+    error_type: Optional[str] = None
+
+    @root_validator
+    def text_or_error(cls, values):
+        if values.get("generated_text") is None and values.get("error") is None:
+            raise ValueError("Either 'generated_text' or 'error' must be set")
+        if values.get("error") and not values.get("error_type"):
+            raise ValueError("'error_type' must be set if 'error' is set")
+        return values
 
     @classmethod
     def merge_stream(cls, *responses: "Response") -> "Response":
@@ -428,7 +425,7 @@ class ContinuousBatchingInitializationConfig(InitializationConfig):
 
 
 class GenerationConfig(BaseModelExtended):
-    prompt_format: Optional[str] = None
+    prompt_format: PromptFormat
     generate_kwargs: Dict[str, Any] = {
         "max_new_tokens": 256,
         "do_sample": True,
@@ -436,14 +433,6 @@ class GenerationConfig(BaseModelExtended):
         "top_k": 0,
     }
     stopping_sequences: Optional[List[Union[str, int, List[Union[str, int]]]]] = None
-
-    @validator("prompt_format")
-    def check_prompt_format(cls, value):
-        if value:
-            assert (
-                "{instruction}" in value
-            ), "prompt_format must be None, empty string or string containing '{instruction}'"
-        return value
 
     @validator("stopping_sequences")
     def check_stopping_sequences(cls, value):
@@ -467,6 +456,8 @@ class GenerationConfig(BaseModelExtended):
 class StaticBatchingGenerationConfig(GenerationConfig):
     max_batch_size: int = 1
     batch_wait_timeout_s: int = 1
+    # TODO make this token-based
+    max_input_words: int = 400
 
 
 class ContinuousBatchingGenerationConfig(GenerationConfig):
@@ -510,8 +501,6 @@ class LLMConfig(BaseModelExtended):
     model_id: str
     model_url: Optional[str] = None
     model_description: Optional[str] = None
-    # TODO make this token-based
-    max_input_words: int = 400
     initialization: InitializationConfig
     generation: GenerationConfig
 
@@ -622,3 +611,7 @@ class ServeArgs(BaseModel):
 
 class AppArgs(BaseModel):
     model: Union[str, LLMApp]
+
+
+class RouterArgs(BaseModel):
+    models: Dict[str, Union[str, LLMApp]]

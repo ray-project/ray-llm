@@ -1,9 +1,7 @@
-from typing import List, Sequence, TypeVar, Union
+from typing import List, TypeVar, Union
 
 import torch
 from transformers import PreTrainedTokenizer
-
-from aviary.backend.server.models import Prompt
 
 T = TypeVar("T")
 
@@ -50,25 +48,6 @@ def truncate_to_first_stop_token(
             ):
                 return tokens[:i]
     return tokens
-
-
-def _construct_prompt(prompt: Union[str, Prompt], prompt_format: str) -> str:
-    if isinstance(prompt, Prompt):
-        if prompt.use_prompt_format and prompt_format:
-            return prompt_format.format(instruction=prompt.prompt)
-        else:
-            return prompt.prompt
-    return prompt_format.format(instruction=prompt) if prompt_format else prompt
-
-
-def construct_prompts(
-    prompts: Union[str, Prompt, Sequence[str], Sequence[Prompt]],
-    prompt_format: str,
-) -> List[str]:
-    """Construct prompts from a prompt string or list of prompts."""
-    if isinstance(prompts, (str, Prompt)):
-        prompts = [prompts]
-    return [_construct_prompt(prompt, prompt_format) for prompt in prompts]
 
 
 def tokenize_stopping_sequences_where_needed(

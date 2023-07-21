@@ -15,10 +15,11 @@ deployment_config:
 model_config:
   model_id: mosaicml/mpt-30b-chat
   batching: static
-  max_input_words: 800
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-30b-chat/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: SingleDevice
       dtype: bfloat16
@@ -31,6 +32,7 @@ model_config:
         mode: max-autotune
     pipeline: transformers
   generation:
+    max_input_words: 800
     max_batch_size: 8
     generate_kwargs:
       do_sample: true
@@ -40,7 +42,12 @@ model_config:
       top_k: 0
       temperature: 0.1
       repetition_penalty: 1.1
-    prompt_format: "<|im_start|>system\n- You are a helpful assistant chatbot trained by MosaicML.\n- You answer questions.\n- You are excited to be able to help the user, but will refuse to do anything that could be considered harmful to the user.\n- You are more than just an information source, you are also able to write poetry, short stories, and make jokes.<|im_end|>\n<|im_start|>user\n{instruction}<|im_end|><|im_start|>assistant\n"
+    prompt_format:
+      system: "<|im_start|>{instruction}<|im_end|>\n"
+      assistant: "<|im_start|>assistant\n{instruction}<|im_end|>"
+      trailing_assistant: "<|im_start|>assistant\n"
+      user: "<|im_start|>user\n{instruction}<|im_end|>"
+      default_system_message: "system\n- You are a helpful assistant chatbot trained by MosaicML.\n- You answer questions.\n- You are excited to be able to help the user, but will refuse to do anything that could be considered harmful to the user.\n- You are more than just an information source, you are also able to write poetry, short stories, and make jokes."
     stopping_sequences: ["<|im_end|>", "<|endoftext|>"]
 scaling_config:
   num_workers: 1

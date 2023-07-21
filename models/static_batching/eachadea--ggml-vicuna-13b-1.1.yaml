@@ -40,7 +40,12 @@ model_config:
       max_tokens: 512
       min_new_tokens: 16
       temperature: 0.2
-    prompt_format: "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. The assistant is knowledgeable, polite and creative and doesn't write code unless asked to. USER: {instruction} ASSISTANT: "
+    prompt_format:
+      system: "{instruction} "
+      assistant: "ASSISTANT: {instruction} "
+      trailing_assistant: "ASSISTANT: "
+      user: "USER: {instruction} "
+      default_system_message: "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. The assistant is knowledgeable, polite and creative and doesn't write code unless asked to."
     stopping_sequences: ["USER:"]
 scaling_config:
   num_workers: 1

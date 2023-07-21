@@ -1,5 +1,5 @@
 # This model is intended only for testing.
-enabled: false
+# enabled: false
 deployment_config:
   autoscaling_config:
     min_replicas: 1
@@ -13,11 +13,10 @@ deployment_config:
     upscale_delay_s: 90.0
   ray_actor_options:
     resources:
-      accelerator_type_cpu: 0.01
+      accelerator_type_cpu: 0
 model_config:
   batching: static
   model_id: hf-internal-testing/tiny-random-gpt2
-  max_input_words: 800
   initialization:
     initializer:
       type: SingleDevice

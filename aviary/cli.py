@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from aviary.api import sdk
+from aviary import sdk
 from aviary.common.evaluation import GPT
 
 __all__ = ["app", "models", "metadata", "query", "batch_query", "run"]
@@ -48,7 +48,8 @@ def models(metadata: Annotated[bool, "Whether to print metadata"] = False):
 @app.command()
 def metadata(model: Annotated[List[str], model_type]):
     """Get metadata for models."""
-    return [sdk.metadata(m) for m in model]
+    results = [sdk.metadata(m) for m in model]
+    rp(results)
 
 
 def _print_result(result, model, print_stats):

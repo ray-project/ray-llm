@@ -16,29 +16,36 @@ deployment_config:
 model_config:
   batching: continuous
   model_id: lmsys/vicuna-13b-v1.3
-  max_input_words: 800
   model_description: "Vicuna is a chat assistant trained by fine-tuning LLaMA on user-shared conversations collected from ShareGPT."
   initialization:
+    full_warmup: true
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--lmsys--vicuna-13b-v1.3/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: TextGenerationInference
       model_init_kwargs:
         trust_remote_code: true
     pipeline: TextGenerationInference
   generation:
-    max_batch_total_tokens: 56650
-    max_batch_prefill_tokens: 16384
+    max_batch_total_tokens: 16800
+    max_batch_prefill_tokens: 9216
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
-      min_new_tokens: 16
+      min_new_tokens: 8
       temperature: 0.4
       top_p: 1.0
       repetition_penalty: 1.02
       return_token_type_ids: false
       ignore_eos_token: false
-    prompt_format: "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. The assistant uses English. USER: {instruction} ASSISTANT: "
+    prompt_format:
+      system: "{instruction} "
+      assistant: "ASSISTANT: {instruction} "
+      trailing_assistant: "ASSISTANT: "
+      user: "USER: {instruction} "
+      default_system_message: "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. The assistant uses English."
     stopping_sequences: []
 scaling_config:
   num_workers: 4

@@ -1,2 +1,0 @@
-class PromptTooLongError(ValueError):
-    pass

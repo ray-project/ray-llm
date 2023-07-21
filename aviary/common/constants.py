@@ -1,5 +1,6 @@
 PROJECT_NAME = "AviaryFrontend"
 
+
 # we add the trailing slash to make it easier to construct URLs and test
 # for backwards compatibility
 DEFAULT_API_VERSION = ""

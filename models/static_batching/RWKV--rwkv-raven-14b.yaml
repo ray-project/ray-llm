@@ -20,6 +20,8 @@ model_config:
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--RWKV--rwkv-raven-14b/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeviceMap
       dtype: float16
@@ -41,7 +43,12 @@ model_config:
       temperature: 1.1
       top_p: 0.7
       repetition_penalty: 1.02
-    prompt_format: "### Instruction: {instruction}\n### Response: "
+    prompt_format:
+      system: "{instruction}\n"
+      assistant: "### Response:\n{instruction}\n"
+      trailing_assistant: "### Response:\n"
+      user: "### Instruction:\n{instruction}\n"
+      default_system_message: "Below is an instruction that describes a task. Write a response that appropriately completes the request."
     stopping_sequences: [[4118, 41959], [4118, 19371]]
 scaling_config:
   num_workers: 1

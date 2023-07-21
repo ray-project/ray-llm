@@ -14,25 +14,14 @@ docker:
     run_options:
       - --entrypoint ""
 
-# All the 'conda activate' are necessary to ensure we are in the
-# python 3.10 conda env.
 setup_commands:
-    - echo "(conda activate || true)" >> ~/.bashrc
+  - which ray || pip install -U "ray[default] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-3.0.0.dev0-cp310-cp310-manylinux2014_x86_64.whl"
 
-head_setup_commands:
-    - (conda activate || true) && pip install 'boto3>=1.4.8'
-
-worker_setup_commands: []
-
-head_start_ray_commands:
-    - (conda activate || true) && ray stop
-    - (conda activate || true) && ulimit -n 65536; ray start --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml --dashboard-host=0.0.0.0
 
 worker_start_ray_commands:
-    - (conda activate || true) && ray stop
-    # We need to make sure RAY_HEAD_IP env var is accessible
-    # after conda activate.
-    - export RAY_HEAD_IP && echo "export RAY_HEAD_IP=$RAY_HEAD_IP" >> ~/.bashrc && (conda activate || true) && ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076
+    - ray stop
+    # We need to make sure RAY_HEAD_IP env var is accessible.
+    - export RAY_HEAD_IP && echo "export RAY_HEAD_IP=$RAY_HEAD_IP" >> ~/.bashrc && ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076
 
 available_node_types:
   head_node_type:

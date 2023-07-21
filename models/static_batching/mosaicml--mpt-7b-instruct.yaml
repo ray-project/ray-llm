@@ -15,10 +15,11 @@ deployment_config:
 model_config:
   model_id: mosaicml/mpt-7b-instruct
   batching: static
-  max_input_words: 800
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-instruct/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeviceMap
       dtype: bfloat16
@@ -31,6 +32,7 @@ model_config:
         mode: max-autotune
     pipeline: transformers
   generation:
+    max_input_words: 800
     max_batch_size: 8
     generate_kwargs:
       do_sample: true
@@ -40,7 +42,12 @@ model_config:
       top_k: 0
       temperature: 0.1
       repetition_penalty: 1.1
-    prompt_format: "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n### Instruction:\n{instruction}\n### Response:\n"
+    prompt_format:
+      system: "{instruction}\n"
+      assistant: "### Response:\n{instruction}\n"
+      trailing_assistant: "### Response:\n"
+      user: "### Instruction:\n{instruction}\n"
+      default_system_message: "Below is an instruction that describes a task. Write a response that appropriately completes the request."
     stopping_sequences: ["### Response:", "### End"]
 scaling_config:
   num_workers: 1

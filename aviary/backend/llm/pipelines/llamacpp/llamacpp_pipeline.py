@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 import torch
 
 from aviary.backend.logger import get_logger
-from aviary.backend.server.models import Prompt, Response
+from aviary.backend.server.models import Response
 
 from ...initializers.llamacpp import LlamaCppInitializer, LlamaCppTokenizer
 from .._base import StreamingPipeline
-from ..utils import construct_prompts, decode_stopping_sequences_where_needed
+from ..utils import decode_stopping_sequences_where_needed
 
 if TYPE_CHECKING:
     from llama_cpp import Llama, LogitsProcessorList, StoppingCriteriaList
@@ -25,7 +25,6 @@ class LlamaCppPipeline(StreamingPipeline):
         self,
         model: "Llama",
         tokenizer: LlamaCppTokenizer,
-        prompt_format: Optional[str] = None,
         device: Optional[Union[str, int, torch.device]] = None,
         **kwargs,
     ) -> None:
@@ -34,7 +33,6 @@ class LlamaCppPipeline(StreamingPipeline):
         if not isinstance(model, Llama):
             raise TypeError("Model must be an instance of llama_cpp.Llama.")
         self.model = model
-        self.prompt_format: str = prompt_format or ""
         self.kwargs = kwargs
         self.tokenizer = tokenizer
         self.device = device
@@ -97,8 +95,7 @@ class LlamaCppPipeline(StreamingPipeline):
         )
         return generate_kwargs
 
-    def __call__(self, inputs: List[Union[str, Prompt]], **kwargs) -> List[Response]:
-        inputs = construct_prompts(inputs, prompt_format=self.prompt_format)
+    def __call__(self, inputs: List[str], **kwargs) -> List[Response]:
         tokenized_inputs = self.tokenizer.encode(inputs[0])
         kwargs = self._add_default_generate_kwargs(
             kwargs,
@@ -128,10 +125,9 @@ class LlamaCppPipeline(StreamingPipeline):
 
     def stream(
         self,
-        inputs: List[Union[str, Prompt]],
+        inputs: List[str],
         **kwargs,
     ) -> Iterator[torch.LongTensor]:
-        inputs = construct_prompts(inputs, prompt_format=self.prompt_format)
         tokenized_inputs = self.tokenizer.encode(inputs[0])
         kwargs = self._add_default_generate_kwargs(
             kwargs,
@@ -166,7 +162,6 @@ class LlamaCppPipeline(StreamingPipeline):
         cls,
         initializer: "LlamaCppInitializer",
         model_id: str,
-        prompt_format: Optional[str] = None,
         device: Optional[Union[str, int, torch.device]] = None,
         **kwargs,
     ) -> "LlamaCppPipeline":
@@ -176,7 +171,6 @@ class LlamaCppPipeline(StreamingPipeline):
         return cls(
             model,
             tokenizer,
-            prompt_format=prompt_format,
             device=device,
             **kwargs,
         )

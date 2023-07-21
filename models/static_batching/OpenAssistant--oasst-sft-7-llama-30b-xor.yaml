@@ -23,6 +23,8 @@ model_config:
         - transformers<4.30
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/restricted/models--OpenAssistant--oasst-sft-7-llama-30b-xor/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeepSpeed
       dtype: float16
@@ -47,7 +49,12 @@ model_config:
       top_k: 50
       return_token_type_ids: false
       add_special_tokens: false
-    prompt_format: "<|prefix_begin|>Below are a series of dialogues between various people and an AI assistant. The AI tries to be helpful, polite, honest, sophisticated, emotionally aware, and humble-but-knowledgeable. The assistant is happy to help with almost anything, and will do its best to understand exactly what is needed. It also tries to avoid giving false or misleading information, and it caveats when it isn't entirely sure about the right answer. That said, the assistant is practical and really does its best, and doesn't let caution get too much in the way of being useful.<|prefix_end|><|prompter|>{instruction}</s><|assistant|>"
+    prompt_format:
+      system: "<|prefix_begin|>{instruction}<|prefix_end|>"
+      assistant: "<|assistant|>{instruction}</s>"
+      trailing_assistant: "<|assistant|>"
+      user: "<|prompter|>{instruction}</s>"
+      default_system_message: "Below are a series of dialogues between various people and an AI assistant. The AI tries to be helpful, polite, honest, sophisticated, emotionally aware, and humble-but-knowledgeable. The assistant is happy to help with almost anything, and will do its best to understand exactly what is needed. It also tries to avoid giving false or misleading information, and it caveats when it isn't entirely sure about the right answer. That said, the assistant is practical and really does its best, and doesn't let caution get too much in the way of being useful."
     stopping_sequences: [2, 32002, 32004]
 scaling_config:
   num_workers: 4

@@ -1,21 +1,20 @@
 import asyncio
 import logging
-import sys
 import time
-import traceback
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import partial
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 import ray
 from ray._private.utils import run_background_task
-from transformers import AutoTokenizer
 
 from aviary.backend.llm.continuous.policy import QuotaBasedRequestSelectionPolicy
 from aviary.backend.llm.continuous.queue import InferenceRequest
 from aviary.backend.llm.continuous.tokenstream import TokenStream
 
+from .error_handling import ErrorReason, OutOfMemory
 from .types import Request
 
 if TYPE_CHECKING:
@@ -52,31 +51,28 @@ def get_request_id() -> int:
 
 class Tokenizer(ABC):
     @abstractmethod
-    def get_input_length(self, input_text: str, max_length: int) -> int:
+    def get_input_length(self, input_text: str) -> int:
         raise NotImplementedError("")
 
 
 class NaiveTokenizer(Tokenizer):
-    def get_input_length(self, input_text: str, max_length: int) -> int:
-        return min(input_text.count(" ") + 1, max_length)
+    def get_input_length(self, input_text: str) -> int:
+        return min(input_text.count(" ") + 1)
 
     # TODO: add model specific tokenizer
 
 
-class TransfomerTokenizer(Tokenizer):
-    def __init__(self, *args, **kwargs):
-        self._tokenizer = AutoTokenizer.from_pretrained(*args, **kwargs)
-        if self._tokenizer.pad_token_id is None:
-            self._tokenizer.pad_token_id = self._tokenizer.eos_token_id
+class TransformersTokenizer(Tokenizer):
+    def __init__(self, tokenizer):
+        self._tokenizer = tokenizer
 
-    def get_input_length(self, input_text: str, max_length: int) -> int:
+    def get_input_length(self, input_text: str) -> int:
         return self._tokenizer(
             text=input_text,
             return_tensors="pt",
             padding=True,
             return_token_type_ids=False,
             truncation=True,
-            max_length=max_length,
         )["input_ids"].shape[1]
 
 
@@ -85,12 +81,12 @@ class RayTokenizer(Tokenizer):
         self._worker_group = worker_group
         self._id = -1
 
-    def get_input_length(self, input_text: str, max_length: int) -> ray.ObjectRef:
+    def get_input_length(self, input_text: str) -> ray.ObjectRef:
         self._id += 1
         # Simple round robin
         return self._worker_group[
             self._id % len(self._worker_group)
-        ].get_input_length.remote(input_text, max_length)
+        ].get_input_length.remote(input_text)
 
 
 @dataclass
@@ -105,19 +101,30 @@ class Stats:
     num_iterations: int = 0
     last_report_time: float = 0.0
     start_time: float = 0.0
+    first_request_time: float = None
 
     def report_stats(self):
         if time.time() - self.last_report_time < 1:
             return False
         self.last_report_time = time.time()
-        # print(f"scheduler stats: {self}")
-        elapsed = self.last_report_time - self.start_time
-        (self.num_input_tokens + self.num_tokens_generated) / elapsed
-        # print(f"elapsed: {elapsed}, generated_tokens/s: {token_s}")
+        elapsed_since_start = self.last_report_time - self.start_time
+        elapsed_since_first_request = self.last_report_time - (
+            self.first_request_time or 0
+        )
+        token_s = (
+            self.num_input_tokens + self.num_tokens_generated
+        ) / elapsed_since_first_request
+        logger.info(
+            f"scheduler stats: {self}\nelapsed since start: {elapsed_since_start}, elapsed since first request {elapsed_since_first_request}, tokens/s: {token_s}"
+        )
         return True
 
     def request_selected(self, requests: List[InferenceRequest]):
+        if self.first_request_time is None:
+            self.first_request_time = time.time()
         self.num_active_requests += len(requests)
+
+    def request_processed(self, requests: List[InferenceRequest]):
         self.num_requests_processed += len(requests)
         self.num_input_tokens += sum([r.input_length for r in requests])
 
@@ -142,6 +149,28 @@ class Stats:
         self.start_time = time.time()
 
 
+def _raise_task_exception(
+    task: asyncio.Task,
+    *,
+    scheduler: "InferenceScheduler",
+) -> None:
+    scheduler.stop()
+    try:
+        task.result()
+    except Exception as e:
+        raise RuntimeError("Scheduling loop task finished unexpectedly.") from e
+    raise RuntimeError("Scheduling loop task finished unexpectedly.")
+
+
+def _asyncio_queue_put_nowait_left(queue: asyncio.Queue, item: Any) -> None:
+    if queue.full():
+        raise asyncio.queues.QueueFull
+    queue._queue.appendleft(item)
+    queue._unfinished_tasks += 1
+    queue._finished.clear()
+    queue._wakeup_next(queue._getters)
+
+
 # TODO make this non-TGI specific
 class InferenceScheduler:
     def __init__(
@@ -161,9 +190,12 @@ class InferenceScheduler:
         self._stop = False
         self._stats = Stats()
         self._has_oom = False
-        self._cancelled_requests = set()
+        self.scheduling_loop_task = None
         if not inline:
             self.scheduling_loop_task = run_background_task(self._run_scheduling_loop())
+            self.scheduling_loop_task.add_done_callback(
+                partial(_raise_task_exception, scheduler=self)
+            )
 
     def stop(self):
         with self._lock:
@@ -172,6 +204,12 @@ class InferenceScheduler:
     def is_stopped(self) -> bool:
         with self._lock:
             return self._stop
+
+    def check_health(self) -> None:
+        if self.scheduling_loop_task is not None and self.scheduling_loop_task.done():
+            self.stop()
+        if self.is_stopped():
+            raise RuntimeError("Scheduling loop is stopped or dead.")
 
     def process_request(
         self,
@@ -189,15 +227,10 @@ class InferenceScheduler:
         )
         return self._add_request(request)
 
-    def cancel_request(self, request_id: int) -> bool:
-        self._cancelled_requests.add(request_id)
-
     def _add_request(self, request: Request) -> TokenStream:
         pending_request = InferenceRequest.from_request(
             request,
-            request_input_length=self._tokenizer.get_input_length(
-                request.inputs, request.truncate
-            ),
+            request_input_length=self._tokenizer.get_input_length(request.inputs),
         )
         self._request_queue.put_nowait(pending_request)
         self._queue_put_event.set()
@@ -205,46 +238,41 @@ class InferenceScheduler:
 
     async def _run_scheduling_loop(self):
         """Schedule requests to be processed by the inference worker."""
-        try:
-            # start work the in the scheduling loop to avoid GPU memory leak.
-            self._inference_worker: "AbstractInferenceWorker" = (
-                self._inference_worker_loader()
+        # start work the in the scheduling loop to avoid GPU memory leak.
+        self._inference_worker: "AbstractInferenceWorker" = (
+            self._inference_worker_loader()
+        )
+        self._stats.start()
+
+        # The main schedule loop:
+        #
+        # 0. start with empty in-process requests.
+        #
+        # 1. select new requests to process, based
+        # on the current in-process requests. send them to the inference worker.
+        #
+        # 2. for both new and in-process requests, combine them
+        # and generate the next token. filter out finished requests.
+        #
+        # 3. goto step 1.
+        batch_id = None
+        in_process_requests = []
+        await asyncio.sleep(0.000001)
+        while not self.is_stopped():
+            # select new requests to process.
+            new_requests = await self._select_new_requests(in_process_requests)
+            new_batch_id, new_unfinished_requests = self._process_new_requests(
+                new_requests
             )
-            self._stats.start()
 
-            # The main schedule loop:
-            #
-            # 0. start with empty in-process requests.
-            #
-            # 1. select new requests to process, based
-            # on the current in-process requests. send them to the inference worker.
-            #
-            # 2. for both new and in-process requests, combine them
-            # and generate the next token. filter out finished requests.
-            #
-            # 3. goto step 1.
-            batch_id = None
-            in_process_requests = []
-            await asyncio.sleep(0.000001)
-            while not self.is_stopped():
-                # select new requests to process.
-                new_requests = await self._select_new_requests(in_process_requests)
-                new_batch_id, new_unfinished_requests = self._process_new_requests(
-                    new_requests
-                )
+            # combine new batch with existing batch to generate next token.
+            batch_id, in_process_requests = self._generate_next_token(
+                [batch_id, new_batch_id],
+                in_process_requests + new_unfinished_requests,
+            )
 
-                # combine new batch with existing batch to generate next token.
-                batch_id, in_process_requests = self._generate_next_token(
-                    [batch_id, new_batch_id],
-                    in_process_requests + new_unfinished_requests,
-                )
-
-                self._stats.iteration_finished()
-                self._report_stats()
-                await asyncio.sleep(0.000001)
-        except Exception:
-            traceback.print_exc(file=sys.stderr)
-        finally:
+            self._stats.iteration_finished()
+            self._report_stats()
             await asyncio.sleep(0.000001)
 
     def _report_stats(self):
@@ -255,6 +283,7 @@ class InferenceScheduler:
     async def _select_new_requests(
         self,
         in_process_requests: List[InferenceRequest],
+        iterations_since_last_new_batch: Optional[int],
     ) -> List[InferenceRequest]:
         while (
             len(in_process_requests) == 0
@@ -269,7 +298,11 @@ class InferenceScheduler:
             self._queue_put_event.clear()
 
         requests = self._request_selection_policy.select_new_requests(
-            in_process_requests, self._request_queue
+            in_process_requests,
+            self._request_queue,
+            has_oom=self._has_oom,
+            requires_padding=self._inference_worker.requires_padding(),
+            iterations_since_last_new_batch=iterations_since_last_new_batch,
         )
         self._has_oom = False
         self._stats.request_selected(requests)
@@ -277,12 +310,27 @@ class InferenceScheduler:
 
     def _process_new_requests(
         self, requests: List[InferenceRequest]
-    ) -> Tuple[int, List[InferenceRequest]]:
+    ) -> Tuple[Optional[int], List[InferenceRequest]]:
         if len(requests) == 0:
             return None, []
-        generations, batch_id = self._inference_worker.process_new_batch(
-            [r.request for r in requests], batch_id=get_batch_id()
+        batch_id = get_batch_id()
+        logger.info(
+            f"Processing new batch {batch_id}. Num requests: {len(requests)} Total tokens: {sum(r.total_tokens for r in requests)} Prefill tokens: {sum(r.request_input_length for r in requests)}"
         )
+        generations, batch_id = self._inference_worker.process_new_batch(
+            [r.request for r in requests], batch_id=batch_id
+        )
+
+        # handle ooms
+        if isinstance(generations, OutOfMemory):
+            logger.info(f"OOM detected in new batch {generations}.")
+            return self._handle_ooms(batch_id, requests)
+        elif isinstance(generations, ErrorReason):
+            self._handle_errors(generations, requests)
+            return None, []
+
+        self._stats.request_processed(requests)
+
         requests, need_filter = self._process_generation_result(generations, requests)
 
         if need_filter and batch_id:
@@ -299,8 +347,11 @@ class InferenceScheduler:
         )
 
         # handle ooms
-        if generations is None:
+        if isinstance(generations, OutOfMemory):
             return self._handle_ooms(batch_id, requests)
+        elif isinstance(generations, ErrorReason):
+            self._handle_errors(generations, requests)
+            return None, []
 
         requests, need_filter = self._process_generation_result(generations, requests)
 
@@ -333,22 +384,18 @@ class InferenceScheduler:
                 and generation.generated_text.finish_reason > 0
             ):
                 request.output_stream.put(generation.token_text)
-            if (
-                generation.generated_text is not None
-                or request.id in self._cancelled_requests
-            ):
+            if generation.generated_text is not None or request.is_finished:
                 if generation.generated_text is not None:
                     text = generation.generated_text.text
                 else:
                     text = ""
                 self._stats.request_finished()
                 logger.info(
-                    f"Request {request.id} (cancelled: {request.id in self._cancelled_requests}) (generation.request_id {generation.request_id}) finished, response: {generation.generated_text}"
+                    f"Request {request.id} (cancelled: {request.is_finished}) finished, response: {generation.generated_text}"
                 )
                 request.output_stream.end(text)
                 some_request_finished = True
                 self._request_selection_policy.request_finished(request)
-                self._cancelled_requests.discard(request.id)
             else:
                 unfinished_requests.append(request)
         return unfinished_requests, some_request_finished
@@ -357,8 +404,7 @@ class InferenceScheduler:
         # pop last request to reduce memory overhead.
         assert requests
         failed_request = requests.pop()
-        # TODO confirm with Chen if this is ok
-        self._request_queue.put_nowait(failed_request)
+        _asyncio_queue_put_nowait_left(self._request_queue, failed_request)
         self._stats.request_failed()
         batch_id = self._inference_worker.filter_requests(
             batch_id, [r.id for r in requests]
@@ -366,7 +412,7 @@ class InferenceScheduler:
         self._has_oom = True
         return batch_id, requests
 
-    def _handle_ooms(self, batch_id, requests: List[InferenceRequest]):
+    def _handle_ooms(self, batch_id: int, requests: List[InferenceRequest]):
         logger.warning("OOM detected, trying to recover...")
         if batch_id:
             return self._handle_recoverable_ooms(batch_id, requests)
@@ -375,11 +421,15 @@ class InferenceScheduler:
         logger.error("OOM not recoverable!")
         while requests:
             failed_request = requests.pop()
-            # TODO confirm with Chen if this is ok
-            self._request_queue.put_nowait(failed_request)
+            _asyncio_queue_put_nowait_left(self._request_queue, failed_request)
             self._stats.request_failed()
         self._has_oom = True
         return None, []
+
+    def _handle_errors(self, error: ErrorReason, requests: List[InferenceRequest]):
+        for request in requests:
+            request.mark_as_invalid(error)
+            self._stats.request_failed()
 
 
 class AsyncInferenceScheduler(InferenceScheduler):
@@ -387,55 +437,73 @@ class AsyncInferenceScheduler(InferenceScheduler):
 
     async def _run_scheduling_loop(self):
         """Schedule requests to be processed by the inference worker."""
-        try:
-            # start work the in the scheduling loop to avoid GPU memory leak.
-            self._inference_worker: "AsyncInferenceWorker" = (
-                self._inference_worker_loader()
+        # start work the in the scheduling loop to avoid GPU memory leak.
+        self._inference_worker: "AsyncInferenceWorker" = self._inference_worker_loader()
+        self._stats.start()
+
+        # The main schedule loop:
+        #
+        # 0. start with empty in-process requests.
+        #
+        # 1. select new requests to process, based
+        # on the current in-process requests. send them to the inference worker.
+        #
+        # 2. for both new and in-process requests, combine them
+        # and generate the next token. filter out finished requests.
+        #
+        # 3. goto step 1.
+        batch_id = None
+        in_process_requests = []
+        iterations_since_last_new_batch = None
+        while not self.is_stopped():
+            # select new requests to process.
+            new_requests = await self._select_new_requests(
+                in_process_requests,
+                iterations_since_last_new_batch=iterations_since_last_new_batch,
             )
-            self._stats.start()
 
-            # The main schedule loop:
-            #
-            # 0. start with empty in-process requests.
-            #
-            # 1. select new requests to process, based
-            # on the current in-process requests. send them to the inference worker.
-            #
-            # 2. for both new and in-process requests, combine them
-            # and generate the next token. filter out finished requests.
-            #
-            # 3. goto step 1.
-            batch_id = None
-            in_process_requests = []
-            while not self.is_stopped():
-                # select new requests to process.
-                new_requests = await self._select_new_requests(in_process_requests)
-                (
-                    new_batch_id,
-                    new_unfinished_requests,
-                ) = await self._process_new_requests(new_requests)
+            if new_requests:
+                iterations_since_last_new_batch = 0
+            elif iterations_since_last_new_batch is not None:
+                iterations_since_last_new_batch += 1
 
-                # combine new batch with existing batch to generate next token.
-                batch_id, in_process_requests = await self._generate_next_token(
-                    [batch_id, new_batch_id],
-                    in_process_requests + new_unfinished_requests,
-                )
+            (
+                new_batch_id,
+                new_unfinished_requests,
+            ) = await self._process_new_requests(new_requests)
 
-                self._stats.iteration_finished()
-                self._report_stats()
-        except Exception:
-            traceback.print_exc(file=sys.stderr)
-        finally:
-            await asyncio.sleep(0.000001)
+            # combine new batch with existing batch to generate next token.
+            batch_id, in_process_requests = await self._generate_next_token(
+                [batch_id, new_batch_id],
+                in_process_requests + new_unfinished_requests,
+            )
+
+            self._stats.iteration_finished()
+            self._report_stats()
 
     async def _process_new_requests(
         self, requests: List[InferenceRequest]
-    ) -> Tuple[int, List[InferenceRequest]]:
+    ) -> Tuple[Optional[int], List[InferenceRequest]]:
         if len(requests) == 0:
             return None, []
-        generations, batch_id = await self._inference_worker.process_new_batch_async(
-            [r.request for r in requests], batch_id=get_batch_id()
+        batch_id = get_batch_id()
+        logger.info(
+            f"Processing new batch {batch_id}. Num requests: {len(requests)} Total tokens: {sum(r.total_tokens for r in requests)} Prefill tokens: {sum(r.request_input_length for r in requests)}"
         )
+        generations, batch_id = await self._inference_worker.process_new_batch_async(
+            [r.request for r in requests], batch_id=batch_id
+        )
+
+        # handle ooms
+        if isinstance(generations, OutOfMemory):
+            logger.info(f"OOM detected in new batch {generations}.")
+            return self._handle_ooms(batch_id, requests)
+        elif isinstance(generations, ErrorReason):
+            self._handle_errors(generations, requests)
+            return None, []
+
+        self._stats.request_processed(requests)
+
         requests, need_filter = self._process_generation_result(generations, requests)
 
         if need_filter and batch_id:
@@ -452,8 +520,11 @@ class AsyncInferenceScheduler(InferenceScheduler):
         )
 
         # handle ooms
-        if generations is None:
+        if isinstance(generations, OutOfMemory):
             return self._handle_ooms(batch_id, requests)
+        elif isinstance(generations, ErrorReason):
+            self._handle_errors(generations, requests)
+            return None, []
 
         requests, need_filter = self._process_generation_result(generations, requests)
 

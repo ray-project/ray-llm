@@ -124,6 +124,8 @@ model_config:
     # Hugging Face Hub. You can use this to speed up downloads.
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-instruct/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     # How to initialize the model.
     initializer:
       # Initializer type. For static batching, can be one of:
@@ -193,6 +195,8 @@ model_config:
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-instruct/main-safetensors/
+    s3_sync_args:
+      - "--no-sign-request"
   generation:
     prompt_format: "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n### Instruction:\n{instruction}\n### Response:\n"
     stopping_sequences: ["### Response:", "### End"]

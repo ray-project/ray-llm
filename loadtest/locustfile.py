@@ -82,7 +82,7 @@ class UserTasks(TaskSet):
                     if not chunk:
                         continue
                     data = json.loads(chunk)
-                    if "error" in data:
+                    if data.get("error"):
                         raise RuntimeError(data["error"], response=response)
 
         group = Group()

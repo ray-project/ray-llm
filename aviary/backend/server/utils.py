@@ -1,6 +1,8 @@
 import os
 from typing import List, Union
 
+import pydantic
+
 from aviary.backend.server.models import LLMApp
 
 
@@ -28,7 +30,15 @@ def parse_args(args: Union[str, LLMApp, List[Union[LLMApp, str]]]) -> List[LLMAp
             if os.path.exists(raw_model):
                 parsed_models = _parse_path_args(raw_model)
             else:
-                parsed_models = [LLMApp.parse_yaml(raw_model)]
+                try:
+                    parsed_models = [LLMApp.parse_yaml(raw_model)]
+                except pydantic.ValidationError as e:
+                    if "__root__" in repr(e):
+                        raise ValueError(
+                            "Could not parse string as yaml. If you are specifying a path, make sure it exists and can be reached."
+                        ) from e
+                    else:
+                        raise
         else:
             parsed_models = [LLMApp.parse_obj(raw_model)]
         models += parsed_models

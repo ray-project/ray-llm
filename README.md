@@ -288,6 +288,12 @@ To run the tests, you need to install the `test` dependencies:
 pip install -e .[test]
 ```
 
+After that, run Aviary with a test model like so:
+
+```shell
+aviary run tests/hf-internal-testing--tiny-random-gpt2.yaml
+```
+
 and then simply run `pytest`:
 
 ```shell

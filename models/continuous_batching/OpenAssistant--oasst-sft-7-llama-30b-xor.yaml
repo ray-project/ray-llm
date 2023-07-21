@@ -16,30 +16,36 @@ deployment_config:
 model_config:
   model_id: OpenAssistant/oasst-sft-7-llama-30b-xor
   batching: continuous
-  max_input_words: 800
   model_description: "Open Assistant is a project meant to give everyone access to a great chat based large language model.\nWe believe that by doing this we will create a revolution in innovation in language. In the same way that stable-diffusion helped the world make art and images in new ways we hope Open Assistant can help improve the world by improving language itself."
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/restricted/models--OpenAssistant--oasst-sft-7-llama-30b-xor/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: TextGenerationInference
       model_init_kwargs:
         trust_remote_code: true
     pipeline: TextGenerationInference
   generation:
-    max_batch_total_tokens: 55000
+    max_batch_total_tokens: 47220
     max_batch_prefill_tokens: 16384
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
-      min_new_tokens: 16
+      min_new_tokens: 8
       temperature: 0.7
       top_p: 0.95
       repetition_penalty: 1.2
       top_k: 50
       return_token_type_ids: false
       add_special_tokens: false
-    prompt_format: "<|prefix_begin|>Below are a series of dialogues between various people and an AI assistant. The AI tries to be helpful, polite, honest, sophisticated, emotionally aware, and humble-but-knowledgeable. The assistant is happy to help with almost anything, and will do its best to understand exactly what is needed. It also tries to avoid giving false or misleading information, and it caveats when it isn't entirely sure about the right answer. That said, the assistant is practical and really does its best, and doesn't let caution get too much in the way of being useful.<|prefix_end|><|prompter|>{instruction}</s><|assistant|>"
+    prompt_format:
+      system: "<|prefix_begin|>{instruction}<|prefix_end|>"
+      assistant: "<|assistant|>{instruction}</s>"
+      trailing_assistant: "<|assistant|>"
+      user: "<|prompter|>{instruction}</s>"
+      default_system_message: "Below are a series of dialogues between various people and an AI assistant. The AI tries to be helpful, polite, honest, sophisticated, emotionally aware, and humble-but-knowledgeable. The assistant is happy to help with almost anything, and will do its best to understand exactly what is needed. It also tries to avoid giving false or misleading information, and it caveats when it isn't entirely sure about the right answer. That said, the assistant is practical and really does its best, and doesn't let caution get too much in the way of being useful."
     stopping_sequences: [2, 32002, 32004]
 scaling_config:
   num_workers: 2

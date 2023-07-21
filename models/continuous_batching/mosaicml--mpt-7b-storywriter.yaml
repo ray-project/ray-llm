@@ -16,27 +16,33 @@ deployment_config:
 model_config:
   model_id: mosaicml/mpt-7b-storywriter
   batching: continuous
-  max_input_words: 800
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-storywriter/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: TextGenerationInference
       model_init_kwargs:
         trust_remote_code: true
     pipeline: TextGenerationInference
   generation:
-    max_batch_total_tokens: 6144
-    max_batch_prefill_tokens: 6144
+    max_batch_total_tokens: 7000
+    max_batch_prefill_tokens: 7000
     generate_kwargs:
       do_sample: true
       max_new_tokens: 512
-      min_new_tokens: 16
+      min_new_tokens: 8
       top_p: 1.0
       top_k: 0
       temperature: 0.8
       repetition_penalty: 1.02
-    prompt_format: ""
+    prompt_format:
+      system: "{instruction}"
+      assistant: "{instruction}"
+      trailing_assistant: ""
+      user: "{instruction}"
+      default_system_message: ""
     stopping_sequences: []
 scaling_config:
   num_workers: 1

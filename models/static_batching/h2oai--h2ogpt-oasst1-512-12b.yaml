@@ -19,6 +19,8 @@ model_config:
   initialization:
     s3_mirror_config:
       bucket_uri: s3://large-dl-models-mirror/models--h2oai--h2ogpt-oasst1-512-12b/main-safetensors/
+      s3_sync_args:
+        - "--no-sign-request"
     initializer:
       type: DeepSpeed
       dtype: float16
@@ -39,7 +41,12 @@ model_config:
       top_p: 0.85
       top_k: 70
       repetition_penalty: 1.07
-    prompt_format: "<bot>: I am an intelligent, helpful, truthful, and fair assistant named h2oGPT, who will give accurate, balanced, and reliable responses. I will not respond with I don't know or I don't understand.\n<human>: I am a human person seeking useful assistance and request all questions be answered completely, and typically expect detailed responses. Give answers in numbered list format if several distinct but related items are being listed.\n<human>: {instruction}\n<bot>: "
+    prompt_format:
+      system: "{instruction}\n"
+      assistant: "<bot>: {instruction}\n"
+      trailing_assistant: "<bot>: "
+      user: "<human>: {instruction}\n"
+      default_system_message: "<bot>: I am an intelligent, helpful, truthful, and fair assistant named h2oGPT, who will give accurate, balanced, and reliable responses. I will not respond with I don't know or I don't understand.\n<human>: I am a human person seeking useful assistance and request all questions be answered completely, and typically expect detailed responses. Give answers in numbered list format if several distinct but related items are being listed."
     stopping_sequences: [[29, 13961, 32056], [29, 12042, 32056]]
 scaling_config:
   num_workers: 2

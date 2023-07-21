@@ -17,13 +17,10 @@ from transformers.pipelines.text_generation import ReturnType
 from transformers.utils import ModelOutput
 
 from aviary.backend.logger import get_logger
-from aviary.backend.server.models import Prompt, Response
+from aviary.backend.server.models import Response
 
 from .._base import StreamingPipeline
-from ..utils import (
-    construct_prompts,
-    tokenize_stopping_sequences_where_needed,
-)
+from ..utils import tokenize_stopping_sequences_where_needed
 from .generation import streaming_generate
 from .processors import StopOnTokens
 from .streaming import ResponseTokenBatchPostprocessor
@@ -37,7 +34,6 @@ class TransformersPipeline(StreamingPipeline):
     Args:
         model (PreTrainedModel): Hugging Face model.
         tokenizer (PreTrainedTokenizer): Hugging Face tokenizer.
-        prompt_format (Optional[str], optional): Prompt format. Defaults to None.
         device (Optional[Union[str, int, torch.device]], optional): Device to place model on. Defaults to model's
             device.
     """
@@ -46,12 +42,10 @@ class TransformersPipeline(StreamingPipeline):
         self,
         model: PreTrainedModel,
         tokenizer: PreTrainedTokenizer,
-        prompt_format: Optional[str] = None,
         device: Optional[Union[str, int, torch.device]] = None,
     ) -> None:
         self.model = model
         self.tokenizer = tokenizer
-        self.prompt_format: str = prompt_format or ""
 
         if device is None:
             # `accelerate` device map
@@ -122,7 +116,7 @@ class TransformersPipeline(StreamingPipeline):
 
     def __call__(
         self,
-        inputs: List[Union[str, Prompt]],
+        inputs: List[str],
         **kwargs,
     ) -> List[Response]:
         streams = [list() for _ in range(len(inputs))]
@@ -150,7 +144,7 @@ class TransformersPipeline(StreamingPipeline):
     @torch.inference_mode()
     def stream(
         self,
-        inputs: List[Union[str, Prompt]],
+        inputs: List[str],
         **kwargs,
     ) -> Iterator[List[Response]]:
         (
@@ -178,20 +172,17 @@ class TransformersPipeline(StreamingPipeline):
 
     def preprocess(self, prompts: List[str], **generate_kwargs):
         st = time.monotonic()
-        prompt_text = construct_prompts(prompts, prompt_format=self.prompt_format)
-        instruction_text = construct_prompts(prompts, prompt_format="")
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         inputs = self.tokenizer(
-            prompt_text, return_tensors="pt", padding=True, **generate_kwargs
+            prompts, return_tensors="pt", padding=True, **generate_kwargs
         ).to(self.model.device)
         if not generate_kwargs.get("return_token_type_ids", True):
             inputs.pop("token_type_ids", None)
         et = time.monotonic() - st
         return {
             "inputs": inputs,
-            "instruction_text": instruction_text,
-            "prompt_text": prompt_text,
+            "prompt_text": prompts,
             "preprocessing_time": et,
         }
 
