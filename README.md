@@ -79,6 +79,16 @@ export OPENAI_API_KEY=...
 # [PROVIDER]://[MODEL_NAME]
 aviary query --model amazon/LightGPT --model openai://gpt-3.5-turbo --prompt "How do I make fried rice?"
 ```
+# Deploying on Anyscale Service
+
+To deploy an application with one model on an Anyscale Service you can run:
+
+```shell
+anyscale service rollout -f template/service.yaml
+```
+
+This is setup to run the amazon/LightGPT model, but can be easily modified to run any of the other models in this repo.
+In order to query the endpoint, you can modify the `template/request.py` script, replacing the query url with the Service URL found in the Service UI.
 
 # Aviary Reference
 
