@@ -254,7 +254,6 @@ see the [Aviary Model Registry](models/README.md).
 
 ## Getting Help and Filing Bugs / Feature Requests
 
-
 We are eager to help you get started with Aviary. You can get help on: 
 
 - Via Slack -- fill in [this form](https://docs.google.com/forms/d/e/1FAIpQLSfAcoiLCHOguOm8e7Jnn-JJdZaCxPGjgVCvFijHB5PLaQLeig/viewform) to sign up. 
