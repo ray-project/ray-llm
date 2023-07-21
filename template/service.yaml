@@ -3,7 +3,7 @@ ray_serve_config:
   applications:
   - name: lightgpt
     route_prefix: /
-    import_path: aviary.backend:llm_application.
+    import_path: aviary.backend:llm_application
     args:
       model: "./models/static_batching/amazon--LightGPT.yaml"
     runtime_env:
