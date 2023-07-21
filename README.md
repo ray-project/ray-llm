@@ -8,12 +8,10 @@ get a cost and latency estimate, and more. In particular, it offers good support
 Transformer models hosted on [Hugging Face](http://hf.co) and in many cases also 
 supports [DeepSpeed](https://www.deepspeed.ai/) inference acceleration. 
 
-Aviary is built on top of [Ray](https://ray.io) by [Anyscale](https://anyscale.com).
+Aviary is built on top of [Ray](https://ray.io) by [Anyscale](https://anyscale.com). This template uses the `anyscale/aviary:latest-tgi` docker image.
 
 ## Table of Contents
 
-* [Getting Help and Filing Bugs / Feature Requests](#Getting-Help-and-Filing-Bugs-/-Feature-Requests)
-* [Contributions](#Contributions)
 * [Aviary User Guides](#Aviary-User-Guides)
 	* [Deploy Aviary ](#Deploy-Aviary)
 		* [Query Aviary](#Query-Aviary)
@@ -24,22 +22,7 @@ Aviary is built on top of [Ray](https://ray.io) by [Anyscale](https://anyscale.c
 	* [Using the Aviary CLI](#Using-the-Aviary-CLI)
 		* [CLI examples](#CLI-examples)
 	* [Aviary Model Registry](#Aviary-Model-Registry)
-	* [Contributing](#Contributing)
-	* [Running tests](#Running-tests)
-	* [Known issues](#Known-issues)
-	* [Future plans](#Future-plans)
-
-## Getting Help and Filing Bugs / Feature Requests
-
-
-We are eager to help you get started with Aviary. You can get help on: 
-
-- Via Slack -- fill in [this form](https://docs.google.com/forms/d/e/1FAIpQLSfAcoiLCHOguOm8e7Jnn-JJdZaCxPGjgVCvFijHB5PLaQLeig/viewform) to sign up. 
-- Via [Discuss](https://discuss.ray.io/c/llms-generative-ai/27). 
-
-For bugs or for feature requests, please submit them [here](https://github.com/ray-project/aviary/issues/new).
-
-We have people in both US and European time zones who will help answer your questions. 
+	* [Getting Help and Filing Bugs / Feature Requests](#Getting-Help-and-Filing-Bugs-/-Feature-Requests)
 
 # Aviary User Guides
 
@@ -269,4 +252,15 @@ Aviary allows you to easily add new models by adding a single configuration file
 To learn more about how to customize or add new models, 
 see the [Aviary Model Registry](models/README.md).
 
+## Getting Help and Filing Bugs / Feature Requests
+
+
+We are eager to help you get started with Aviary. You can get help on: 
+
+- Via Slack -- fill in [this form](https://docs.google.com/forms/d/e/1FAIpQLSfAcoiLCHOguOm8e7Jnn-JJdZaCxPGjgVCvFijHB5PLaQLeig/viewform) to sign up. 
+- Via [Discuss](https://discuss.ray.io/c/llms-generative-ai/27). 
+
+For bugs or for feature requests, please submit them [here](https://github.com/ray-project/aviary/issues/new).
+
+We have people in both US and European time zones who will help answer your questions. 
 
