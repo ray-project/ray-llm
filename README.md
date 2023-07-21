@@ -269,49 +269,4 @@ Aviary allows you to easily add new models by adding a single configuration file
 To learn more about how to customize or add new models, 
 see the [Aviary Model Registry](models/README.md).
 
-## Contributing
 
-If you want to help improve or extend the Aviary, please get in touch with us!
-You can [reach us via email](mailto:mwk@anyscale.com) for feedback and suggestions,
-or [open an issue](https://github.com/ray-project/aviary/issues/new) on GitHub.
-Pull requests are also welcome!
-
-We use `pre-commit` hooks to ensure that all code is formatted correctly.
-Make sure to `pip install pre-commit` and then run `pre-commit install`.
-You can also run `./format` to run the hooks manually.
-
-## Running tests
-
-To run the tests, you need to install the `test` dependencies:
-
-```shell
-pip install -e .[test]
-```
-
-After that, run Aviary with a test model like so:
-
-```shell
-aviary run tests/hf-internal-testing--tiny-random-gpt2.yaml
-```
-
-and then simply run `pytest`:
-
-```shell
-pytest .
-```
-
-## Known issues
-
-Aviary is still in early development, and there are a few known issues:
-
-* Latency and throughput are not optimized yet. This is due to the fact that we have
-chosen to focus on simplicity and readability for the first release. Ray and Ray Serve
-are framework-agnostic and Aviary can be easily modified to use FasterTransformer
-or other high-performance frameworks. We will continue working on improving this.
-* `lmsys/vicuna-13b-delta-v1.1` model sometimes answers to English questions in Mandarin.
-
-## Future plans
-
-* LangChain + LlamaIndex Integration (which will make it much easier to compare open and closed LLMs).
-* Better testing.
-* Improved documentation.
