@@ -95,6 +95,7 @@ class PredictionWorker(TorchDistributedWorker):
         self.local_rank = None
         self.current_device = None
         self.gpu_memory_fraction = 1.0
+        self.pg = None
 
     def init_model(
         self,
