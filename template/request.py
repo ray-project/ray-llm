@@ -1,7 +1,7 @@
 import requests
 
 resp = requests.post(
-    "http://127.0.0.1:8000/stream/", json={"prompt": "What is the best place to eat in San Francisco?","use_prompt_format":"true"}, stream = True
+    "http://127.0.0.1:8000/lightgpt/stream/", json={"prompt": "What is the best place to eat in San Francisco?","use_prompt_format":"true"}, stream = True
 )
 
 import json
