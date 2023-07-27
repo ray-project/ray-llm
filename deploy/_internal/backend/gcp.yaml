@@ -52,7 +52,7 @@ worker_node_types:
   min_workers: 0
   max_workers: 1
 - name: cpu-worker
-  instance_type: m5.xlarge
+  instance_type: n2-standard-4
   resources:
     cpu:
     gpu:
