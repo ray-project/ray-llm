@@ -7,7 +7,7 @@ In particular, it offers good support for Transformer models hosted on [Hugging 
 supports [DeepSpeed](https://www.deepspeed.ai/) inference acceleration as well as continuous batching and paged attention. 
 This template uses the `anyscale/aviary:latest-tgi` docker image.
 
-In this guide, we will go over deploying a model locally using `serve run` and on an Anyscale Service. You can also use the [Aviary CLI](https://github.com/ray-project/aviary/tree/master#using-the-aviary-cli) on this workspace. The CLI can help you compare the outputs of different models directly, rank them by quality, get a cost and latency estimate, and more. 
+In this guide, we will go over deploying a model locally using `serve run` and on an Anyscale Service. Alternatively, you can use the [Aviary CLI](https://github.com/ray-project/aviary/tree/master#using-the-aviary-cli) on this workspace. The CLI can help you compare the outputs of different models directly, rank them by quality, get a cost and latency estimate, and more. 
 
 # Deploy a Large Language Model 
 From the terminal use the Ray Serve CLI to deploy a model:
