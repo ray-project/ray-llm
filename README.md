@@ -169,9 +169,6 @@ What is the best indie band of the 90s?
 └──────────────────────────┴──────┴─────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-You can also use the Gradio API directly, by following the instructions
-provided in the [Aviary documentation](https://aviary.anyscale.com/?view=api).
-
 ## Usage stats collection
 
 Aviary backend collects basic, non-identifiable usage statistics to help us improve the project.
