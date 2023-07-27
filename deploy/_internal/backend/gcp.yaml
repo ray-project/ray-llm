@@ -11,7 +11,7 @@ head_node_type:
       accelerator_type_cpu: 1
 worker_node_types:
 - name: gpu-worker-l4
-  instance_type: n1-standard-32-nvidia-t4-16gb-4
+  instance_type: g2-standard-48
   resources:
     cpu:
     gpu:
@@ -25,7 +25,7 @@ worker_node_types:
   use_spot: true
   fallback_to_ondemand: true
 - name: gpu-worker-v100
-  instance_type: n1-standard-32-nvidia-v100-16gb-4
+  instance_type: 
   resources:
     cpu:
     gpu:
@@ -39,7 +39,7 @@ worker_node_types:
   use_spot: true
   fallback_to_ondemand: true
 - name: gpu-worker-a100
-  instance_type: a2-ultragpu-4g-nvidia-a100-80gb-4
+  instance_type: a2-ultragpu-4g
   resources:
     cpu:
     gpu:
