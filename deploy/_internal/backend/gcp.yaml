@@ -25,7 +25,7 @@ worker_node_types:
   use_spot: true
   fallback_to_ondemand: true
 - name: gpu-worker-v100
-  instance_type: 
+  instance_type: n1-standard-32-nvidia-v100-16gb-4
   resources:
     cpu:
     gpu:
