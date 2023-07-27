@@ -19,10 +19,9 @@ Aviary is built on top of [Ray](https://ray.io) by [Anyscale](https://anyscale.c
 * [Aviary Reference](#Aviary-Reference)
 	* [Installing Aviary](#Installing-Aviary)
 	* [Running Aviary Frontend locally](#Running-Aviary-Frontend-locally)
-		* [Usage stats collection](#Usage-stats-collection)
-	* [Using the Aviary CLI](#Using-the-Aviary-CLI)
-		* [CLI examples](#CLI-examples)
 	* [Aviary Model Registry](#Aviary-Model-Registry)
+   	* [CLI examples](#CLI-examples)
+	* [Usage stats collection](#Usage-stats-collection)
 	* [Getting Help and Filing Bugs / Feature Requests](#Getting-Help-and-Filing-Bugs-/-Feature-Requests)
 
 # Aviary User Guides
@@ -151,60 +150,15 @@ in your browser.
 If running the frontend yourself is not an option, you can still use 
 [our hosted version](http://aviary.anyscale.com/) for your experiments.
 
-### Usage stats collection
 
-Aviary backend collects basic, non-identifiable usage statistics to help us improve the project.
-The mechanism for collection is the same as in Ray.
-For more information on what is collected and how to opt-out, see the
-[Usage Stats Collection](https://docs.ray.io/en/latest/cluster/usage-stats.html) page in
-Ray documentation.
+## Aviary Model Registry
 
-## Using the Aviary CLI
+Aviary allows you to easily add new models by adding a single configuration file.
+To learn more about how to customize or add new models, 
+see the [Aviary Model Registry](models/README.md).
 
-Aviary comes with a CLI that allows you to interact with the backend directly, without
-using the Gradio frontend.
-Installing Aviary as described earlier will install the `aviary` CLI as well.
-You can get a list of all available commands by running `aviary --help`.
+## CLI examples
 
-Currently, `aviary` supports a few basic commands, all of which can be used with the
-`--help` flag to get more information:
-
-```shell
-# Get a list of all available models in Aviary
-aviary models
-
-# Query a model with a list of prompts
-aviary query --model <model-name> --prompt <prompt_1> --prompt <prompt_2>
-
-# Run a query on a text file of prompts
-aviary query  --model <model-name> --prompt-file <prompt-file>
-
-# Evaluate the quality of responses with GPT-4 for evaluation
-aviary evaluate --input-file <query-result-file>
-
-# Start a new model in Aviary from provided configuration
-aviary run <model>
-```
-
-### CLI examples
-
-#### Listing all available models
-
-```shell
-aviary models
-```
-```text
-mosaicml/mpt-7b-instruct
-CarperAI/stable-vicuna-13b-delta
-databricks/dolly-v2-12b
-RWKV/rwkv-raven-14b
-mosaicml/mpt-7b-chat
-stabilityai/stablelm-tuned-alpha-7b
-lmsys/vicuna-13b-delta-v1.1
-mosaicml/mpt-7b-storywriter
-h2oai/h2ogpt-oasst1-512-12b
-OpenAssistant/oasst-sft-7-llama-30b-xor
-```
 
 #### Running two models on the same prompt
 
@@ -257,11 +211,13 @@ What is the best indie band of the 90s?
 You can also use the Gradio API directly, by following the instructions
 provided in the [Aviary documentation](https://aviary.anyscale.com/?view=api).
 
-## Aviary Model Registry
+## Usage stats collection
 
-Aviary allows you to easily add new models by adding a single configuration file.
-To learn more about how to customize or add new models, 
-see the [Aviary Model Registry](models/README.md).
+Aviary backend collects basic, non-identifiable usage statistics to help us improve the project.
+The mechanism for collection is the same as in Ray.
+For more information on what is collected and how to opt-out, see the
+[Usage Stats Collection](https://docs.ray.io/en/latest/cluster/usage-stats.html) page in
+Ray documentation.
 
 ## Getting Help and Filing Bugs / Feature Requests
 
