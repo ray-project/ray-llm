@@ -18,7 +18,6 @@ Aviary is built on top of [Ray](https://ray.io) by [Anyscale](https://anyscale.c
   	* [Deploy on Anyscale Service](#Deploying-on-Anyscale-Service)
 * [Aviary Reference](#Aviary-Reference)
 	* [Installing Aviary](#Installing-Aviary)
-	* [Running Aviary Frontend locally](#Running-Aviary-Frontend-locally)
 	* [Aviary Model Registry](#Aviary-Model-Registry)
    	* [CLI examples](#CLI-examples)
 	* [Usage stats collection](#Usage-stats-collection)
