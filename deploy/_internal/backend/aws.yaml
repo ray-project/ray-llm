@@ -10,8 +10,21 @@ head_node_type:
       head_node: 1
       accelerator_type_cpu: 1
 worker_node_types:
+- name: cpu-worker
+  instance_type: m5.xlarge
+  resources:
+    cpu:
+    gpu:
+    memory:
+    object_store_memory:
+    custom_resources:
+      worker_node: 1
+      accelerator_type_cpu: 1
+  min_workers: 0
+  max_workers: 16
+  use_spot: false
 - name: gpu-worker-g5
-  instance_type: g5.12xlarge
+  instance_type: g5.4xlarge
   resources:
     cpu:
     gpu:
@@ -51,16 +64,3 @@ worker_node_types:
       accelerator_type_cpu: 1
   min_workers: 0
   max_workers: 1
-- name: cpu-worker
-  instance_type: m5.xlarge
-  resources:
-    cpu:
-    gpu:
-    memory:
-    object_store_memory:
-    custom_resources:
-      worker_node: 1
-      accelerator_type_cpu: 1
-  min_workers: 0
-  max_workers: 16
-  use_spot: false
