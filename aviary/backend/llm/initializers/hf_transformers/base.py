@@ -71,7 +71,7 @@ class TransformersInitializer(LLMInitializer):
         )
         model_id_or_path = model_id
 
-        if os.path.exists(path):
+        if os.path.exists(path) and os.path.exists(os.path.join(path, "refs", "main")):
             with open(os.path.join(path, "refs", "main"), "r") as f:
                 snapshot_hash = f.read().strip()
             if os.path.exists(

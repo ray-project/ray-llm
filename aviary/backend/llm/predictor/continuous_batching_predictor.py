@@ -426,4 +426,5 @@ class ContinuousBatchingPredictor(LLMPredictor):
 
     def check_health(self) -> None:
         super().check_health()
-        self.scheduler.check_health()
+        if self.scheduler:
+            self.scheduler.check_health()
