@@ -85,7 +85,7 @@ aviary query --model amazon/LightGPT --model openai://gpt-3.5-turbo --prompt "Ho
 To deploy an application with one model on an Anyscale Service you can run:
 
 ```shell
-anyscale service rollout -f template/service.yaml
+anyscale service rollout -f template/service.yaml --name {ENTER_NAME_FOR_SERVICE_HERE}
 ```
 
 This is setup to run the amazon/LightGPT model, but can be easily modified to run any of the other models in this repo.
