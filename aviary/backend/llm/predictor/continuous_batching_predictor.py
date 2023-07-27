@@ -81,8 +81,12 @@ class ContinuousBatchingPredictionWorker(PredictionWorker):
             f"Model is warming up. Num requests: {len(requests)} Prefill tokens: {n_tokens} Max batch total tokens: {max_batch_total_tokens}"
         )
         ret = self.generator.warmup(requests, 0, max_batch_total_tokens)
+        self.llm_config.generation.max_batch_total_tokens = ret
         logger.info("Model finished warming up and is ready to serve requests.")
         return ret
+
+    def get_llm_config(self):
+        return self.llm_config
 
     def process_new_batch(
         self, requests: List["GenerationRequest"], batch_id: int
@@ -271,6 +275,14 @@ class ContinuousBatchingPredictor(LLMPredictor):
             )
 
         assert worker_group
+
+        configs = await asyncio.gather(
+            *[worker.get_llm_config.remote() for worker in worker_group]
+        )
+        self.model_config.generation.max_total_tokens = min(
+            [config.generation.max_total_tokens for config in configs]
+        )
+
         return worker_group
 
     async def _create_worker_group(
