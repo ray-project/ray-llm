@@ -1,5 +1,6 @@
 import asyncio
 import gc
+import json
 import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type, Union
@@ -351,8 +352,13 @@ class InferenceWorker(AbstractInferenceWorker):
         # TGI expects sorted requests
         requests = sorted(requests, key=lambda x: x.id)
         batch_state = create_batch(self._model, requests, batch_id)
-        self._model.warmup(batch_state, max_total_tokens)
-        return True
+        try:
+            suggested_max_total_tokens = self._model.warmup(
+                batch_state, max_total_tokens
+            )
+        except TypeError:
+            suggested_max_total_tokens = self._model.warmup(batch_state)
+        return suggested_max_total_tokens or max_total_tokens
 
     def check_cuda_objects(self):
         from collections import defaultdict
@@ -417,7 +423,7 @@ class TGIInferenceWorker(InferenceWorker):
         with FileLock(lock_path):
             download_weights(model_id=model_id, revision=revision)
 
-        from huggingface_hub import hf_hub_download as hf_hub_download_original
+        from huggingface_hub import hf_hub_download
         from transformers import AutoModelForCausalLM
 
         # Force device_map="auto" even for single GPU models
@@ -428,12 +434,20 @@ class TGIInferenceWorker(InferenceWorker):
             kwargs["device_map"] = "auto"
             return from_pretrained_original(*args, **kwargs)
 
-        def hf_hub_download(repo_id: str, filename: str, **kwargs):
-            if os.path.exists(os.path.join(repo_id, filename)):
-                return os.path.join(repo_id, filename)
-            return hf_hub_download_original(
-                repo_id=repo_id, filename=filename, **kwargs
-            )
+        def _set_gptq_params(self, model_id):
+            try:
+                if os.path.exists(model_id):
+                    filename = os.path.join(model_id, "quantize_config.json")
+                else:
+                    filename = hf_hub_download(
+                        model_id, filename="quantize_config.json"
+                    )
+                with open(filename, "r") as f:
+                    data = json.load(f)
+                self.gptq_bits = data["bits"]
+                self.gptq_groupsize = data["group_size"]
+            except Exception:
+                raise
 
         with patch(
             "text_generation_server.models.causal_lm.AutoModelForCausalLM.from_pretrained",
@@ -441,9 +455,9 @@ class TGIInferenceWorker(InferenceWorker):
         ), patch(
             "text_generation_server.models.rw.AutoModelForCausalLM.from_pretrained",
             from_pretrained,
-        ), patch(  # remove after huggingface/text-generation-inference/pull/534 is merged
-            "text_generation_server.models.mpt.hf_hub_download",
-            hf_hub_download,
+        ), patch(
+            "text_generation_server.utils.weights.Weights._set_gptq_params",
+            _set_gptq_params,
         ):
             super().__init__(
                 lambda: get_model(
