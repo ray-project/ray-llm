@@ -22,7 +22,7 @@ or define your own model YAML file and run that instead.
 
 ### Query the model
 
-Run the following commands. 
+Run the following command in a separate terminal. 
 
 ```shell
 python template/request.py
