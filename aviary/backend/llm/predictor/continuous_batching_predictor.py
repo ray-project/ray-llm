@@ -318,15 +318,17 @@ class ContinuousBatchingPredictor(LLMPredictor):
         return worker_group
 
     def process_request(
-        self, prompt: str, max_new_tokens: int, sampling_params: Dict[str, Any]
+        self,
+        prompt: str,
+        max_new_tokens: Optional[int],
+        sampling_params: Dict[str, Any],
     ):
-        # TODO improve error message
-        assert max_new_tokens + self.max_input_length <= self.max_total_tokens
         return self.scheduler.process_request(
             prompt,
             sampling_params,
             max_new_tokens=max_new_tokens,
             max_length=self.max_input_length,
+            max_total_tokens=self.max_total_tokens,
         )
 
     def validate_prompt(self, prompt: Prompt) -> None:
@@ -374,10 +376,7 @@ class ContinuousBatchingPredictor(LLMPredictor):
         generate_kwargs = merge_dicts(
             prompt.parameters or {}, model_config.generation.generate_kwargs
         )
-        max_new_tokens = min(
-            generate_kwargs.get("max_new_tokens", 512),
-            self.max_total_tokens - self.max_input_length,
-        )
+        max_new_tokens = generate_kwargs.get("max_new_tokens", None)
         result = self.process_request(
             prompt_text,
             max_new_tokens=max_new_tokens,
