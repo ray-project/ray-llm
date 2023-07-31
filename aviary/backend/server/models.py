@@ -427,7 +427,6 @@ class ContinuousBatchingInitializationConfig(InitializationConfig):
 class GenerationConfig(BaseModelExtended):
     prompt_format: PromptFormat
     generate_kwargs: Dict[str, Any] = {
-        "max_new_tokens": 256,
         "do_sample": True,
         "top_p": 0.92,
         "top_k": 0,
