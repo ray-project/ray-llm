@@ -17,8 +17,7 @@ From the terminal use the Ray Serve CLI to deploy a model:
 serve run template/serve.yaml
 ```
 
-The serve YAML file runs the lightgpt model. You can modify it to deploy any model in the `models` directory of this repo, provided you have the right GPU resources, 
-or define your own model YAML file and run that instead.
+The serve YAML file runs the lightgpt model. You can modify it to deploy any model in the `models` directory of this repo, provided you have the right GPU resources. You can also define your own model YAML file in the `models/` directory and run that instead. Follow the Aviary Model Registry [guide](models/README.md) for that.
 
 ### Query the model
 
