@@ -215,9 +215,16 @@ class InferenceScheduler:
         self,
         input_text: str,
         params: Dict[str, Any],
-        max_new_tokens: int = 256,
+        max_new_tokens: Optional[int] = 256,
         max_length: int = 1024,
+        max_total_tokens: int = 1024,
     ) -> TokenStream:
+        request_input_length = self._tokenizer.get_input_length(input_text)
+        upper_max_new_tokens = max_total_tokens - request_input_length
+        if max_new_tokens is None:
+            max_new_tokens = max_total_tokens - request_input_length
+        else:
+            max_new_tokens = min(max_new_tokens, upper_max_new_tokens)
         request = Request(
             id=get_request_id(),
             inputs=input_text,
@@ -225,12 +232,9 @@ class InferenceScheduler:
             max_new_tokens=max_new_tokens,
             params=params,
         )
-        return self._add_request(request)
-
-    def _add_request(self, request: Request) -> TokenStream:
         pending_request = InferenceRequest.from_request(
             request,
-            request_input_length=self._tokenizer.get_input_length(request.inputs),
+            request_input_length=request_input_length,
         )
         self._request_queue.put_nowait(pending_request)
         self._queue_put_event.set()
