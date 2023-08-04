@@ -20,7 +20,7 @@ class Vote(BaseModel):
 class LlmResponse(BaseModel):
     model_id: str
     text: str
-    model_config: Optional[Dict]
+    engine_config: Optional[Dict]
     gen_stats: Optional[Dict]
 
 

@@ -1,19 +1,14 @@
-import json
 import os
 import warnings
+from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional, Union
 
-import pydantic
-import requests
+import openai
 
-from aviary.common.constants import TIMEOUT
 from aviary.common.models import ChatCompletion, Completion, Model
 from aviary.common.utils import (
-    ResponseError,
-    _convert_to_aviary_format,
     _get_langchain_model,
     _is_aviary_model,
-    _supports_batching,
     assert_has_backend,
 )
 
@@ -24,7 +19,6 @@ __all__ = [
     "models",
     "metadata",
     "completions",
-    "batch_completions",
     "run",
     "get_aviary_backend",
     "stream",
@@ -34,246 +28,73 @@ __all__ = [
 class AviaryResource:
     """Stores information about the Aviary backend configuration."""
 
-    def __init__(self, backend_url: str, bearer: str):
+    def __init__(self, backend_url: str, token: str):
         assert "::param" not in backend_url, "backend_url not set correctly"
-        assert "::param" not in bearer, "bearer not set correctly"
+        assert "::param" not in token, "token not set correctly"
 
         self.backend_url = backend_url
-        self.bearer = bearer
-        self.header = {"Authorization": self.bearer}
+        self.token = token
+        self.bearer = f"Bearer {token}" if token else ""
 
 
-def get_aviary_backend():
+class URLNotSetException(Exception):
+    pass
+
+
+def get_aviary_backend(verbose: Optional[bool] = None):
     """
     Establishes a connection to the Aviary backed after establishing
     the information using environmental variables.
-    If the AVIARY_MOCK environmental variable is set, then a mock backend is used.
 
     For direct connection to the aviary backend (e.g. running on the same cluster),
     no AVIARY_TOKEN is required. Otherwise, the AVIARY_URL and AVIARY_TOKEN environment
     variables are required.
 
+    Args:
+        verbose: Whether to print the connecting message.
+
     Returns:
         An instance of the AviaryResource class.
     """
-    aviary_url = os.getenv("AVIARY_URL")
-    assert aviary_url, "AVIARY_URL must be set"
+    aviary_url = os.getenv("AVIARY_URL", os.getenv("OPENAI_API_BASE"))
+    if not aviary_url:
+        raise URLNotSetException("AVIARY_URL or OPENAI_API_BASE must be set")
 
-    aviary_token = os.getenv("AVIARY_TOKEN", "")
+    aviary_token = os.getenv("AVIARY_TOKEN", os.getenv("OPENAI_API_KEY")) or ""
 
-    bearer = f"Bearer {aviary_token}" if aviary_token else ""
-    aviary_url += "/" if not aviary_url.endswith("/") else ""
+    aviary_url += "/v1" if not aviary_url.endswith("/v1") else ""
 
-    print("Connecting to Aviary backend at: ", aviary_url)
-    return AviaryResource(aviary_url, bearer)
-
-
-def _get_result(response: requests.Response) -> Dict[str, Any]:
-    try:
-        result = response.json()
-    except requests.JSONDecodeError as e:
-        raise ResponseError(
-            f"Error decoding JSON from {response.url}. Text response: {response.text}",
-            response=response,
-        ) from e
-    if result.get("error"):
-        raise ResponseError(result["error"], response=response)
-    return result
+    if verbose is None:
+        verbose = os.environ.get("AVIARY_SILENT", "0") == "0"
+    if verbose:
+        print(f"Connecting to Aviary backend at: {aviary_url}")
+    return AviaryResource(aviary_url, aviary_token)
 
 
-def model_list(cls) -> Model:
-    """List all available Aviary models"""
+@contextmanager
+def openai_aviary_context():
     backend = get_aviary_backend()
-    request_url = backend.backend_url + "v1/models"
-    response = requests.get(request_url, headers=backend.header, timeout=TIMEOUT)
-    result = _get_result(response)
-    return Model(**result)
+    original_api_base = openai.api_base
+    original_api_key = openai.api_key
+    openai.api_base = backend.backend_url
+    openai.api_key = backend.token
+    yield
+    openai.api_base = original_api_base
+    openai.api_key = original_api_key
 
 
-Model.list = classmethod(model_list)
-
-
-def completion_create(
-    cls,
-    model: str,
-    prompt: str,
-    max_tokens: int = 32,
-    temperature: float = 1.0,
-    top_p: float = 1.0,
-    stream: bool = False,
-    stop: Optional[List[str]] = None,
-    frequency_penalty: float = 0.0,
-) -> Completion:
-    """Create a completion from a prompt."""
-    backend = get_aviary_backend()
-    url = backend.backend_url + "v1/completions/" + model.replace("/", "--")
-    if stream:
-
-        def gen():
-            response = requests.post(
-                url,
-                headers=backend.header,
-                json={
-                    "prompt": prompt,
-                    "temperature": temperature,
-                    "max_new_tokens": max_tokens,
-                    "top_p": top_p,
-                    "frequency_penalty": frequency_penalty,
-                    "stopping_sequences": stop,
-                    "stream": True,
-                },
-                timeout=TIMEOUT,
-                stream=True,
-            )
-            chunk = ""
-            try:
-                for chunk in response.iter_lines(chunk_size=None, decode_unicode=True):
-                    chunk = chunk.strip()
-                    if not chunk:
-                        continue
-                    data = json.loads(chunk)
-                    if data.get("error"):
-                        raise ResponseError(data["error"], response=response)
-                    try:
-                        yield Completion(**data)
-                    except pydantic.ValidationError as e:
-                        raise ResponseError(
-                            f"Error decoding response from {response.url}.",
-                            response=response,
-                        ) from e
-            except ConnectionError as e:
-                raise ResponseError(str(e) + "\n" + chunk, response=response) from e
-
-        return gen()
-    else:
-        response = requests.post(
-            url,
-            headers=backend.header,
-            json={
-                "prompt": prompt,
-                "temperature": temperature,
-                "max_new_tokens": max_tokens,
-                "top_p": top_p,
-                "frequency_penalty": frequency_penalty,
-                "stopping_sequences": stop,
-            },
-            timeout=TIMEOUT,
-        )
-        try:
-            return Completion(**_get_result(response))
-        except pydantic.ValidationError as e:
-            raise ResponseError(
-                f"Error decoding response from {response.url}.",
-                response=response,
-            ) from e
-
-
-Completion.create = classmethod(completion_create)
-
-
-def chat_completion_create(
-    cls,
-    model: str,
-    messages: List[Dict[str, str]],
-    temperature: float = 1.0,
-    top_p: float = 1.0,
-    stream: bool = False,
-    stop: Optional[List[str]] = None,
-    frequency_penalty: float = 0.0,
-) -> ChatCompletion:
-    """Create a chat completion from a list of messages."""
-    backend = get_aviary_backend()
-    url = backend.backend_url + "v1/chat/completions/" + model.replace("/", "--")
-    if stream:
-
-        def gen():
-            response = requests.post(
-                url,
-                headers=backend.header,
-                json={
-                    "messages": messages,
-                    "temperature": temperature,
-                    "top_p": top_p,
-                    "frequency_penalty": frequency_penalty,
-                    "stopping_sequences": stop,
-                    "stream": True,
-                },
-                timeout=TIMEOUT,
-                stream=True,
-            )
-            chunk = ""
-            try:
-                for chunk in response.iter_lines(chunk_size=None, decode_unicode=True):
-                    chunk = chunk.strip()
-                    if not chunk:
-                        continue
-                    data = json.loads(chunk)
-                    if data.get("error"):
-                        raise ResponseError(data["error"], response=response)
-                    try:
-                        yield ChatCompletion(**data)
-                    except pydantic.ValidationError as e:
-                        raise ResponseError(
-                            f"Error decoding response from {response.url}.",
-                            response=response,
-                        ) from e
-            except ConnectionError as e:
-                raise ResponseError(str(e) + "\n" + chunk, response=response) from e
-
-        return gen()
-    else:
-        response = requests.post(
-            url,
-            headers=backend.header,
-            json={
-                "messages": messages,
-                "temperature": temperature,
-                "top_p": top_p,
-                "frequency_penalty": frequency_penalty,
-                "stopping_sequences": stop,
-            },
-            timeout=TIMEOUT,
-        )
-        try:
-            return ChatCompletion(**_get_result(response))
-        except pydantic.ValidationError as e:
-            raise ResponseError(
-                f"Error decoding response from {response.url}.",
-                response=response,
-            ) from e
-
-
-ChatCompletion.create = classmethod(chat_completion_create)
-
-
+@openai_aviary_context()
 def models() -> List[str]:
     """List available models"""
-    backend = get_aviary_backend()
-    request_url = backend.backend_url + "models"
-    response = requests.get(request_url, headers=backend.header, timeout=TIMEOUT)
-    try:
-        result = response.json()
-    except requests.JSONDecodeError as e:
-        raise ResponseError(
-            f"Error decoding JSON from {response.url}. Text response: {response.text}",
-            response=response,
-        ) from e
-    return result
+    models = openai.Model.list()
+    return [model.id for model in models.data]
 
 
+@openai_aviary_context()
 def metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
     """Get model metadata"""
-    backend = get_aviary_backend()
-    url = backend.backend_url + "metadata/" + model_id.replace("/", "--")
-    response = requests.get(url, headers=backend.header, timeout=TIMEOUT)
-    try:
-        result = response.json()
-    except requests.JSONDecodeError as e:
-        raise ResponseError(
-            f"Error decoding JSON from {url}. Text response: {response.text}",
-            response=response,
-        ) from e
-    return result
+    metadata = openai.Model.retrieve(model_id)
+    return metadata
 
 
 def completions(
@@ -283,26 +104,24 @@ def completions(
     **kwargs,
 ) -> Dict[str, Union[str, float, int]]:
     """Get completions from Aviary models."""
-
+    kwargs.setdefault("max_tokens", None)
     if _is_aviary_model(model):
-        backend = get_aviary_backend()
-        url = backend.backend_url + "query/" + model.replace("/", "--")
-        response = requests.post(
-            url,
-            headers=backend.header,
-            json={"prompt": prompt, "use_prompt_format": use_prompt_format, **kwargs},
-            timeout=TIMEOUT,
-        )
-        try:
-            response = response.json()
-        except requests.JSONDecodeError as e:
-            raise ResponseError(
-                f"Error decoding JSON from {url}. Text response: {response.text}",
-                response=response,
-            ) from e
-        if response.get("error"):
-            raise ResponseError(response["error"], response=response)
-        return response
+        with openai_aviary_context():
+            if use_prompt_format:
+                result = openai.ChatCompletion.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    stream=False,
+                    **kwargs,
+                )
+            else:
+                result = openai.Completion.create(
+                    model=model,
+                    prompt=prompt,
+                    stream=False,
+                    **kwargs,
+                )
+            return result
     llm = _get_langchain_model(model)
     return llm.predict(prompt)
 
@@ -321,50 +140,6 @@ def query(
     return completions(model, prompt, use_prompt_format, **kwargs)
 
 
-def batch_completions(
-    model: str,
-    prompts: List[str],
-    use_prompt_format: Optional[List[bool]] = None,
-    kwargs: Optional[List[Dict[str, Any]]] = None,
-) -> List[Dict[str, Union[str, float, int]]]:
-    """Get batch completions from Aviary models."""
-
-    if not kwargs:
-        kwargs = [{}] * len(prompts)
-
-    if not use_prompt_format:
-        use_prompt_format = [True] * len(prompts)
-
-    if _is_aviary_model(model):
-        backend = get_aviary_backend()
-        url = backend.backend_url + "query/batch/" + model.replace("/", "--")
-        response = requests.post(
-            url,
-            headers=backend.header,
-            json=[
-                {"prompt": prompt, "use_prompt_format": use_format, **kwarg}
-                for prompt, use_format, kwarg in zip(prompts, use_prompt_format, kwargs)
-            ],
-            timeout=TIMEOUT,
-        )
-        try:
-            return response.json()
-        except requests.JSONDecodeError as e:
-            raise ResponseError(
-                f"Error decoding JSON from {url}. Text response: {response.text}",
-                response=response,
-            ) from e
-    else:
-        llm = _get_langchain_model(model)
-        if _supports_batching(model):
-            result = llm.generate(prompts)
-            converted = _convert_to_aviary_format(model, result)
-        else:
-            result = [{"generated_text": llm.predict(prompt)} for prompt in prompts]
-            converted = result
-        return converted
-
-
 def stream(
     model: str,
     prompt: str,
@@ -372,49 +147,35 @@ def stream(
     **kwargs,
 ) -> Iterator[Dict[str, Union[str, float, int]]]:
     """Query Aviary and stream response"""
+    kwargs.setdefault("max_tokens", None)
     if _is_aviary_model(model):
-        backend = get_aviary_backend()
-        url = backend.backend_url + "stream/" + model.replace("/", "--")
-        response = requests.post(
-            url,
-            headers=backend.header,
-            json={"prompt": prompt, "use_prompt_format": use_prompt_format, **kwargs},
-            timeout=TIMEOUT,
-            stream=True,
-        )
-        chunk = ""
-        try:
-            for chunk in response.iter_lines(chunk_size=None, decode_unicode=True):
-                chunk = chunk.strip()
-                if not chunk:
-                    continue
-                data = json.loads(chunk)
-                if data.get("error"):
-                    raise ResponseError(data["error"], response=response)
-                yield data
-        except ConnectionError as e:
-            raise ResponseError(str(e) + "\n" + chunk, response=response) from e
+        with openai_aviary_context():
+            if use_prompt_format:
+                result = openai.ChatCompletion.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    stream=True,
+                    **kwargs,
+                )
+            else:
+                result = openai.Completion.create(
+                    model=model,
+                    prompt=prompt,
+                    stream=True,
+                    **kwargs,
+                )
+            return result
     else:
         # TODO implement streaming for langchain models
         raise RuntimeError("Streaming is currently only supported for aviary models")
 
 
-def batch_query(
-    model: str,
-    prompts: List[str],
-    use_prompt_format: Optional[List[bool]] = None,
-    kwargs: Optional[List[Dict[str, Any]]] = None,
-) -> List[Dict[str, Union[str, float, int]]]:
-    warnings.warn(
-        "'batch_query' is deprecated, please use " "'batch_completions' instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return batch_completions(model, prompts, use_prompt_format, kwargs)
-
-
-def run(*model: str) -> None:
+def run(*model: str, blocking: bool = True) -> None:
     """Run Aviary on the local ray cluster
+
+    args:
+        *model: Models to run.
+        blocking: Whether to block the CLI until the application is ready.
 
     NOTE: This only works if you are running this command
     on the Ray or Anyscale cluster directly. It does not
@@ -424,7 +185,12 @@ def run(*model: str) -> None:
     assert_has_backend()
     from aviary.backend.server.run import run
 
-    run(*model)
+    run(*model, blocking=blocking)
 
 
-Model.deploy = classmethod(run)
+def shutdown() -> None:
+    """Shutdown the Aviary backend server"""
+    assert_has_backend()
+    from ray import serve
+
+    serve.shutdown()

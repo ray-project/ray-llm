@@ -1,0 +1,18 @@
+cloud: aviary-prod
+region: us-west-2
+head_node_type:
+  name: head-node-p4de
+  instance_type: p4de.24xlarge
+  resources:
+    cpu:
+    gpu:
+    memory:
+    object_store_memory:
+    custom_resources:
+      head_node: 1
+      accelerator_type_a100: 1
+  aws_advanced_configurations_json:
+    CapacityReservationSpecification:
+      CapacityReservationTarget:
+        CapacityReservationId: "cr-05ed55977a70e60dd"
+worker_node_types: []

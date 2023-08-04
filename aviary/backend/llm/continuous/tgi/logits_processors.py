@@ -1,7 +1,7 @@
 from typing import List, Union
 
 import torch
-from transformers import MinNewTokensLengthLogitsProcessor
+from transformers import LogitsProcessor, MinNewTokensLengthLogitsProcessor
 
 
 class MinNewTokensLogitsProcessor(MinNewTokensLengthLogitsProcessor):
@@ -43,8 +43,67 @@ class MinNewTokensLogitsProcessor(MinNewTokensLengthLogitsProcessor):
         self, input_ids: torch.LongTensor, scores: torch.FloatTensor
     ) -> torch.FloatTensor:
         self.generated_tokens += 1
-        if self.generated_tokens < self.min_new_tokens:
+        if self.generated_tokens <= self.min_new_tokens:
             for i in self.eos_token_id:
                 scores[:, i] = -float("inf")
 
         return scores
+
+
+def batched_bincount(
+    x: torch.Tensor, dim: torch.Tensor, max_value: int
+) -> torch.Tensor:
+    target = torch.zeros(x.shape[0], max_value, dtype=x.dtype, device=x.device)
+    values = torch.ones_like(x)
+    target.scatter_add_(dim, x, values)
+    return target
+
+
+class HeterogeneousFrequencyPresencePenaltyLogitsProcessor(LogitsProcessor):
+    r"""
+    [`LogitsProcessor`] enforcing an additive penalty on repeated sequences, with
+    separate penalty for presence and frequence (see https://platform.openai.com/docs/api-reference/parameter-details).
+    This version allows for a separate value for each sample and runs inplace when possible.
+    It doesn't validate inputs.
+
+    Args:
+        presence_penalty (`List[float]`):
+            The parameter for presence penalty. 0.0 means no penalty.
+        frequency_penalty (`List[float]`):
+            The parameter for frequence penalty. 0.0 means no penalty.
+    """
+
+    def __init__(
+        self,
+        presence_penalty: List[float],
+        frequency_penalty: List[float],
+        dtype: torch.dtype,
+        device: torch.device,
+    ):
+        self.presence_penalty = presence_penalty
+        self.frequency_penalty = frequency_penalty
+        self.presence_penalty_tensor = torch.tensor(
+            presence_penalty, dtype=dtype, device=device
+        ).unsqueeze(1)
+        self.frequency_penalty_tensor = torch.tensor(
+            frequency_penalty, dtype=dtype, device=device
+        ).unsqueeze(1)
+
+    def __call__(self, input_ids: torch.Tensor, scores: torch.Tensor) -> torch.Tensor:
+        occurences = batched_bincount(input_ids, 1, scores.shape[1])
+        frequency_penalty = occurences * self.frequency_penalty_tensor
+        presence_penalty = (occurences > 0) * self.presence_penalty_tensor
+
+        scores.sub_(frequency_penalty).sub_(presence_penalty)
+        return scores
+
+    def filter(self, indices):
+        self.presence_penalty = [self.presence_penalty[i] for i in indices]
+        self.frequency_penalty = [self.frequency_penalty[i] for i in indices]
+        if any([x != 0.0 for x in self.presence_penalty]) or any(
+            [x != 0.0 for x in self.frequency_penalty]
+        ):
+            self.presence_penalty_tensor = self.presence_penalty_tensor[indices]
+            self.frequency_penalty_tensor = self.frequency_penalty_tensor[indices]
+            return self
+        return None

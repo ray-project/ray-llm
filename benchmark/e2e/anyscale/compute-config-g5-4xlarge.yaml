@@ -1,0 +1,20 @@
+cloud: aviary-prod
+region: us-west-2
+head_node_type:
+  name: head-node-g5
+  instance_type: g5.4xlarge
+  resources:
+    cpu:
+    gpu:
+    memory:
+    object_store_memory:
+    custom_resources:
+      head_node: 1
+      accelerator_type_a10: 1
+  aws_advanced_configurations_json:
+    TagSpecifications:
+      - ResourceType: instance
+        Tags:
+          - Key: as-feature-customized-alternates
+            Value: $g5.2xlarge,$g5.4xlarge,$g5.8xlarge
+worker_node_types: []

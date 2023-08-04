@@ -1,8 +1,0 @@
-docker_image: anyscale/aviary:latest
-ray_version: nightly
-env_vars:
-  HF_HUB_ENABLE_HF_TRANSFER: 1
-  SAFETENSORS_FAST_GPU: 1
-  RAY_SERVE_ENABLE_EXPERIMENTAL_STREAMING: 1
-  XDG_CACHE_HOME: /mnt/local_storage/data/cache
-  TORCH_HOME: /mnt/local_storage/data/cache/torch

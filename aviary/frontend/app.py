@@ -4,6 +4,7 @@ import os
 import random
 import re
 import sys
+import time
 import traceback
 import uuid
 from asyncio.queues import Queue
@@ -15,14 +16,7 @@ import requests
 from ray import serve
 from ray.serve.gradio_integrations import GradioIngress
 
-from aviary.async_sdk import stream
-
-if os.getenv("AVIARY_MOCK"):
-    from tests import mock_sdk as sdk
-else:
-    from aviary import sdk
-
-
+from aviary import sdk
 from aviary.common.constants import (
     AVIARY_DESC,
     CSS,
@@ -42,6 +36,7 @@ from aviary.common.constants import (
     SELECTION_DICT,
     SUB_HEADER,
 )
+from aviary.frontend.async_sdk import stream
 from aviary.frontend.javascript_loader import JavaScriptLoader
 from aviary.frontend.leaderboard import DummyLeaderboard, Leaderboard
 from aviary.frontend.mongo_secrets import get_mongo_secret_url
@@ -70,8 +65,10 @@ MODEL_DESCRIPTIONS = (
         [
             MODEL_DESCRIPTION_FORMAT.format(
                 model_id=k,
-                model_description=v["metadata"]["model_config"]["model_description"],
-                model_url=v["metadata"]["model_config"]["model_url"],
+                model_description=v["aviary_metadata"]["engine_config"][
+                    "model_description"
+                ],
+                model_url=v["aviary_metadata"]["engine_config"]["model_url"],
             )
             for k, v in ALL_MODELS_METADATA.items()
         ]
@@ -115,7 +112,7 @@ def get_next_response(generator):
 async def stream_response(model, prompt, index: int, queue: Queue) -> None:
     try:
         async for response in stream(model, prompt):
-            await queue.put((index, response))
+            queue.put_nowait((index, response))
             if response is None:
                 break
     except Exception as e:
@@ -138,9 +135,18 @@ async def stream_response(model, prompt, index: int, queue: Queue) -> None:
         else:
             out = f"[AVIARY] An error occurred. Please try again.\nError: {e}"
         out = {"error": out}
-        await queue.put((index, out))
+        queue.put_nowait((index, out))
     finally:
-        await queue.put((index, None))
+        queue.put_nowait((index, None))
+
+
+def _get_text(result: dict) -> str:
+    if "text" in result["choices"][0]:
+        return result["choices"][0]["text"]
+    elif "message" in result["choices"][0]:
+        return result["choices"][0]["message"]["content"]
+    elif "delta" in result["choices"][0]:
+        return result["choices"][0]["delta"].get("content", "")
 
 
 async def queue_consumer(
@@ -167,31 +173,34 @@ async def do_query(prompt, model1, model2, model3, unused_raw=None):
             for i, model in enumerate(models)
         ]
         all_text = [list() for _ in range(len(models))]
-        stats = [None] * len(models)
-        outs = [{}] * len(models)
+        stats = [dict() for _ in range(len(models))]
 
+        t = time.monotonic()
         async for result in queue_consumer(queue, list(range(len(tasks))), timeout=60):
             i, response = result
-            if response and "error" in response:
+            if response and "error" in response and response["error"]:
                 all_text[i] = [response["error"]]
                 response = None
-
             if response is not None:
                 # TODO Improve this
                 # TODO Add error handling
-                all_text[i].append(response["generated_text"])
+                new_time = time.monotonic()
+                text = _get_text(response) or ""
+                all_text[i].append(text)
                 if not stats[i]:
-                    stats[i] = response
+                    stats[i]["num_total_tokens"] = 1
+                    stats[i]["total_time"] = new_time - t
+                    stats[i]["generation_time"] = new_time - t
                 else:
-                    stats[i]["num_total_tokens"] += response["num_generated_tokens"]
-                    stats[i]["total_time"] += response["generation_time"]
-                    stats[i]["generation_time"] += response["generation_time"]
-                outs[i] = stats[i]
+                    stats[i]["num_total_tokens"] += 1
+                    stats[i]["total_time"] += new_time - t
+                    stats[i]["generation_time"] += new_time - t
+                t = new_time
             yield [
                 *["".join(t).strip() for t in all_text],
                 *[gen_stats(s) if s else "" for s in stats],
                 "",
-                outs,
+                stats,
             ]
         await asyncio.gather(*tasks)  # Clean up the producer tasks
 
@@ -438,9 +447,10 @@ def gradio_app_builder():
 
 
 std_logger = logging.getLogger("ray.serve")
+route_prefix = "/frontend"
 
 
-@serve.deployment
+@serve.deployment(route_prefix=route_prefix, name=PROJECT_NAME)
 class AviaryFrontend(GradioIngress):
     def __init__(self, builder):
         # Aviary deployment simply silences the unnecessary gradio info calls.
@@ -460,15 +470,21 @@ class AviaryFrontend(GradioIngress):
         controller = ray.serve.context.get_global_client()._controller
         port = ray.get(controller.get_http_config.remote()).port
 
-        blocks._queue.set_url(f"http://localhost:{port}/")
+        blocks._queue.set_url(f"http://localhost:{port}{route_prefix}/")
         blocks._queue.set_url = noop
 
 
 app = AviaryFrontend.options(
     ray_actor_options={
         "num_cpus": 4,
+        "runtime_env": {
+            "env_vars": {
+                k: v
+                for k, v in os.environ.items()
+                if k.startswith("AVIARY") or k.startswith("OPENAI")
+            }
+        },
     },
-    name=PROJECT_NAME,
 ).bind(gradio_app_builder)
 
 

@@ -100,12 +100,12 @@ helm install kuberay-operator kuberay/kuberay-operator --version 0.5.0
 
 ## Step 6: Create a RayCluster with Aviary
 
-If you are running this tutorial on the Google Cloud Shell, please copy the file `deploy/kuberay/ray-cluster.aviary-gke.yaml` to the Google Cloud Shell. You may find it useful to use the [Cloud Shell Editor](https://cloud.google.com/shell/docs/editor-overview) to edit the file.
+If you are running this tutorial on the Google Cloud Shell, please copy the file `docs/kuberay/ray-cluster.aviary-gke.yaml` to the Google Cloud Shell. You may find it useful to use the [Cloud Shell Editor](https://cloud.google.com/shell/docs/editor-overview) to edit the file.
 
 Now you can create a RayCluster with Aviary. Aviary is included in the image `anyscale/aviary:latest`, which is specified in the RayCluster YAML manifest `ray-cluster.aviary-gke.yaml`.
 
 ```sh
-# path: deploy/kuberay
+# path: docs/kuberay
 kubectl apply -f ray-cluster.aviary-gke.yaml
 ```
 
@@ -188,7 +188,7 @@ aviary query --model mosaicml/mpt-7b-chat --prompt "What are the top 5 most popu
 
 ```sh
 # Step 8.1: Delete the RayCluster
-# path: deploy/kuberay
+# path: docs/kuberay
 kubectl delete -f ray-cluster.aviary-gke.yaml
 
 # Step 8.2: Uninstall the KubeRay operator chart

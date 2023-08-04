@@ -1,8 +1,0 @@
-cloud: anyscale_v2_default_cloud
-max_workers: 0
-region: us-west-2
-head_node_type:
-  name: head-node-type
-  instance_type: m5.2xlarge
-
-worker_node_types: []

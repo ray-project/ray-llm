@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+# $1 - model yaml file
+# $2 - model id
+# $3 - half of max ctx len
+
+set -e
+
+prompt_lens=("32" "128" "512" "$3")
+gen_lens=("32" "512" "128" "$3")
+
+trap "serve shutdown -y" EXIT
+
+# shutdown exiting aviary runs
+serve shutdown -y
+
+# start aviary
+aviary run --model $1
+
+for i in ${!prompt_lens[@]}; do
+    prompt_len=${prompt_lens[$i]}
+    gen_len=${gen_lens[$i]}
+    results_filename=benchmark_results_${2/\//--}_${prompt_len}_${gen_len}_$(date '+%Y-%m-%d_%H:%M:%S').log
+
+    random_prompt_count=500
+    if [ $prompt_len -eq "$3" ]; then
+        random_prompt_count=20
+    fi
+
+    # Warmup
+    if [ $i -eq 0 ]; then
+        random_prompt_count=10
+    fi
+
+    if [ ${AVIARY_SMOKE_TEST:-0} != "0" ]; then
+        echo "[BENCHMARK] Smoke test, setting random_prompt_count=1" 
+        random_prompt_count=1
+    fi
+
+    if [ $i -eq 0 ]; then
+        echo "[BENCHMARK] $2: Warmup with $prompt_len-$gen_len * $random_prompt_count"
+    else
+        echo "[BENCHMARK] $2: Running $prompt_len-$gen_len * $random_prompt_count"
+    fi
+
+    pushd ..
+        python ./benchmark_throughput.py \
+            --port 8000 \
+            --backend Aviary \
+            --model $2 \
+            --random_prompt_lens_mean $prompt_len \
+            --random_prompt_lens_range 0 \
+            --random_prompt_count $random_prompt_count \
+            --gen_random_prompts \
+            --variable_response_lens_mean $gen_len \
+            --variable_response_lens_range 0 \
+            --variable_response_lens_distribution uniform \
+            --allow_variable_generation_length \
+            --fail_on_response_failure \
+            --results_filename $results_filename
+        if [ $i -eq 0 ]; then
+            echo "[BENCHMARK] $2: Warmup done, starting benchmark"
+        else
+            echo -n "[BENCHMARK] $2: Results for $prompt_len-$gen_len * $random_prompt_count: "
+            cat $results_filename
+            echo "[BENCHMARK] $2: saved results to $results_filename"
+        fi
+    popd
+done

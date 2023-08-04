@@ -1,11 +1,8 @@
 apiVersion: ray.io/v1alpha1
 kind: RayCluster
 metadata:
-  labels:
-    controller-tools.k8s.io: "1.0"
   name: aviary
 spec:
-  rayVersion: 'nightly' # should match the Ray version in the image of the containers
   # Ray head pod template
   headGroupSpec:
     # The `rayStartParams` are used to configure the `ray start` command.
@@ -19,7 +16,7 @@ spec:
       spec:
         containers:
         - name: ray-head
-          image: anyscale/aviary:latest
+          image: anyscale/aviary:latest-tgi
           resources:
             limits:
               cpu: 2
@@ -42,13 +39,13 @@ spec:
     # logical group name, for this called small-group, also can be functional
     groupName: gpu-group
     rayStartParams:
-      resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 4}"'
+      resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100\": 2}"'
     # pod template
     template:
       spec:
         containers:
         - name: llm
-          image: anyscale/aviary:latest
+          image: anyscale/aviary:latest-tgi
           lifecycle:
             preStop:
               exec:

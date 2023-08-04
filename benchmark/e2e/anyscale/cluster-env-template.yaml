@@ -1,0 +1,15 @@
+docker_image: "::param:docker_image::"
+ray_version: nightly
+env_vars:
+  HF_HUB_ENABLE_HF_TRANSFER: 1
+  SAFETENSORS_FAST_GPU: 1
+  RAY_SERVE_ENABLE_EXPERIMENTAL_STREAMING: 1
+  XDG_CACHE_HOME: /mnt/local_storage/data/cache
+  TORCH_HOME: /mnt/local_storage/data/cache/torch
+  DISABLE_TQDM: 1
+  PYTHONUNBUFFERED: 1
+  AVIARY_ROUTER_HTTP_TIMEOUT: 3600
+  AVIARY_ROUTER_MIN_REPLICAS: 2
+  AVIARY_ROUTER_INITIAL_REPLICAS: 2
+  AVIARY_ROUTER_MAX_REPLICAS: 2
+  AVIARY_SMOKE_TEST: ::param:smoke_test::

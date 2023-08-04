@@ -1,54 +1,62 @@
+import os
 import sys
+import time
 from typing import Dict, List, Tuple, Union
 
 import ray._private.usage.usage_lib
 from ray import serve
+from ray.dashboard.modules.serve.sdk import ServeSubmissionClient
+from ray.serve.schema import ServeInstanceDetails
 
 from aviary.backend.server.app import (
-    ContinuousBatchingLLMDeployment,
     RouterDeployment,
-    StaticBatchingLLMDeployment,
+    TextGenerationInferenceLLMDeployment,
 )
 from aviary.backend.server.models import (
     AppArgs,
-    ContinuousBatchingModel,
     LLMApp,
-    LLMConfig,
     RouterArgs,
-    StaticBatchingModel,
+    TextGenerationInferenceEngineConfig,
 )
 from aviary.backend.server.utils import parse_args
+from aviary.conf import ENV_VARS_TO_PROPAGATE
 
 
-def llm_model(model: LLMApp):
-    print("Initializing LLM app", model.json(indent=2))
-    user_config = model.dict()
-    deployment_config = model.deployment_config.dict()
+def llm_model(app: LLMApp):
+    print("Initializing LLM app", app.json(indent=2))
+    user_config = app.dict()
+    deployment_config = app.deployment_config.dict()
     deployment_config = deployment_config.copy()
 
-    if isinstance(model.model_config, StaticBatchingModel):
-        deployment_cls = StaticBatchingLLMDeployment
-        max_concurrent_queries = deployment_config.pop(
-            "max_concurrent_queries", None
-        ) or user_config["model_config"]["generation"].get("max_batch_size", 1)
-    elif isinstance(model.model_config, ContinuousBatchingModel):
-        deployment_cls = ContinuousBatchingLLMDeployment
+    if isinstance(app.engine_config, TextGenerationInferenceEngineConfig):
+        deployment_cls = TextGenerationInferenceLLMDeployment
         max_concurrent_queries = deployment_config.pop("max_concurrent_queries", None)
         if max_concurrent_queries is None:
             raise ValueError(
                 "deployment_config.max_concurrent_queries must be specified for continuous batching models."
             )
 
+    deployment_config.setdefault("ray_actor_options", {})
+    deployment_config["ray_actor_options"].setdefault("runtime_env", {})
+    deployment_config["ray_actor_options"]["runtime_env"].setdefault("env_vars", {})
+    for env_var in ENV_VARS_TO_PROPAGATE:
+        if env_var in os.environ:
+            deployment_config["ray_actor_options"]["runtime_env"]["env_vars"][
+                env_var
+            ] = os.getenv(env_var)
+
     return deployment_cls.options(
-        name=model.model_config.model_id.replace("/", "--").replace(".", "_"),
+        name=app.engine_config.model_id.replace("/", "--").replace(".", "_"),
         max_concurrent_queries=max_concurrent_queries,
         user_config=user_config,
         **deployment_config,
     ).bind()
 
 
-def _parse_config_for_router(model_config: LLMConfig) -> Tuple[str, str, str]:
-    deployment_name = model_config.model_id.replace("/", "--").replace(".", "_")
+def _parse_config_for_router(
+    engine_config: TextGenerationInferenceEngineConfig,
+) -> Tuple[str, str, str]:
+    deployment_name = engine_config.model_id.replace("/", "--").replace(".", "_")
     deployment_route = f"/{deployment_name}"
     full_deployment_name = f"{deployment_name}_{deployment_name}"
     return deployment_name, deployment_route, full_deployment_name
@@ -58,22 +66,22 @@ def router_deployment(models: Dict[str, Union[str, LLMApp]]):
     app_names = {}
     deployment_routes = {}
     full_deployment_names = {}
-    model_configs = {}
+    engine_configs = {}
     for id, model in models.items():
         model = parse_args(model)[0]
-        model_configs[id] = model
+        engine_configs[id] = model
         (
             deployment_name,
             deployment_route,
             full_deployment_name,
-        ) = _parse_config_for_router(model.model_config)
+        ) = _parse_config_for_router(model.engine_config)
         app_name = deployment_name
-        app_names[model.model_config.model_id] = app_name
-        deployment_routes[model.model_config.model_id] = deployment_route
-        full_deployment_names[model.model_config.model_id] = full_deployment_name
+        app_names[model.engine_config.model_id] = app_name
+        deployment_routes[model.engine_config.model_id] = deployment_route
+        full_deployment_names[model.engine_config.model_id] = full_deployment_name
 
     router_deployment = RouterDeployment.bind(
-        full_deployment_names, deployment_routes, model_configs
+        full_deployment_names, deployment_routes, engine_configs
     )
     return router_deployment
 
@@ -105,29 +113,29 @@ def llm_server(args: Union[str, LLMApp, List[Union[LLMApp, str]]]):
     app_names = {}
     deployment_routes = {}
     full_deployment_names = {}
-    model_configs = {}
+    engine_configs = {}
     for model in models:
-        if model.model_config.model_id in model_configs:
+        if model.engine_config.model_id in engine_configs:
             raise ValueError(
-                f"Duplicate model_id {model.model_config.model_id} specified. "
+                f"Duplicate model_id {model.engine_config.model_id} specified. "
                 "Please ensure that each model has a unique model_id. "
                 "If you want two models to share the same Hugging Face Hub ID, "
                 "specify initialization.hf_model_id in the model config."
             )
-        model_configs[model.model_config.model_id] = model
-        deployments[model.model_config.model_id] = llm_model(model)
+        engine_configs[model.engine_config.model_id] = model
+        deployments[model.engine_config.model_id] = llm_model(model)
 
         (
             deployment_name,
             deployment_route,
             full_deployment_name,
-        ) = _parse_config_for_router(model.model_config)
+        ) = _parse_config_for_router(model.engine_config)
         app_name = deployment_name
-        app_names[model.model_config.model_id] = app_name
-        deployment_routes[model.model_config.model_id] = deployment_route
-        full_deployment_names[model.model_config.model_id] = full_deployment_name
+        app_names[model.engine_config.model_id] = app_name
+        deployment_routes[model.engine_config.model_id] = deployment_route
+        full_deployment_names[model.engine_config.model_id] = full_deployment_name
 
-    router = router_deployment(model_configs)
+    router = router_deployment(engine_configs)
 
     return router, deployments, deployment_routes, app_names
 
@@ -147,7 +155,24 @@ def router_application(args):
     return router_deployment(serve_args.models)
 
 
-def run(*models: Union[LLMApp, str]):
+def _all_applications_healthy():
+    address = os.environ.get("RAY_AGENT_ADDRESS", "http://localhost:52365")
+    serve_status = ServeInstanceDetails(
+        **ServeSubmissionClient(address).get_serve_details()
+    )
+    if any(
+        app.status == "DEPLOY_FAILED" for name, app in serve_status.applications.items()
+    ):
+        raise RuntimeError(
+            "One or more applications failed to deploy. "
+            "Check output above and Ray Dashboard/Ray logs for more details."
+        )
+    return all(
+        app.status == "RUNNING" for name, app in serve_status.applications.items()
+    )
+
+
+def run(*models: Union[LLMApp, str], blocking: bool = True):
     """Run the LLM Server on the local Ray Cluster
 
     Args:
@@ -174,6 +199,10 @@ def run(*models: Union[LLMApp, str]):
     serve.run(
         router_app, name="router", route_prefix="/", host="0.0.0.0", _blocking=False
     )
+
+    if blocking:
+        while not _all_applications_healthy():
+            time.sleep(1)
 
 
 if __name__ == "__main__":

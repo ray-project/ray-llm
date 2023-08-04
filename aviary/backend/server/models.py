@@ -1,16 +1,14 @@
-import warnings
-from typing import Any, Dict, List, Literal, Optional, Set, Union
+import time
+from typing import Any, Dict, List, Literal, Optional, Union
 
-import torch
 import yaml
 from huggingface_hub import hf_hub_download, hf_hub_url
 from markdown_it import MarkdownIt
-from pydantic import BaseModel, Extra, Field, root_validator, validator
+from pydantic import BaseModel, Extra, root_validator, validator
 from ray.air import ScalingConfig as AIRScalingConfig
 from ray.serve.config import AutoscalingConfig
-from typing_extensions import Annotated
 
-from aviary.common.models import Prompt, PromptFormat  # noqa
+from aviary.common.models import ErrorResponse, Prompt, PromptFormat  # noqa
 
 
 def markdown_extract_first_paragraph(markdown_text: str):
@@ -106,7 +104,7 @@ class ComputedPropertyMixin:
         return super().json(*args, **kwargs)
 
 
-class Response(ComputedPropertyMixin, BaseModelExtended):
+class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
     generated_text: Optional[str] = None
     num_input_tokens: Optional[int] = None
     num_input_tokens_batch: Optional[int] = None
@@ -114,19 +112,28 @@ class Response(ComputedPropertyMixin, BaseModelExtended):
     num_generated_tokens_batch: Optional[int] = None
     preprocessing_time: Optional[float] = None
     generation_time: Optional[float] = None
-    error: Optional[str] = None
-    error_type: Optional[str] = None
+    timestamp: Optional[float] = None
+    finish_reason: Optional[str] = None
+    error: Optional[ErrorResponse] = None
+
+    @validator("timestamp", always=True)
+    def set_timestamp(cls, v):
+        return v or time.time()
 
     @root_validator
-    def text_or_error(cls, values):
-        if values.get("generated_text") is None and values.get("error") is None:
-            raise ValueError("Either 'generated_text' or 'error' must be set")
-        if values.get("error") and not values.get("error_type"):
-            raise ValueError("'error_type' must be set if 'error' is set")
+    def text_or_error_or_finish_reason(cls, values):
+        if (
+            values.get("generated_text") is None
+            and values.get("error") is None
+            and values.get("finish_reason") is None
+        ):
+            raise ValueError(
+                "Either 'generated_text' or 'error' or 'finish_reason' must be set"
+            )
         return values
 
     @classmethod
-    def merge_stream(cls, *responses: "Response") -> "Response":
+    def merge_stream(cls, *responses: "AviaryModelResponse") -> "AviaryModelResponse":
         """
         Merge a stream of responses into a single response.
 
@@ -181,6 +188,9 @@ class Response(ComputedPropertyMixin, BaseModelExtended):
             if response.generation_time is not None
         ]
         generation_time = sum(generation_time) if generation_time else None
+        error = next(
+            (response.error for response in reversed(responses) if response.error), None
+        )
 
         return cls(
             generated_text=generated_text,
@@ -190,6 +200,9 @@ class Response(ComputedPropertyMixin, BaseModelExtended):
             num_generated_tokens_batch=num_generated_tokens_batch,
             preprocessing_time=preprocessing_time,
             generation_time=generation_time,
+            timestamp=responses[-1].timestamp,
+            finish_reason=responses[-1].finish_reason,
+            error=error,
         )
 
     @property
@@ -240,129 +253,53 @@ class Response(ComputedPropertyMixin, BaseModelExtended):
         except Exception:
             return None
 
-    def __str__(self) -> str:
-        return self.generated_text
 
-
-class TorchCompile(BaseModelExtended):
-    backend: Optional[str] = "inductor"
-    mode: Optional[str] = None
-    fullgraph: bool = False
-    dynamic: bool = False
-    options: Optional[Dict[str, Any]] = None
-
-
-class Initializer(BaseModelExtended, extra=Extra.forbid):
+class SchedulerPolicyConfig(BaseModelExtended, extra=Extra.forbid):
     type: str
 
-    @root_validator(pre=True)
-    def set_type(cls, values):
-        values["type"] = cls.__name__
-        return values
 
-    def get_initializer_kwargs(self) -> dict:
-        """
-        Get kwargs that will be actually passed to the LLMInitializer
-        constructor.
-        """
-        return self.dict(exclude={"type"})
-
-    @property
-    def allowed_pipelines(self) -> Set[str]:
-        return {}
-
-
-class Transformers(Initializer, extra=Extra.forbid):
-    use_bettertransformer: bool = False
-    torch_compile: Optional[TorchCompile] = None
-    dtype: Union[
-        Literal["float16"], Literal["bfloat16"], Literal["float32"], Literal["int8"]
-    ] = "float16"
-    from_pretrained_kwargs: Dict[str, Any] = {}
-
-    @property
-    def torch_dtype(self) -> torch.dtype:
-        return getattr(torch, self.dtype)
-
-    def get_initializer_kwargs(self) -> dict:
-        return {
-            **self.dict(exclude={"type", "from_pretrained_kwargs", "dtype"}),
-            "dtype": self.torch_dtype,
-            **self.from_pretrained_kwargs,
-        }
-
-    @property
-    def allowed_pipelines(self) -> Set[str]:
-        return {"transformers"}
-
-
-class DeepSpeed(Transformers):
-    type: Literal["DeepSpeed"]
-    dtype: Union[Literal["float16"], Literal["float32"], Literal["int8"]] = "float16"
-    use_kernel: bool = False
-    max_tokens: int = 1024
-    use_meta_tensor: bool = False
-    ds_inference_kwargs: Optional[Dict[str, Any]] = None
+class QuotaBasedTaskSelectionPolicyConfig(SchedulerPolicyConfig):
+    type: Literal["QuotaBasedTaskSelectionPolicy"] = "QuotaBasedTaskSelectionPolicy"
+    # Max total tokens (input+output) in a batch of multiple tasks
+    max_batch_total_tokens: Optional[int] = None
+    # Max total tokens (input+output) in a single task. Shouldn't be higher than
+    # context length of the model.
+    max_total_tokens: int = 2048
+    # This setting defines how many tokens can be passed before forcing the waiting
+    # queries to be put on the batch (if the size of the batch allows for it).
+    # tgi calls this max_waiting tokens
+    max_iterations_curr_batch: int = 20
+    # Max input tokens in a single task. Note: this is not validated yet
+    max_input_length: int = 1024
+    # Limits the number of tokens for the prefill operation.
+    max_batch_prefill_tokens: int = 4096
+    # This represents the ratio of waiting queries vs running queries where
+    # you want to start considering pausing the running queries to include the waiting
+    # ones into the same batch.
+    waiting_served_ratio: float = 1.2
 
     @root_validator
-    def use_kernel_bettertransformer_torch_compile(cls, values):
-        if values.get("use_kernel") and (
-            values.get("use_bettertransformer") or values.get("torch_compile")
-        ):
+    def validate_values(cls, values):
+        if values.get("max_input_length") > values.get("max_batch_prefill_tokens"):
             raise ValueError(
-                "Cannot combine 'use_bettertransformer' or 'torch_compile' with 'use_kernel=True'."
+                f"max_batch_prefill_tokens ({values.get('max_batch_prefill_tokens')}) must be >= max_input_length ({values.get('max_input_length')})"
             )
+        if values.get("max_batch_total_tokens"):
+            if values.get("max_batch_prefill_tokens") > values.get(
+                "max_batch_total_tokens"
+            ):
+                raise ValueError(
+                    f"max_batch_prefill_tokens ({values.get('max_batch_prefill_tokens')}) must be <= max_batch_total_tokens ({values.get('max_batch_total_tokens')})"
+                )
+            if values.get("max_total_tokens") > values.get("max_batch_total_tokens"):
+                raise ValueError(
+                    f"max_total_tokens ({values.get('max_total_tokens')}) must be <= max_batch_total_tokens ({values.get('max_batch_total_tokens')})"
+                )
         return values
 
-    @root_validator
-    def use_kernel_use_meta_tensor(cls, values):
-        if not values.get("use_kernel") and values.get("use_meta_tensor"):
-            raise ValueError("'use_meta_tensor=True' needs 'use_kernel=True'.")
-        return values
 
-
-class DeviceMap(Transformers):
-    type: Literal["DeviceMap"]
-    device_map: Optional[str] = "auto"
-
-
-class SingleDevice(Transformers):
-    type: Literal["SingleDevice"]
-
-
-class LlamaCpp(Initializer):
-    type: Literal["LlamaCpp"]
-    model_filename: str
-    model_init_kwargs: Dict[str, Any] = {}
-
-    def get_initializer_kwargs(self) -> dict:
-        return {
-            **self.dict(exclude={"type", "model_init_kwargs"}),
-            **self.model_init_kwargs,
-        }
-
-    @property
-    def allowed_pipelines(self) -> Set[str]:
-        return {"llamacpp"}
-
-
-class Continuous(Initializer):
-    type: str
-
-
-class TextGenerationInference(Continuous):
-    type: Literal["TextGenerationInference"]
-    model_init_kwargs: Dict[str, Any] = {}
-
-    def get_initializer_kwargs(self) -> dict:
-        return {
-            **self.dict(exclude={"type", "model_init_kwargs"}),
-            **self.model_init_kwargs,
-        }
-
-    @property
-    def allowed_pipelines(self) -> Set[str]:
-        return {"TextGenerationInference"}
+class SchedulerConfig(BaseModelExtended, extra=Extra.forbid):
+    policy: Union[SchedulerPolicyConfig, QuotaBasedTaskSelectionPolicyConfig]
 
 
 class S3MirrorConfig(BaseModelExtended):
@@ -370,67 +307,9 @@ class S3MirrorConfig(BaseModelExtended):
     s3_sync_args: Optional[List[str]] = None
 
 
-class InitializationConfig(BaseModelExtended):
-    initializer: Initializer
-    pipeline: str
-    s3_mirror_config: Optional[S3MirrorConfig] = None
-    runtime_env: Optional[Dict[str, Any]] = None
-    hf_model_id: Optional[str] = None
-    full_warmup: bool = False  # For debugging purposes
-
-    @root_validator
-    def initializer_pipeline(cls, values):
-        pipeline = values.get("pipeline")
-        if pipeline == "default":
-            warnings.warn(
-                "'default' pipeline is deprecated. Use 'transformers' instead. This will raise an error in the future.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            pipeline = "transformers"
-            values["pipeline"] = pipeline
-        initializer: Initializer = values.get("initializer")
-        if pipeline and pipeline not in initializer.allowed_pipelines:
-            raise ValueError(
-                f"'{pipeline}' pipeline cannot be used with '{initializer.type}' initializer. "
-                f"Allowed pipelines for this initializer are {initializer.allowed_pipelines}."
-            )
-        return values
-
-    @root_validator
-    def s3_mirror_config_transformers(cls, values):
-        s3_mirror_config: S3MirrorConfig = values.get("s3_mirror_config")
-        if s3_mirror_config and s3_mirror_config.bucket_uri:
-            initializer: Initializer = values.get("initializer")
-            if isinstance(initializer, Transformers):
-                initializer.from_pretrained_kwargs["local_files_only"] = True
-        return values
-
-
-class StaticBatchingInitializationConfig(InitializationConfig):
-    initializer: Annotated[
-        Union[DeepSpeed, DeviceMap, SingleDevice, LlamaCpp],
-        Field(discriminator="type"),
-    ]
-    pipeline: Union[
-        Literal["transformers"],
-        Literal["llamacpp"],
-        Literal["default"],
-    ]
-
-
-class ContinuousBatchingInitializationConfig(InitializationConfig):
-    initializer: TextGenerationInference
-    pipeline: Literal["TextGenerationInference"] = "TextGenerationInference"
-
-
 class GenerationConfig(BaseModelExtended):
     prompt_format: PromptFormat
-    generate_kwargs: Dict[str, Any] = {
-        "do_sample": True,
-        "top_p": 0.92,
-        "top_k": 0,
-    }
+    generate_kwargs: Dict[str, Any] = {}
     stopping_sequences: Optional[List[Union[str, int, List[Union[str, int]]]]] = None
 
     @validator("stopping_sequences")
@@ -452,56 +331,18 @@ class GenerationConfig(BaseModelExtended):
         return {"stopping_sequences": self.stopping_sequences, **self.generate_kwargs}
 
 
-class StaticBatchingGenerationConfig(GenerationConfig):
-    max_batch_size: int = 1
-    batch_wait_timeout_s: int = 1
-    # TODO make this token-based
-    max_input_words: int = 400
-
-
-class ContinuousBatchingGenerationConfig(GenerationConfig):
-    # Max total tokens (input+output) in a batch of multiple requests
-    max_batch_total_tokens: int = 16000
-    # Max total tokens (input+output) in a single request. Shouldn't be higher than
-    # context length of the model.
-    max_total_tokens: int = 2048
-    # This setting defines how many tokens can be passed before forcing the waiting
-    # queries to be put on the batch (if the size of the batch allows for it).
-    max_waiting_tokens: int = 20
-    # Max input tokens in a single request. Note: this is not validated yet
-    max_input_length: int = 1024
-    # Limits the number of tokens for the prefill operation.
-    max_batch_prefill_tokens: int = 4096
-    # This represents the ratio of waiting queries vs running queries where
-    # you want to start considering pausing the running queries to include the waiting
-    # ones into the same batch.
-    waiting_served_ratio: float = 1.2
-
-    @root_validator
-    def validate_values(cls, values):
-        if values.get("max_input_length") > values.get("max_batch_prefill_tokens"):
-            raise ValueError(
-                f"max_batch_prefill_tokens ({values.get('max_batch_prefill_tokens')}) must be >= max_input_length ({values.get('max_input_length')})"
-            )
-        if values.get("max_batch_prefill_tokens") > values.get(
-            "max_batch_total_tokens"
-        ):
-            raise ValueError(
-                f"max_batch_prefill_tokens ({values.get('max_batch_prefill_tokens')}) must be <= max_batch_total_tokens ({values.get('max_batch_total_tokens')})"
-            )
-        if values.get("max_total_tokens") > values.get("max_batch_total_tokens"):
-            raise ValueError(
-                f"max_total_tokens ({values.get('max_total_tokens')}) must be <= max_batch_total_tokens ({values.get('max_batch_total_tokens')})"
-            )
-        return values
-
-
-class LLMConfig(BaseModelExtended):
+class TextGenerationInferenceEngineConfig(BaseModelExtended):
+    type: str
     model_id: str
     model_url: Optional[str] = None
     model_description: Optional[str] = None
-    initialization: InitializationConfig
     generation: GenerationConfig
+    scheduler: SchedulerConfig
+
+    s3_mirror_config: Optional[S3MirrorConfig] = None
+    runtime_env: Optional[Dict[str, Any]] = None
+    hf_model_id: Optional[str] = None
+    model_init_kwargs: Dict[str, Any] = {}
 
     @root_validator(pre=True)
     def resolve_model_url_and_description(cls, values):
@@ -531,19 +372,14 @@ class LLMConfig(BaseModelExtended):
 
     @property
     def actual_hf_model_id(self) -> str:
-        return self.initialization.hf_model_id or self.model_id
+        return self.hf_model_id or self.model_id
 
-
-class StaticBatchingModel(LLMConfig):
-    batching: Literal["static"]
-    initialization: StaticBatchingInitializationConfig
-    generation: StaticBatchingGenerationConfig
-
-
-class ContinuousBatchingModel(LLMConfig):
-    batching: Literal["continuous"]
-    initialization: ContinuousBatchingInitializationConfig
-    generation: ContinuousBatchingGenerationConfig
+    def get_initialization_kwargs(self) -> dict:
+        """
+        Get kwargs that will be actually passed to the LLMInitializer
+        constructor.
+        """
+        return self.model_init_kwargs.copy()
 
 
 class ScalingConfig(BaseModelExtended):
@@ -553,6 +389,15 @@ class ScalingConfig(BaseModelExtended):
     placement_strategy: str = "PACK"
     resources_per_worker: Optional[Dict[str, float]] = None
     pg_timeout_s: float = 600
+
+    @validator("num_gpus_per_worker")
+    def validate_num_gpus_per_worker(cls, value):
+        if value > 1:
+            raise ValueError(
+                f"num_gpus_per_worker must be <= 1, got {value}. "
+                "If you want to use multiple GPUs, change num_workers instead."
+            )
+        return value
 
     def as_air_scaling_config(self) -> "AIRScalingConfig":
         return AIRScalingConfig(
@@ -569,22 +414,8 @@ class ScalingConfig(BaseModelExtended):
 
 
 class Args(BaseModelExtended):
-    model_config: Annotated[
-        Union[StaticBatchingModel, ContinuousBatchingModel],
-        Field(discriminator="batching"),
-    ]
+    engine_config: TextGenerationInferenceEngineConfig
     scaling_config: ScalingConfig
-
-    @root_validator
-    def strict_pack_continuous(cls, values):
-        model_config = values.get("model_config")
-        if model_config and model_config.batching == "continuous":
-            scaling_config = values.get("scaling_config")
-            if scaling_config and scaling_config.placement_strategy != "STRICT_PACK":
-                raise ValueError(
-                    "Continuous batching only supports scaling_config.placement_strategy='STRICT_PACK'"
-                )
-        return values
 
     @property
     def air_scaling_config(self) -> AIRScalingConfig:
