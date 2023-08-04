@@ -12,7 +12,7 @@ prompt = Prompt(prompt="What is the best place to eat in San Francisco?",
             },)
 
 resp = requests.post(
-    "http://127.0.0.1:8000/lightgpt/stream/", json={
+    "http://127.0.0.1:8000/amazon--LightGPT/stream/", json={
                     "prompt": prompt.dict(),
                     "priority":0,
                 }, stream = True
