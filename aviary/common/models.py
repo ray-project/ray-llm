@@ -1,6 +1,9 @@
-from typing import Any, Dict, List, Literal, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, TypeVar, Union
 
 from pydantic import BaseModel, validator
+
+if TYPE_CHECKING:
+    from aviary.backend.server.models import AviaryModelResponse
 
 TModel = TypeVar("TModel", bound="Model")
 TCompletion = TypeVar("TCompletion", bound="Completion")
@@ -12,6 +15,7 @@ class ModelData(BaseModel):
     object: str
     owned_by: str
     permission: List[str]
+    aviary_metadata: Dict[str, Any]
 
 
 class Model(BaseModel):
@@ -27,7 +31,7 @@ class TextChoice(BaseModel):
     text: str
     index: int
     logprobs: dict
-    finish_reason: str
+    finish_reason: Optional[str]
 
 
 class Usage(BaseModel):
@@ -36,7 +40,11 @@ class Usage(BaseModel):
     total_tokens: int
 
     @classmethod
-    def from_response(cls, response: Dict[str, Any]) -> "Usage":
+    def from_response(
+        cls, response: Union["AviaryModelResponse", Dict[str, Any]]
+    ) -> "Usage":
+        if isinstance(response, BaseModel):
+            response = response.dict()
         return cls(
             prompt_tokens=response["num_input_tokens"] or 0,
             completion_tokens=response["num_generated_tokens"] or 0,
@@ -51,7 +59,7 @@ class Completion(BaseModel):
     created: int
     model: str
     choices: List[TextChoice]
-    usage: Usage
+    usage: Optional[Usage]
 
     @classmethod
     def create(
@@ -59,12 +67,16 @@ class Completion(BaseModel):
         model: str,
         prompt: str,
         use_prompt_format: bool = True,
-        max_tokens: int = 32,
-        temperature: float = 1.0,
-        top_p: float = 1.0,
+        max_tokens: Optional[int] = 16,
+        temperature: Optional[float] = 1.0,
+        top_p: Optional[float] = 1.0,
         stream: bool = False,
         stop: Optional[List[str]] = None,
         frequency_penalty: float = 0.0,
+        top_k: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = False,
+        seed: Optional[int] = None,
     ) -> TCompletion:
         pass
 
@@ -77,10 +89,35 @@ class Message(BaseModel):
         return self.content
 
 
+class DeltaRole(BaseModel):
+    role: Literal["system", "assistant", "user"]
+
+    def __str__(self):
+        return self.role
+
+
+class DeltaContent(BaseModel):
+    content: str
+
+    def __str__(self):
+        return self.content
+
+
+class DeltaEOS(BaseModel):
+    class Config:
+        extra = "forbid"
+
+
 class MessageChoices(BaseModel):
     message: Message
     index: int
     finish_reason: str
+
+
+class DeltaChoices(BaseModel):
+    delta: Union[DeltaRole, DeltaContent, DeltaEOS]
+    index: int
+    finish_reason: Optional[str]
 
 
 class ChatCompletion(BaseModel):
@@ -88,19 +125,24 @@ class ChatCompletion(BaseModel):
     object: str
     created: int
     model: str
-    choices: List[MessageChoices]
-    usage: Usage
+    choices: List[Union[MessageChoices, DeltaChoices]]
+    usage: Optional[Usage]
 
     @classmethod
     def create(
         cls,
         model: str,
         messages: List[Dict[str, str]],
-        temperature: float = 1.0,
-        top_p: float = 1.0,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = 1.0,
+        top_p: Optional[float] = 1.0,
         stream: bool = False,
         stop: Optional[List[str]] = None,
         frequency_penalty: float = 0.0,
+        top_k: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = False,
+        seed: Optional[int] = None,
     ) -> TChatCompletion:
         pass
 
@@ -110,6 +152,14 @@ class Prompt(BaseModel):
     use_prompt_format: bool = True
     parameters: Optional[Dict[str, Any]] = None
     stopping_sequences: Optional[List[str]] = None
+
+
+class ErrorResponse(BaseModel):
+    message: str
+    internal_message: str
+    code: int
+    type: str
+    param: Dict[str, Any] = {}
 
 
 class PromptFormat(BaseModel):
@@ -122,26 +172,23 @@ class PromptFormat(BaseModel):
 
     @validator("system")
     def check_system(cls, value):
-        if value:
-            assert (
-                "{instruction}" in value
-            ), "system must be empty string or string containing '{instruction}'"
+        assert value and (
+            "{instruction}" in value
+        ), "system must be a string containing '{instruction}'"
         return value
 
     @validator("assistant")
     def check_assistant(cls, value):
-        if value:
-            assert (
-                "{instruction}" in value
-            ), "assistant must be empty string or string containing '{instruction}'"
+        assert (
+            value and "{instruction}" in value
+        ), "assistant must be a string containing '{instruction}'"
         return value
 
     @validator("user")
     def check_user(cls, value):
-        if value:
-            assert (
-                "{instruction}" in value
-            ), "user must be empty string or string containing '{instruction}'"
+        assert value and (
+            "{instruction}" in value
+        ), "user must be a string containing '{instruction}'"
         return value
 
     def generate_prompt(self, messages: Union[Prompt, List[Message]]) -> str:

@@ -3,8 +3,8 @@ deployment_config:
   autoscaling_config:
     min_replicas: 1
     initial_replicas: 1
-    max_replicas: 8
-    target_num_ongoing_requests_per_replica: 24.0
+    max_replicas: 1
+    target_num_ongoing_requests_per_replica: 64.0
     metrics_interval_s: 10.0
     look_back_period_s: 30.0
     smoothing_factor: 1.0
@@ -12,27 +12,20 @@ deployment_config:
     upscale_delay_s: 60.0
   ray_actor_options:
     resources:
-      accelerator_type_cpu: 0.01
-model_config:
-  batching: continuous
+      accelerator_type_a10: 0.01
+engine_config:
   model_id: amazon/LightGPT
-  initialization:
-    s3_mirror_config:
-      bucket_uri: s3://large-dl-models-mirror/models--amazon--LightGPT/main-safetensors/
-      s3_sync_args:
-        - "--no-sign-request"
-    initializer:
-      type: TextGenerationInference
-    pipeline: TextGenerationInference
+  type: TextGenerationInferenceEngine
+  scheduler:
+    policy:
+      max_batch_total_tokens: 7800
+      max_batch_prefill_tokens: 7800
+      max_input_length: 2040
+      max_total_tokens: 2048
   generation:
-    max_batch_total_tokens: 7800
-    max_batch_prefill_tokens: 7800
     generate_kwargs:
       do_sample: true
-      max_new_tokens: 512
-      min_new_tokens: 8
       temperature: 0.7
-      repetition_penalty: 1.1
       top_p: 0.8
       top_k: 50
     prompt_format:

@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="aviary",
-    version="0.1.2",
+    version="0.1.1",
     description="A tool to deploy and query LLMs",
     packages=find_packages(include="aviary*"),
     include_package_data=True,
@@ -15,13 +15,15 @@ setup(
     install_requires=[
         "typer>=0.9",
         "rich",
-        "typing_extensions==4.5.0",
+        "typing_extensions~=4.5.0",
         "requests",
+        "openai",
     ],
     extras_require={
         # TODO(tchordia): test whether this works, and determine how we can keep requirements
         # in sync
         "backend": [
+            "awscrt",
             "async_timeout",
             "torch>=2.0.0",
             "torchaudio>=2.0.0",
@@ -44,10 +46,11 @@ setup(
             "optimum @ git+https://github.com/huggingface/optimum.git",
             "torchmetrics",
             "safetensors",
-            "pydantic==1.10.7",
+            "pydantic~=1.10.0",
             "einops",
             "markdown-it-py[plugins]",
             "fastapi-versioning",
+            "scipy",
         ],
         "frontend": [
             "gradio",
@@ -64,6 +67,9 @@ setup(
         ],
         "test": [
             "pytest",
+            "pytest-asyncio",
+            "pytest-md-report",
+            "buildkite-test-collector",
         ],
         "docs": [
             "mkdocs-material",

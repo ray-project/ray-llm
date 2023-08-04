@@ -7,13 +7,9 @@ DEFAULT_API_VERSION = ""
 
 NUM_LLM_OPTIONS = 3
 
-# AWS timeout
-# TODO make this configurable
-GATEWAY_TIMEOUT_S = 110
-
 # (connect, read) timeouts in seconds. we make the "read" timeout deliberately
 # shorter than in cloudfront OR gradio, so that we can explicitly handle timeouts.
-TIMEOUT = (5, GATEWAY_TIMEOUT_S - 5)
+TIMEOUT = (5, 120)
 
 AVIARY_DESC = """
 
@@ -154,6 +150,9 @@ body, gradio-app {
 }
 .block.ref-link a:visited {
     color: var(--button-primary-text-color) !important;
+}
+.block.ref-link.primary {
+    min-width: 160px;
 }
 .block.ref-link.primary a {
     background: var(--button-primary-background-fill) !important;

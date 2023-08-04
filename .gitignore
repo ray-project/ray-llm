@@ -246,3 +246,5 @@ prompts.txt
 
 # docs build
 site/
+
+*.orig

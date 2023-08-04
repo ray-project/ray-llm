@@ -1,0 +1,17 @@
+name: "::param:name::"
+project_id: "prj_hhtx36779x4c2qw6nuc7r2gtmv"
+compute_config: "::param:compute_config::"
+runtime_env:
+  working_dir: "::param:working_dir::"
+  upload_path: "s3://aviary-automated-benchmark/working_dirs"
+cluster_env: "::param:cluster_env::"
+# This is a somewhat hacky way of getting to the runtime env working directory
+# The find command returns the first directory containing "s3" in the name. There should only be one.
+entrypoint: >
+  cd /tmp/ray/session_latest/runtime_resources/working_dir_files 
+  && cd $(find . -maxdepth 1 -type d -name 's3*' -print -quit) 
+  && pip uninstall -y aviary 
+  && pip install -e . 
+  && chmod -R +x benchmark && cd benchmark/e2e/benchmark_configs 
+  && ::param:benchmark_scripts::
+max_retries: 0

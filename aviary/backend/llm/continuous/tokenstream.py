@@ -1,4 +1,24 @@
 import asyncio
+from enum import Enum
+from typing import Optional
+
+from .error_handling import ErrorReason
+
+
+class FinishReason(str, Enum):
+    LENGTH = "length"
+    STOP = "stop"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+
+    @classmethod
+    def from_tgi_finish_reason(cls, finish_reason: int) -> "FinishReason":
+        if finish_reason == 0:
+            return cls.LENGTH
+        return cls.STOP
+
+    def __str__(self) -> str:
+        return self.value
 
 
 class TokenStream:
@@ -6,30 +26,46 @@ class TokenStream:
 
     def __init__(self, id: int):
         self.id = id
-        self.num_input_tokens = None
         self._queue = asyncio.Queue()
         self._num_tokens = 0
         self._generated_text = None
-        self.is_finished = False
+        self.finish_reason: Optional[FinishReason] = None
+        self.error_reason: Optional[ErrorReason] = None
 
-    def end(self, generated_text=None):
-        self.is_finished = True
+    @property
+    def is_finished(self) -> bool:
+        return self.finish_reason is not None
+
+    def end(
+        self,
+        finish_reason: FinishReason,
+        error_reason: Optional[ErrorReason] = None,
+        generated_text: Optional[str] = None,
+    ):
+        if self.is_finished:
+            return
+        self.finish_reason = finish_reason
+        self.error_reason = error_reason
         self._generated_text = generated_text
         self._queue.put_nowait(StopIteration)
 
-    def put(self, item):
-        if not self.is_finished:
-            self._queue.put_nowait(item)
-            self._num_tokens += 1
+    def put(self, item: str):
+        if self.is_finished:
+            return
+        if self._num_tokens == 0:
+            item = item.lstrip()
+        self._queue.put_nowait(item)
+        self._num_tokens += 1
 
-    def num_tokens(self):
+    @property
+    def num_tokens(self) -> int:
         return self._num_tokens
 
     def __aiter__(self):
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> str:
         result = await self._queue.get()
-        if result == StopIteration:
+        if result is StopIteration:
             raise StopAsyncIteration
         return result

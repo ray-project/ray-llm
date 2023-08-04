@@ -1,4 +1,4 @@
-## Using the Aviary CLI
+# Using the Aviary CLI
 
 Aviary comes with a CLI that allows you to interact with the backend directly, without
 using the Gradio frontend.
@@ -18,6 +18,9 @@ aviary query --model <model-name> --prompt <prompt_1> --prompt <prompt_2>
 # Run a query on a text file of prompts
 aviary query  --model <model-name> --prompt-file <prompt-file>
 
+# Run a query with streaming
+aviary stream --model <model-name> --prompt <prompt_1>
+
 # Evaluate the quality of responses with GPT-4 for evaluation
 aviary evaluate --input-file <query-result-file>
 
@@ -25,73 +28,58 @@ aviary evaluate --input-file <query-result-file>
 aviary run <model>
 ```
 
-### CLI examples
+## CLI examples
 
-#### Listing all available models
+### Listing all available models
 
 ```shell
 aviary models
 ```
 ```text
 mosaicml/mpt-7b-instruct
-CarperAI/stable-vicuna-13b-delta
-databricks/dolly-v2-12b
-RWKV/rwkv-raven-14b
-mosaicml/mpt-7b-chat
-stabilityai/stablelm-tuned-alpha-7b
-lmsys/vicuna-13b-delta-v1.1
-mosaicml/mpt-7b-storywriter
-h2oai/h2ogpt-oasst1-512-12b
-OpenAssistant/oasst-sft-7-llama-30b-xor
+meta-llama/Llama-2-7b-chat-hf
 ```
 
-#### Running two models on the same prompt
+### Running two models on the same prompt
 
 ```shell
-aviary query --model mosaicml/mpt-7b-instruct --model RWKV/rwkv-raven-14b \
+aviary query --model mosaicml/mpt-7b-instruct --model meta-llama/Llama-2-7b-chat-hf \
   --prompt "what is love?"
 ```
 ```text
 mosaicml/mpt-7b-instruct:
 love can be defined as feeling of affection, attraction or ...
-RWKV/rwkv-raven-14b:
+meta-llama/Llama-2-7b-chat-hf:
 Love is a feeling of strong affection and care for someone or something...
 ```
 
-#### Running a batch-query of two prompts on the same model
+### Running a batch-query of two prompts on the same model
 
 ```shell
 aviary query --model mosaicml/mpt-7b-instruct \
   --prompt "what is love?" --prompt "why are we here?"
 ```
 
-#### Running a query on a text file of prompts
+### Running a query on a text file of prompts
 
 ```shell
 aviary query --model mosaicml/mpt-7b-instruct --prompt-file prompts.txt
 ```
 
-#### Evaluating the quality of responses with GPT-4 for evaluation
+### Running a streaming response
+
+```shell
+aviary stream --model mosaicml/mpt-7b-instruct --prompt "What is love?"
+```
+
+### Evaluating the quality of responses with GPT-4 for evaluation
 
 ```shell
  aviary evaluate --input-file aviary-output.json --evaluator gpt-4
 ```
 
 This will result in a leaderboard-like ranking of responses, but also save the
-results to file:
-
-```shell
-What is the best indie band of the 90s?
-                                              Evaluation results (higher ranks are better)                                               
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Model                    ┃ Rank ┃                                                                                            Response ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ mosaicml/mpt-7b-instruct │ 1    │  The Shins are often considered to be one of the greatest bands from this era, with their album 'Oh │
-│                          │      │        Inverted World' being widely regarded as one of the most influential albums in recent memory │
-│ RWKV/rwkv-raven-14b      │ 2    │ It's subjective and depends on personal taste. Some people might argue that Nirvana or The Smashing │
-│                          │      │                       Pumpkins were the best, while others might prefer Sonic Youth or Dinosaur Jr. │
-└──────────────────────────┴──────┴─────────────────────────────────────────────────────────────────────────────────────────────────────┘
-```
+results to file. 
 
 You can also use the Gradio API directly, by following the instructions
 provided in the [Aviary documentation](https://aviary.anyscale.com/?view=api).

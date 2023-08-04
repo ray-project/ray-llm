@@ -1,0 +1,3 @@
+anyscale
+typer
+awscli # for S3 token downloading

@@ -1,9 +1,16 @@
+import asyncio
+import json
 import os
-from typing import List, Union
+from enum import IntEnum
+from typing import AsyncIterable, AsyncIterator, List, TypeVar, Union
 
 import pydantic
+from fastapi import Request
+from starlette.responses import StreamingResponse
 
 from aviary.backend.server.models import LLMApp
+
+T = TypeVar("T")
 
 
 def parse_args(args: Union[str, LLMApp, List[Union[LLMApp, str]]]) -> List[LLMApp]:
@@ -72,3 +79,50 @@ def _is_yaml_file(filename: str) -> bool:
         if filename.endswith(s):
             return True
     return False
+
+
+def _replace_prefix(model: str) -> str:
+    return model.replace("--", "/")
+
+
+async def _until_disconnected(request: Request):
+    while True:
+        if await request.is_disconnected():
+            return True
+        await asyncio.sleep(1)
+
+
+EOS_SENTINELS = (None, StopIteration, StopAsyncIteration)
+
+
+async def serialize_stream(async_iterator: AsyncIterator):
+    try:
+        async for x in async_iterator:
+            if isinstance(x, pydantic.BaseModel):
+                x = x.json() + "\n"
+
+            if not isinstance(x, (str, bytes)):
+                raise TypeError(f"Unable to serialize object {x}, of type {type(x)}")
+
+            yield x
+    except Exception as e:
+        err = {"error": f"Internal server error: {e}"}
+        yield json.dumps(err) + "\n"
+
+
+def get_streaming_response(async_iterator: AsyncIterable) -> StreamingResponse:
+    return StreamingResponse(
+        serialize_stream(async_iterator),
+        media_type="text/event-stream",
+    )
+
+
+async def collapse_stream(async_iterator: AsyncIterable[T]) -> List[T]:
+    return [x async for x in async_iterator]
+
+
+class QueuePriority(IntEnum):
+    """Lower value = higher priority"""
+
+    GENERATE_TEXT = 0
+    BATCH_GENERATE_TEXT = 1
