@@ -3,4 +3,4 @@ applications:
   route_prefix: /lightgpt
   import_path: aviary.backend:llm_application
   args:
-    model: "./models/static_batching/amazon--LightGPT.yaml"
+    model: "./models/continuous_batching/amazon--LightGPT.yaml"
