@@ -23,16 +23,31 @@ The serve YAML file runs the lightgpt model. You can modify it to deploy any mod
 Run the following command in a separate terminal. 
 
 ```shell
-python template/request.py
+python template/openai-sdk-query.py
 ```
 ```text
 Output:
-To make fried rice, start by heating up some oil in a large pan over medium-high
-heat. Once the oil is hot, add your desired amount of vegetables and/or meat to the
-pan. Cook until they are lightly browned, stirring occasionally. Add any other
-desired ingredients such as eggs, cheese, or sauce to the pan. Finally, stir
-everything together and cook for another few minutes until all the ingredients are
-cooked through. Serve with your favorite sides and enjoy!
+The top rated restaurants in San Francisco include:
+ • Chez Panisse
+ • Momofuku Noodle Bar
+ • Nopa
+ • Saison
+ • Mission Chinese Food
+ • Sushi Nakazawa
+ • The French Laundry
+ • Delfina
+ • Spices
+ • Quince
+ • Bistro L'Etoile
+ • The Slanted Door
+ • The Counter
+ • The Chronicle
+ • The Mint
+ • The French Press
+ • The Palace Cafe
+ • The Inn at the Opera House
+ • The Green Table
+ • The Palace Cafe
 ```
 
 # Deploying on Anyscale Service

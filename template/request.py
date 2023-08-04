@@ -6,7 +6,7 @@ from aviary.backend.server.models import (
 )
 
 
-prompt = Prompt(prompt="What is the best place to eat in San Francisco?",
+prompt = Prompt(prompt="What are the best restaurants in San Francisco?",
             parameters={
                 "max_new_tokens": 128,
             },)
