@@ -1,5 +1,7 @@
 # Aviary - Study stochastic parrots in the wild
 
+Go on bird watch right now: [🦜🔍 Aviary 🦜🔍](http://aviary.anyscale.com/)
+
 Aviary helps you deploy large language models (LLMs) with state-of-the-art optimizations on top of Ray Serve. 
 In particular, it offers good support for Transformer models hosted on [Hugging Face](http://hf.co) and in many cases also 
 supports [DeepSpeed](https://www.deepspeed.ai/) inference acceleration as well as continuous batching and paged attention. 
@@ -12,7 +14,6 @@ From the terminal use the Ray Serve CLI to deploy a model:
 
 ```shell
 # Deploy the LightGPT model. 
-
 serve run template/serve.yaml
 ```
 
@@ -89,4 +90,3 @@ We are eager to help you get started with Aviary. You can get help on:
 For bugs or for feature requests, please submit them [here](https://github.com/ray-project/aviary/issues/new).
 
 We have people in both US and European time zones who will help answer your questions. 
-

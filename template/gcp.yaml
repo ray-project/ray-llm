@@ -1,0 +1,68 @@
+head_node_type:
+  name: head-node-type
+  instance_type: n2-standard-4
+  resources:
+    cpu:
+    gpu:
+    memory:
+    object_store_memory:
+    custom_resources:
+      head_node: 1
+      accelerator_type_cpu: 1
+worker_node_types:
+- name: gpu-worker-t4
+  instance_type: n1-standard-32-nvidia-t4-16gb-4
+  resources:
+    cpu:
+    gpu:
+    memory:
+    object_store_memory:
+    custom_resources:
+      worker_node: 1
+      # aviary uses a10 for some model types.
+      # change instance type when 24gb GPUs are available on GCP in Anyscale
+      accelerator_type_a10: 1
+  min_workers: 0
+  max_workers: 8
+  use_spot: true
+  fallback_to_ondemand: true
+- name: gpu-worker-v100
+  instance_type: n1-standard-32-nvidia-v100-16gb-4
+  resources:
+    cpu:
+    gpu:
+    memory:
+    object_store_memory:
+    custom_resources:
+      worker_node: 1
+      accelerator_type_v100: 1
+  min_workers: 0
+  max_workers: 4
+  use_spot: true
+  fallback_to_ondemand: true
+- name: gpu-worker-a100-40g # 80gb GPUs not available in most accounts
+  instance_type: a2-highgpu-4g-nvidia-a100-40gb-4
+  resources:
+    cpu:
+    gpu:
+    memory:
+    object_store_memory:
+    custom_resources:
+      worker_node: 1
+      accelerator_type_a100: 1
+      accelerator_type_cpu: 1
+  min_workers: 0
+  max_workers: 1
+- name: cpu-worker
+  instance_type: n2-standard-4
+  resources:
+    cpu:
+    gpu:
+    memory:
+    object_store_memory:
+    custom_resources:
+      worker_node: 1
+      accelerator_type_cpu: 1
+  min_workers: 0
+  max_workers: 16
+  use_spot: false
