@@ -4,6 +4,8 @@ ray_serve_config:
   - name: router
     route_prefix: /
     import_path: aviary.backend:router_application
+    runtime_env:
+      working_dir: "."
     args:
       models:
         amazon/LightGPT: ./models/continuous_batching/amazon--LightGPT.yaml
