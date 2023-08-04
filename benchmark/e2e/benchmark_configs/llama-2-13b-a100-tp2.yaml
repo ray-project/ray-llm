@@ -20,7 +20,6 @@ engine_config:
     trust_remote_code: true
   scheduler:
     policy:
-      max_batch_total_tokens: 122000
       max_batch_prefill_tokens: 100000
       max_input_length: 2048
       max_total_tokens: 4096

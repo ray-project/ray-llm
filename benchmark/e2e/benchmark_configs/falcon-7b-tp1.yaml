@@ -21,10 +21,8 @@ engine_config:
   scheduler:
     policy:
     # for 1 worker
-      max_batch_total_tokens: 14100
       max_batch_prefill_tokens: 10000
     # for 2 workers
-    # max_batch_total_tokens: 43300
     # max_batch_prefill_tokens: 20000
       max_input_length: 1024
       max_total_tokens: 2048
