@@ -14,4 +14,3 @@ ray_serve_config:
       model: "./models/continuous_batching/amazon--LightGPT.yaml"
     runtime_env:
       working_dir: "."
-  

@@ -1,10 +1,5 @@
+from aviary.backend.server.models import Prompt
 import requests
-from aviary.backend.server.models import (
-    Args,
-    AviaryModelResponse,
-    Prompt,
-)
-
 
 prompt = Prompt(prompt="What are the best restaurants in San Francisco?",
             parameters={
@@ -18,11 +13,13 @@ resp = requests.post(
                 }, stream = True
 )
 resp.raise_for_status()
+
 import json
+
 for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
     #print(chunk["generated_text"])
     token = json.loads(chunk)["generated_text"]
-    if (token != None):
+    if (token is not None):
         print(token, end="", flush=True)
 
 print("")

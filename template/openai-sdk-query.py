@@ -1,6 +1,7 @@
 from aviary import sdk
 from aviary import cli
 import os
+
 os.environ["AVIARY_URL"] = "http://localhost:8000"
 os.environ["AVIARY_TOKEN"] = ""
 
