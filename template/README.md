@@ -1,7 +1,5 @@
 # Aviary - Study stochastic parrots in the wild
 
-Go on bird watch right now: [🦜🔍 Aviary 🦜🔍](http://aviary.anyscale.com/)
-
 Aviary helps you deploy large language models (LLMs) with state-of-the-art optimizations on top of Ray Serve. 
 In particular, it offers good support for Transformer models hosted on [Hugging Face](http://hf.co) and in many cases also 
 supports [DeepSpeed](https://www.deepspeed.ai/) inference acceleration as well as continuous batching and paged attention. 
@@ -14,6 +12,7 @@ From the terminal use the Ray Serve CLI to deploy a model:
 
 ```shell
 # Deploy the LightGPT model. 
+
 serve run template/serve.yaml
 ```
 
@@ -24,16 +23,31 @@ The serve YAML file runs the lightgpt model. You can modify it to deploy any mod
 Run the following command in a separate terminal. 
 
 ```shell
-python template/request.py
+python template/openai-sdk-query.py
 ```
 ```text
 Output:
-To make fried rice, start by heating up some oil in a large pan over medium-high
-heat. Once the oil is hot, add your desired amount of vegetables and/or meat to the
-pan. Cook until they are lightly browned, stirring occasionally. Add any other
-desired ingredients such as eggs, cheese, or sauce to the pan. Finally, stir
-everything together and cook for another few minutes until all the ingredients are
-cooked through. Serve with your favorite sides and enjoy!
+The top rated restaurants in San Francisco include:
+ • Chez Panisse
+ • Momofuku Noodle Bar
+ • Nopa
+ • Saison
+ • Mission Chinese Food
+ • Sushi Nakazawa
+ • The French Laundry
+ • Delfina
+ • Spices
+ • Quince
+ • Bistro L'Etoile
+ • The Slanted Door
+ • The Counter
+ • The Chronicle
+ • The Mint
+ • The French Press
+ • The Palace Cafe
+ • The Inn at the Opera House
+ • The Green Table
+ • The Palace Cafe
 ```
 
 # Deploying on Anyscale Service
@@ -90,3 +104,4 @@ We are eager to help you get started with Aviary. You can get help on:
 For bugs or for feature requests, please submit them [here](https://github.com/ray-project/aviary/issues/new).
 
 We have people in both US and European time zones who will help answer your questions. 
+
