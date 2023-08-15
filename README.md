@@ -28,7 +28,7 @@ support hundreds of replicas and clusters of hundreds of nodes.
 
 ## Table of Contents
 
-- [Development- Deploying Aviary Backend](#deploying-aviary-backend-for-development)
+- [Development- Deploying Endpoints Backend](#deploying-endpoints-for-development)
   * [Wokspaces](#worksapce-deployment)
     + [Ray Serve](#using-ray-serve)
     + [CLI](#using-the-endpoints-cli)
@@ -39,7 +39,7 @@ support hundreds of replicas and clusters of hundreds of nodes.
 - [Model Registry](#model-registry)
 - [Frequently Asked Questions](#frequently-asked-questions)
 
-## Deploying Aviary Backend for Development
+## Deploying Endpoints for Development
 
 The guide below walks you through the steps required for deployment of Endpoints.  You can deploy any model in the `models` directory of this repo, 
 or define your own model YAML file and run that instead.
