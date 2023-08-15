@@ -28,41 +28,18 @@ support hundreds of replicas and clusters of hundreds of nodes.
 
 ## Table of Contents
 
-- [Endpoints - Study stochastic parrots in the wild](#aviary---study-stochastic-parrots-in-the-wild)
-  * [Table of Contents](#table-of-contents)
-  * [Getting Help and Filing Bugs / Feature Requests](#getting-help-and-filing-bugs---feature-requests)
-  * [Contributions](#contributions)
-- [Getting started](#getting-started)
-  * [Deploying Aviary Backend](#deploying-aviary-backend)
-    + [Locally](#locally)
-    + [On a Ray Cluster](#on-a-ray-cluster)
-      - [Connect to your Cluster](#connect-to-your-cluster)
-    + [On Kubernetes](#on-kubernetes)
+- [Development- Deploying Aviary Backend](#deploying-aviary-backend-for-development)
+  * [Wokspaces](#worksapce-deployment)
+    + [Ray Serve](#using-ray-serve)
+    + [CLI](#using-the-endpoints-cli)
   * [Query Aviary](#query-aviary)
-    + [Using curl](#using-curl)
-    + [Connecting directly over python](#connecting-directly-over-python)
-    + [Using the OpenAI SDK](#using-the-openai-sdk)
-    + [Using the `aviary` command line](#using-the--aviary--command-line)
-  * [Installing Aviary](#installing-aviary)
-  * [Running Aviary Frontend locally](#running-aviary-frontend-locally)
-    + [Usage stats collection](#usage-stats-collection)
-  * [Using the Aviary CLI](#using-the-aviary-cli)
-    + [CLI examples](#cli-examples)
-      - [Listing all available models](#listing-all-available-models)
-      - [Running two models on the same prompt](#running-two-models-on-the-same-prompt)
-      - [Running a batch-query of two prompts on the same model](#running-a-batch-query-of-two-prompts-on-the-same-model)
-      - [Running a query on a text file of prompts](#running-a-query-on-a-text-file-of-prompts)
-      - [Running a streaming response](#running-a-streaming-response)
-      - [Evaluating the quality of responses with GPT-4 for evaluation](#evaluating-the-quality-of-responses-with-gpt-4-for-evaluation)
-  * [Aviary Model Registry](#aviary-model-registry)
+    + [Model](#query-the-model)
+- [Deploying as a Production Service](#deploying-on-anyscale-services)
+- [Using the OpenAI SDK](#using-the-openai-sdk) 
+- [Model Registry](#model-registry)
 - [Frequently Asked Questions](#frequently-asked-questions)
-  * [How do I add a new model?](#how-do-i-add-a-new-model-)
-  * [How do I deploy multiple models at once?](#how-do-i-deploy-multiple-models-at-once-)
-  * [My deployment isn't starting/working correctly, how can I debug?](#my-deployment-isn-t-starting-working-correctly--how-can-i-debug-)
-    + [How do I write a program that accesses both OpenAI and Aviary backends at the same time?](#how-do-i-write-a-program-that-accesses-both-openai-and-aviary-backends-at-the-same-time-)
 
-
-## Development - Deploying Aviary Backend 
+## Deploying Aviary Backend for Development
 
 The guide below walks you through the steps required for deployment of Endpoints.  You can deploy any model in the `models` directory of this repo, 
 or define your own model YAML file and run that instead.
@@ -79,7 +56,7 @@ From the terminal use the Ray Serve CLI to deploy a model:
 ```shell
 # Deploy the LightGPT model. 
 
-serve run template/serve.yaml
+serve run deploy/_internal/backend/serve.yaml
 ```
 
 The serve YAML file runs the lightgpt model. You can modify it to deploy any model in the `models` directory of this repo, provided you have the right GPU resources. You can also define your own model YAML file in the `models/` directory and run that instead. Follow the Aviary Model Registry [guide](models/README.md) for that.
@@ -97,7 +74,7 @@ aviary run --model ~/models/continuous_batching/amazon--LightGPT.yaml
 Run the following command in a separate terminal. 
 
 ```shell
-python template/openai-sdk-query.py
+python deploy/_internal/backend/openai-sdk-query.py
 ```
 ```text
 Output:
@@ -129,11 +106,11 @@ The top rated restaurants in San Francisco include:
 To deploy an application with one model on an Anyscale Service you can run:
 
 ```shell
-anyscale service rollout -f template/service.yaml --name {ENTER_NAME_FOR_SERVICE_HERE}
+anyscale service rollout -f deploy/_internal/backend/service.yaml --name {ENTER_NAME_FOR_SERVICE_HERE}
 ```
 
 This is setup to run the amazon/LightGPT model, but can be easily modified to run any of the other models in this repo.
-In order to query the endpoint, you can modify the `template/request.py` script, replacing the query url with the Service URL found in the Service UI.
+In order to query the endpoint, you can modify the `deploy/_internal/backend/request.py` script, replacing the query url with the Service URL found in the Service UI.
 
 Ansycale Services provide highly available fault tolerance for production LLM serving needs.  Learn more about [Anyscale Services](https://docs.anyscale.com/productionize/services/get-started)!
 
