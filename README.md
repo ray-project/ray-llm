@@ -67,7 +67,7 @@ The serve YAML file runs the lightgpt model. You can modify it to deploy any mod
 aviary run --model ~/models/continuous_batching/amazon--LightGPT.yaml
 ```
 
-### Query Aviary
+### Query
 
 #### Query the model
 
