@@ -161,7 +161,7 @@ You can append another application configuration to the YAML in `template/serve.
 
 All our default model configurations enforce a model to be deployed on one node for high performance. However, you can easily change this if you want to deploy a model across nodes for lower cost or GPU availability. In order to do that, go to the YAML file in the model registry and change `placement_strategy` to `PACK` instead of `STRICT_PACK`.
 
-## How do configure the resources or scaling behavior of my service?
+## How can I configure the resources / instances being used or the scaling behavior of my service?
 
 You can edit the Compute Configuration direclty on your Workspace.  [Compute configurations](https://docs.anyscale.com/configure/compute-configs/overview) define the shape of the cluster and what resources Anyscale will use to deploy models and serve traffic.  If you would like to edit the default compute configuration choose "Edit" on your workspace and update the configuration.  When moving to production and deploying as an Ansycale Service the new configuration will be used.
 
