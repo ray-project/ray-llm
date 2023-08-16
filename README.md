@@ -32,7 +32,7 @@ support hundreds of replicas and clusters of hundreds of nodes.
   * [Wokspaces](#worksapce-deployment)
     + [Ray Serve](#using-ray-serve)
     + [CLI](#using-the-endpoints-cli)
-  * [Query Aviary](#query-aviary)
+  * [Query](#query)
     + [Model](#query-the-model)
 - [Deploying as a Production Service](#deploying-on-anyscale-services)
 - [Using the OpenAI SDK](#using-the-openai-sdk) 
@@ -59,7 +59,7 @@ From the terminal use the Ray Serve CLI to deploy a model:
 serve run deploy/_internal/backend/serve.yaml
 ```
 
-The serve YAML file runs the lightgpt model. You can modify it to deploy any model in the `models` directory of this repo, provided you have the right GPU resources. You can also define your own model YAML file in the `models/` directory and run that instead. Follow the Aviary Model Registry [guide](models/README.md) for that.
+The serve YAML file runs the lightgpt model. You can modify it to deploy any model in the `models` directory of this repo, provided you have the right GPU resources. You can also define your own model YAML file in the `models/` directory and run that instead. Follow the Model Registry [guide](models/README.md) for that.
 
 #### Using the Endpoints CLI
 ```shell
@@ -155,7 +155,7 @@ The easiest way is to copy the configuration of the existing model's YAML file a
 
 ## How do I deploy multiple models at once?
 
-You can append another application configuration to the YAML in `template/serve.yaml` file. Alternatively, you can use the Aviary CLI linked above.
+You can append another application configuration to the YAML in `deploy/_internal/backend/serve.yaml` file. Alternatively, you can use the CLI linked above.
 
 ## How do I deploy a model to multiple nodes?
 
