@@ -1,6 +1,6 @@
-# Endpoints - Deploy, configure, and serve LLMs 
+# Ray-LLM Endpoints - Deploy, configure, and serve LLMs 
 
-Based on the [Anyscale-Hosted Endpoints solution](https://app.endpoints.anyscale.com/landing), the Endpoints template provides an easy to configure solution for ML Platform teams, Infrastructure engineers, and Developers who need more control over the application's resource usage, configuration, logic, or custom models.
+Based on Ray-LLM and the foundation for [Anyscale-Hosted Endpoints solution](https://app.endpoints.anyscale.com/landing), the Ray-LLM Endpoints template provides an easy to configure solution for ML Platform teams, Infrastructure engineers, and Developers who need more control over the application's resource usage, configuration, logic, or custom models.
 
 If you are interested in a serverless one-click offering for deploying Endpoints in your account, reach out to the [Anyscale team to learn more](mailto:endpoints-help@anyscale.com?subject=Endpoints).
 
