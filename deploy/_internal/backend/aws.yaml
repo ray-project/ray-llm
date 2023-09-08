@@ -67,6 +67,11 @@ worker_node_types:
   fallback_to_ondemand: true
 - name: gpu-worker-p4de
   instance_type: p4de.24xlarge
+  BlockDeviceMappings:
+    - DeviceName: "/dev/sda1"
+      Ebs:
+        VolumeSize: 1000
+        DeleteOnTermination: true
   resources:
     cpu:
     gpu:
@@ -77,10 +82,4 @@ worker_node_types:
       accelerator_type_a100: 1
       accelerator_type_cpu: 1
   min_workers: 0
-  max_workers: 1
-  aws:
-    BlockDeviceMappings:
-    - DeviceName: "/dev/sda1"
-      Ebs:
-        VolumeSize: 1000
-        DeleteOnTermination: true
+  max_workers: 1    
