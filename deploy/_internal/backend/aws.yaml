@@ -65,8 +65,8 @@ worker_node_types:
   max_workers: 4
   use_spot: true
   fallback_to_ondemand: true
-- name: gpu-worker-p4d
-  instance_type: p4d.24xlarge
+- name: gpu-worker-p4de
+  instance_type: p4de.24xlarge
   resources:
     cpu:
     gpu:
@@ -77,4 +77,4 @@ worker_node_types:
       accelerator_type_a100: 1
       accelerator_type_cpu: 1
   min_workers: 0
-  max_workers: 1    
+  max_workers: 1
