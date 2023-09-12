@@ -4,6 +4,7 @@ Based on Ray Serve and the foundation for [Anyscale-Hosted Endpoints solution](h
 
 If you are interested in a serverless one-click offering for deploying Endpoints in your account, reach out to the [Anyscale team to learn more](mailto:endpoints-help@anyscale.com?subject=Endpoints).
 
+
 ##  Endpoints Background
 Endpoints makes it easy for LLM Developers to interact with OpenAI compatible APIs for their applications by providing an easy to manage backend for serving OSS LLMs.  It does this by: 
 
@@ -31,7 +32,6 @@ support hundreds of replicas and clusters of hundreds of nodes.
 - [Development- Deploying Endpoints Backend](#deploying-endpoints-for-development)
   * [Wokspaces](#worksapce-deployment)
     + [Ray Serve](#using-ray-serve)
-    + [CLI](#using-the-endpoints-cli)
   * [Query](#query)
     + [Model](#query-the-model)
 - [Deploying as a Production Service](#deploying-on-anyscale-services)
@@ -60,12 +60,6 @@ serve run deploy/_internal/backend/serve.yaml
 ```
 
 The serve YAML file runs the lightgpt model. You can modify it to deploy any model in the `models` directory of this repo, provided you have the right GPU resources. You can also define your own model YAML file in the `models/` directory and run that instead. Follow the Model Registry [guide](models/README.md) for that.
-
-#### Using the Endpoints CLI
-```shell
-# Deploy the LightGPT model. 
-aviary run --model ~/models/continuous_batching/amazon--LightGPT.yaml
-```
 
 ### Query
 
