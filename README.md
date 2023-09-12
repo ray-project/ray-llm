@@ -149,7 +149,7 @@ The easiest way is to copy the configuration of the existing model's YAML file a
 
 ## How do I deploy multiple models at once?
 
-You can append another application configuration to the YAML in `deploy/_internal/backend/serve.yaml` file. Alternatively, you can use the CLI linked above.
+You can append another application configuration to the YAML in `deploy/_internal/backend/serve.yaml` file. 
 
 ## How do I deploy a model to multiple nodes?
 
