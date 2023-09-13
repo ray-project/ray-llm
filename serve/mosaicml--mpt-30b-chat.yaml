@@ -21,4 +21,4 @@ applications:
   route_prefix: /mosaicml--mpt-7b-chat
   import_path: aviary.backend:llm_application
   args:
-    model: "../models/continuous_batching/mosaicml--mpt-7b-chat.yaml"
+    model: "./models/continuous_batching/mosaicml--mpt-7b-chat.yaml"
