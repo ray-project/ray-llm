@@ -76,5 +76,16 @@ worker_node_types:
       worker_node: 1
       accelerator_type_a100: 1
       accelerator_type_cpu: 1
+  aws_advanced_configurations_json:
+    BlockDeviceMappings:
+    - DeviceName: /dev/sda1
+      Ebs:
+        DeleteOnTermination: true
+        VolumeSize: 1000
+    TagSpecifications:
+    - ResourceType: instance
+      Tags:
+      - Key: as-feature-multi-zone
+        Value: "true"
   min_workers: 0
   max_workers: 1
