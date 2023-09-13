@@ -1,6 +1,6 @@
 head_node_type:
   name: head-node-type
-  instance_type: n2-standard-4
+  instance_type: n2-standard-32
   resources:
     cpu:
     gpu:
