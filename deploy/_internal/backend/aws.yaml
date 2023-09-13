@@ -76,5 +76,10 @@ worker_node_types:
       worker_node: 1
       accelerator_type_a100: 1
       accelerator_type_cpu: 1
+   aws_advanced_configurations_json:
+            BlockDeviceMappings:
+                -
+                    Ebs: {Iops: 5000, Throughput: 1000, VolumeSize: 1000, VolumeType: gp3, DeleteOnTermination: true}
+                    DeviceName: /dev/sda1
   min_workers: 0
   max_workers: 1
