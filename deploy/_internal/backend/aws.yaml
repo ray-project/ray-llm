@@ -1,6 +1,6 @@
 head_node_type:
   name: head-node-type
-  instance_type: m5.xlarge
+  instance_type: m5.8xlarge
   resources:
     cpu:
     gpu:
