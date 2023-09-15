@@ -24,14 +24,6 @@ RayLLM leverages [Ray Serve](https://docs.ray.io/en/latest/serve/index.html), wh
 and multi-node deployments. RayLLM can scale to zero and create
 new model replicas (each composed of multiple GPU workers) in response to demand.
 
-## Contributions
-
-We are also interested in accepting contributions. Those could be anything from a new evaluator, to integrating a new model with a yaml file, to more.
-Feel free to post an issue first to get our feedback on a proposal first, or just file a PR and we commit to giving you prompt feedback.
-
-We use `pre-commit` hooks to ensure that all code is formatted correctly.
-Make sure to `pip install pre-commit` and then run `pre-commit install`.
-You can also run `./format` to run the hooks manually.
 
 # Getting started
 
@@ -72,8 +64,8 @@ See [Ray on Cloud VMs](https://docs.ray.io/en/latest/cluster/vms/index.html) pag
 Ray documentation for more details.
 
 ```shell
-git clone https://github.com/ray-project/aviary.git
-cd aviary
+git clone https://github.com/ray-project/ray-llm.git
+cd ray-llm
 
 # Start a Ray Cluster (This will take a few minutes to start-up)
 ray up deploy/ray/aviary-cluster.yaml
@@ -94,15 +86,13 @@ or define your own model YAML file and run that instead.
 
 ### On Kubernetes
 
-For Kubernetes deployments, see [RayLLM on GKE guide](https://ray-project.github.io/aviary/kuberay/deploy-on-gke/) and [RayLLM on EKS guide](https://ray-project.github.io/aviary/kuberay/deploy-on-eks/).
-
+For Kubernetes deployments, please see our extensive documentation for [deploying Ray Serve on KubeRay](https://docs.ray.io/en/latest/serve/production-guide/kubernetes.html).
 ## Query your models
 
 Once the models are deployed, you can install a client outside of the Docker container to query the backend.
 
 ```shell
-TODO(rliaw)
-pip install "aviary @ git+https://github.com/ray-project/aviary.git"
+pip install "aviary @ git+https://github.com/ray-project/ray-llm.git"
 ```
 
 You can query your RayLLM deployment in many ways. Here we outline 4. 
@@ -208,13 +198,13 @@ pip install "aviary[frontend] @ git+https://github.com/ray-project/ray-llm.git"
 The backend dependencies are heavy weight, and quite large. We recommend using the official
 `anyscale/aviary` image. Installing the backend manually is not a supported usecase.
 
-## Running the Aviary Frontend locally
+## Running Aviary Explorer locally
 
 The frontend is a [Gradio](https://gradio.app/) interface that allows you to interact
 with the models in the backend through a web interface.
 The Gradio app is served using [Ray Serve](https://docs.ray.io/en/latest/serve/index.html).
 
-To run the Aviary frontend locally, you need to set the following environment variable:
+To run the Aviary Explorer locally, you need to set the following environment variable:
 
 ```shell
 export AVIARY_URL=<hostname of the backend, eg. 'http://localhost:8000'>
@@ -234,7 +224,7 @@ with `python aviary/frontend/app.py`. In that case, the Gradio interface should 
 If running the frontend yourself is not an option, you can still use 
 [our hosted version](http://aviary.anyscale.com/) for your experiments.
 
-Note that the frontent will not dynamically update the list of models should they change in the backend. In order for the frontend to update, you will need to restart it.
+Note that the frontend will not dynamically update the list of models should they change in the backend. In order for the frontend to update, you will need to restart it.
 
 ### Usage stats collection
 
@@ -319,3 +309,12 @@ We are eager to help you get started with RayLLM. You can get help on:
 - Via [Discuss](https://discuss.ray.io/c/llms-generative-ai/27). 
 
 For bugs or for feature requests, please submit them [here](https://github.com/ray-project/aviary/issues/new).
+
+## Contributions
+
+We are also interested in accepting contributions. Those could be anything from a new evaluator, to integrating a new model with a yaml file, to more.
+Feel free to post an issue first to get our feedback on a proposal first, or just file a PR and we commit to giving you prompt feedback.
+
+We use `pre-commit` hooks to ensure that all code is formatted correctly.
+Make sure to `pip install pre-commit` and then run `pre-commit install`.
+You can also run `./format` to run the hooks manually.
