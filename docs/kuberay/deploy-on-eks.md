@@ -1,4 +1,4 @@
-# Deploy Aviary on Amazon EKS using KubeRay
+# Deploy RayLLM on Amazon EKS using KubeRay
 * Note that this document will be extended to include Ray autoscaling and the deployment of multiple models in the near future.
 
 # Part 1: Set up a Kubernetes cluster on Amazon EKS
@@ -84,15 +84,15 @@ helm install kuberay-operator kuberay/kuberay-operator --version 0.6.0
 
 At this point, you have two options:
 
-1. You can deploy Aviary manually on a `RayCluster` (Part 3), or
-2. You can deploy Aviary using a [`RayService` custom resource](https://ray-project.github.io/kuberay/guidance/rayservice/) (Part 4).
+1. You can deploy RayLLM manually on a `RayCluster` (Part 3), or
+2. You can deploy RayLLM using a [`RayService` custom resource](https://ray-project.github.io/kuberay/guidance/rayservice/) (Part 4).
 
 The first option is more flexible for conducting experiments.
 The second option is recommended for production use due to the additional high availability features provided by the `RayService` custom resource, which will manage the underlying `RayCluster`s for you.
 
-# Part 3: Deploy Aviary on a RayCluster (recommended for experiments)
+# Part 3: Deploy RayLLM on a RayCluster (recommended for experiments)
 
-## Step 1: Create a RayCluster with Aviary
+## Step 1: Create a RayCluster with RayLLM
 
 ```sh
 # path: docs/kuberay
@@ -122,7 +122,7 @@ Something is worth noticing:
       resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100\": 2}"'
     ```
 
-## Step 2: Deploy a LLM model with Aviary
+## Step 2: Deploy a LLM model with RayLLM
 
 ```sh
 # Step 7.1: Log in to the head Pod
@@ -135,9 +135,9 @@ export HUGGING_FACE_HUB_TOKEN=${YOUR_HUGGING_FACE_HUB_TOKEN}
 
 # Step 7.3: Deploy a LLM model. You can deploy Falcon-7B if you don't have a Hugging Face Hub token.
 # (1) Llama 2 7B
+
+TODO(Shreyas)
 aviary run --model ~/models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
-# (2) Falcon 7B
-aviary run --model ./models/continuous_batching/OpenAssistant--falcon-7b-sft-top1-696.yaml
 
 # Step 7.3: Check the Serve application status
 serve status
@@ -164,6 +164,7 @@ serve status
 #   message: ''
 
 # Step 7.4: List all models
+TODO(Shreyas)
 export AVIARY_URL="http://localhost:8000"
 aviary models
 
@@ -172,6 +173,7 @@ aviary models
 # OpenAssistant/falcon-7b-sft-top1-696
 
 # Step 7.5: Send a query to `OpenAssistant/falcon-7b-sft-top1-696`.
+TODO(Shreyas)
 aviary query --model OpenAssistant/falcon-7b-sft-top1-696 --prompt "What are the top 5 most popular programming languages?"
 
 # [Example output for `OpenAssistant/falcon-7b-sft-top1-696`]
@@ -191,9 +193,9 @@ aviary query --model OpenAssistant/falcon-7b-sft-top1-696 --prompt "What are the
 # These rankings can change frequently, so it's important to keep up to date with the latest trends.
 ```
 
-# Part 4: Deploy Aviary on a RayService (recommended for production)
+# Part 4: Deploy RayLLM on a RayService (recommended for production)
 
-## Step 1: Create a RayService with Aviary
+## Step 1: Create a RayService with RayLLM
 
 ```sh
 # path: docs/kuberay
@@ -295,9 +297,9 @@ aviary stream --model OpenAssistant/falcon-7b-sft-top1-696 --prompt "What are th
 
 ```sh
 # path: docs/kuberay
-# Case 1: Aviary was deployed on a RayCluster
+# Case 1: RayLLM was deployed on a RayCluster
 kubectl delete -f ray-cluster.aviary-eks.yaml
-# Case 2: Aviary was deployed as a RayService
+# Case 2: RayLLM was deployed as a RayService
 kubectl delete -f ray-service.aviary-eks.yaml
 
 # Uninstall the KubeRay operator chart

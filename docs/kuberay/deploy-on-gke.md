@@ -1,10 +1,10 @@
-# Deploy Aviary on Googke Kubernetes Engine (GKE) using KubeRay
+# Deploy RayLLM on Google Kubernetes Engine (GKE) using KubeRay
 
 In this tutorial, we will:
 
 1. Set up a Kubernetes cluster on GKE.
 2. Deploy the KubeRay operator and a Ray cluster on GKE.
-3. Run an LLM model with Aviary.
+3. Run an LLM model with Ray Serve.
 
 * Note that this document will be extended to include Ray autoscaling and the deployment of multiple models in the near future.
 
@@ -13,12 +13,12 @@ In this tutorial, we will:
 Run this command and all following commands on your local machine or on the [Google Cloud Shell](https://cloud.google.com/shell). If running from your local machine, you will need to install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/install).
 
 ```sh
-gcloud container clusters create aviary-gpu-cluster \
+gcloud container clusters create rayllm-gpu-cluster \
     --num-nodes=1 --min-nodes 0 --max-nodes 1 --enable-autoscaling \
     --zone=us-west1-b --machine-type e2-standard-8
 ```
 
-This command creates a Kubernetes cluster named `aviary-gpu-cluster` with 1 node in the `us-west1-b` zone. In this example, we use the `e2-standard-8` machine type, which has 8 vCPUs and 32 GB RAM. The cluster has autoscaling enabled, so the number of nodes can increase or decrease based on the workload.
+This command creates a Kubernetes cluster named `rayllm-gpu-cluster` with 1 node in the `us-west1-b` zone. In this example, we use the `e2-standard-8` machine type, which has 8 vCPUs and 32 GB RAM. The cluster has autoscaling enabled, so the number of nodes can increase or decrease based on the workload.
 
 You can also create a cluster from the [Google Cloud Console](https://console.cloud.google.com/kubernetes/list).
 
@@ -31,7 +31,7 @@ Run the following command to create a GPU node pool for Ray GPU workers.
 gcloud container node-pools create gpu-node-pool \
   --accelerator type=nvidia-l4-vws,count=4 \
   --zone us-west1-b \
-  --cluster aviary-gpu-cluster \
+  --cluster rayllm-gpu-cluster \
   --num-nodes 1 \
   --min-nodes 0 \
   --max-nodes 1 \
@@ -66,7 +66,7 @@ For more on taints and tolerations, see the [Kubernetes documentation](https://k
 Run the following command to download credentials and configure the Kubernetes CLI to use them.
 
 ```sh
-gcloud container clusters get-credentials aviary-gpu-cluster --zone us-west1-b
+gcloud container clusters get-credentials rayllm-gpu-cluster --zone us-west1-b
 ```
 
 For more details, see the [GKE documentation](https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl).
@@ -98,11 +98,11 @@ helm install kuberay-operator kuberay/kuberay-operator --version 0.5.0
 # It should be scheduled on the CPU node. If it is not, something is wrong.
 ```
 
-## Step 6: Create a RayCluster with Aviary
+## Step 6: Create a RayCluster with RayLLM
 
 If you are running this tutorial on the Google Cloud Shell, please copy the file `docs/kuberay/ray-cluster.aviary-gke.yaml` to the Google Cloud Shell. You may find it useful to use the [Cloud Shell Editor](https://cloud.google.com/shell/docs/editor-overview) to edit the file.
 
-Now you can create a RayCluster with Aviary. Aviary is included in the image `anyscale/aviary:latest`, which is specified in the RayCluster YAML manifest `ray-cluster.aviary-gke.yaml`.
+Now you can create a RayCluster with RayLLM. RayLLM is included in the image `anyscale/aviary:latest`, which is specified in the RayCluster YAML manifest `ray-cluster.aviary-gke.yaml`.
 
 ```sh
 # path: docs/kuberay
@@ -134,7 +134,7 @@ Note the following aspects of the YAML file:
         resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 4}"'
     ```
 
-## Step 7: Deploy a LLM model with Aviary
+## Step 7: Deploy a LLM model with RayLLM
 
 ```sh
 # Step 7.1: Log in to the head Pod
@@ -142,6 +142,7 @@ export HEAD_POD=$(kubectl get pods --selector=ray.io/node-type=head -o custom-co
 kubectl exec -it $HEAD_POD -- bash
 
 # Step 7.2: Deploy the `mosaicml/mpt-7b-chat` model
+TODO(shreyas)
 aviary run --model ./models/static_batching/mosaicml--mpt-7b-chat.yaml
 
 # Step 7.3: Check the Serve application status
@@ -162,6 +163,7 @@ serve status
 #   message: ''
 
 # Step 7.4: List all models
+TODO(shreyas)
 export AVIARY_URL="http://localhost:8000"
 aviary models
 
@@ -170,6 +172,7 @@ aviary models
 # mosaicml/mpt-7b-chat
 
 # Step 7.5: Send a query to `mosaicml/mpt-7b-chat`.
+TODO(shreyas)
 aviary query --model mosaicml/mpt-7b-chat --prompt "What are the top 5 most popular programming languages?"
 
 # [Example output]
@@ -195,7 +198,7 @@ kubectl delete -f ray-cluster.aviary-gke.yaml
 helm uninstall kuberay-operator
 
 # Step 8.3: Delete the GKE cluster
-gcloud container clusters delete aviary-gpu-cluster
+gcloud container clusters delete rayllm-gpu-cluster
 ```
 
 See the [GKE documentation](https://cloud.google.com/kubernetes-engine/docs/how-to/deleting-a-cluster) for more details on deleting a GKE cluster.
