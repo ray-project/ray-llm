@@ -1,0 +1,24 @@
+applications:
+- name: router
+  route_prefix: /
+  import_path: aviary.backend:router_application
+  args:
+    models:
+      mosaicml/mpt-7b-storywriter: ./models/continuous_batching/mosaicml--mpt-7b-storywriter.yaml
+- name: mosaicml--mpt-7b-storywriter
+  route_prefix: /mosaicml--mpt-7b-storywriter
+  import_path: aviary.backend:llm_application
+  args:
+    model: "../models/continuous_batching/mosaicml--mpt-7b-storywriter.yaml"
+applications:
+- name: router
+  route_prefix: /
+  import_path: aviary.backend:router_application
+  args:
+    models:
+      mosaicml/mpt-7b-chat: ./models/continuous_batching/mosaicml--mpt-7b-chat.yaml
+- name: mosaicml--mpt-7b-chat
+  route_prefix: /mosaicml--mpt-7b-chat
+  import_path: aviary.backend:llm_application
+  args:
+    model: "./models/continuous_batching/mosaicml--mpt-7b-chat.yaml"

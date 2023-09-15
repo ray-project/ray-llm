@@ -1,6 +1,5 @@
-# Aviary model registry
+# RayLLM model registry
 
-This is where all the stochastic parrots of the Aviary live.
 Each model is defined by a YAML configuration file in this directory.
 
 ## Modify an existing model
@@ -24,14 +23,14 @@ Ray Actors during deployments (using `ray_actor_options`).
 
 ### Engine config
 
-Engine is the Aviary abstraction for interacting with a model. It is responsible for scheduling and running the model inside a Ray Actor worker group.
+Engine is the abstraction for interacting with a model. It is responsible for scheduling and running the model inside a Ray Actor worker group.
 
 The `engine_config` section specifies the Hugging Face model ID (`model_id`), how to initialize it and what parameters to use when generating tokens with an LLM.
 
-Aviary supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others.
+RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others.
 
 
-* `model_id` is the Aviary model ID. This is the ID that is used to refer to the model in the Aviary API.
+* `model_id` is the model ID. This is the ID that is used to refer to the model in the RayLLM API.
 * `type` is the type of the engine. Currently that's only `TextGenerationInferenceEngine`.
 * `generation` contains configuration related to default generation parameters.
 * `scheduler.policy` contains configuration related to the continuous batching scheduler. Those settings are very important for the performance and memory usage of the model.
@@ -91,7 +90,7 @@ deployment_config:
     resources:
       accelerator_type_cpu: 0.01
 engine_config:
-  # Model id - this is an Aviary id
+  # Model id
   model_id: mosaicml/mpt-7b-instruct
   # Id of the model on Hugging Face Hub. Can also be a disk path. Defaults to model_id if not specified.
   hf_model_id: mosaicml/mpt-7b-instruct

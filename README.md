@@ -1,16 +1,16 @@
-# Aviary - Study stochastic parrots in the wild
+# RayLLM - LLMs on Ray
 
 [![Build status](https://badge.buildkite.com/d6d7af987d1db222827099a953410c4e212b32e8199ca513be.svg?branch=master)](https://buildkite.com/anyscale/aviary-docker)
 
-Try it now: [🦜🔍 Aviary Explorer 🦜🔍](http://aviary.anyscale.com/)
+Try it now: [🦜🔍 Ray Aviary Explorer 🦜🔍](http://aviary.anyscale.com/)
 
-Aviary is an LLM serving solution that makes it easy to deploy and manage
-a variety of open source LLMs. It does this by: 
+RayLLM (formerly known as Aviary) is an LLM serving solution that makes it easy to deploy and manage
+a variety of open source LLMs, built on [Ray Serve](https://docs.ray.io/en/latest/serve/index.html). It does this by: 
 
 - Providing an extensive suite of pre-configured open source LLMs, with defaults that work out of the box.
 - Supporting Transformer models hosted on [Hugging Face Hub](http://hf.co) or present on local disk.
-- Simplifying the deployment of multiple LLMs within a single unified framework.
-- Simplifying the addition of new LLMs to within minutes in most cases.
+- Simplifying the deployment of multiple LLMs
+- Simplifying the addition of new LLMs
 - Offering unique autoscaling support, including scale-to-zero.
 - Fully supporting multi-GPU & multi-node model deployments.
 - Offering high performance features like continuous batching, quantization and streaming.
@@ -18,92 +18,22 @@ a variety of open source LLMs. It does this by:
 
 In addition to LLM serving, it also includes a CLI and a web frontend (Aviary Explorer) that you can use to compare the outputs of different models directly, rank them by quality, get a cost and latency estimate, and more. 
 
-Aviary supports continuous batching by integrating with [Hugging Face text-generation-inference (based off Apache 2.0-licensed fork)](https://github.com/Yard1/text-generation-inference) and [vLLM](https://github.com/vllm-project/vllm). Continuous batching allows you to get much better throughput and latency than static batching.
+RayLLM supports continuous batching by integrating with [Hugging Face text-generation-inference (based off Apache 2.0-licensed fork)](https://github.com/Yard1/text-generation-inference) and [vLLM](https://github.com/vllm-project/vllm). Continuous batching allows you to get much better throughput and latency than static batching.
 
-Aviary has native support for autoscaling and multi-node deployments thanks to [Ray](https://ray.io) and
-[Ray Serve](https://docs.ray.io/en/latest/serve/index.html). Aviary can scale to zero and create
-new model replicas (each composed of multiple GPU workers) in response to demand. Ray ensures
-that the orchestration and resource management is handled automatically. Aviary is able to
-support hundreds of replicas and clusters of hundreds of nodes, deployed either in the cloud
-or on-prem.
+RayLLM leverages [Ray Serve](https://docs.ray.io/en/latest/serve/index.html), which has native support for autoscaling 
+and multi-node deployments. RayLLM can scale to zero and create
+new model replicas (each composed of multiple GPU workers) in response to demand.
 
-Aviary is built on top of [Ray](https://ray.io) by [Anyscale](https://anyscale.com).
-It's an [open source project](https://github.com/ray-project/aviary), which means
-that you can deploy it yourself to a cloud service, 
-or simply use our [hosted version](http://aviary.anyscale.com/).
-If you would like to use a managed version of Aviary specific to your company,
-please [reach out to us](mailto:aviary@anyscale.com).
-
-
-## Table of Contents
-
-- [Aviary - Study stochastic parrots in the wild](#aviary---study-stochastic-parrots-in-the-wild)
-  * [Table of Contents](#table-of-contents)
-  * [Getting Help and Filing Bugs / Feature Requests](#getting-help-and-filing-bugs---feature-requests)
-  * [Contributions](#contributions)
-- [Getting started](#getting-started)
-  * [Deploying Aviary Backend](#deploying-aviary-backend)
-    + [Locally](#locally)
-    + [On a Ray Cluster](#on-a-ray-cluster)
-      - [Connect to your Cluster](#connect-to-your-cluster)
-    + [On Kubernetes](#on-kubernetes)
-  * [Query Aviary](#query-aviary)
-    + [Using curl](#using-curl)
-    + [Connecting directly over python](#connecting-directly-over-python)
-    + [Using the OpenAI SDK](#using-the-openai-sdk)
-    + [Using the `aviary` command line](#using-the--aviary--command-line)
-- [Aviary Reference](#aviary-reference)
-  * [Installing Aviary](#installing-aviary)
-  * [Running Aviary Frontend locally](#running-aviary-frontend-locally)
-    + [Usage stats collection](#usage-stats-collection)
-  * [Using the Aviary CLI](#using-the-aviary-cli)
-    + [CLI examples](#cli-examples)
-      - [Listing all available models](#listing-all-available-models)
-      - [Running two models on the same prompt](#running-two-models-on-the-same-prompt)
-      - [Running a batch-query of two prompts on the same model](#running-a-batch-query-of-two-prompts-on-the-same-model)
-      - [Running a query on a text file of prompts](#running-a-query-on-a-text-file-of-prompts)
-      - [Running a streaming response](#running-a-streaming-response)
-      - [Evaluating the quality of responses with GPT-4 for evaluation](#evaluating-the-quality-of-responses-with-gpt-4-for-evaluation)
-  * [Aviary Model Registry](#aviary-model-registry)
-- [Frequently Asked Questions](#frequently-asked-questions)
-  * [How do I add a new model?](#how-do-i-add-a-new-model-)
-  * [How do I deploy multiple models at once?](#how-do-i-deploy-multiple-models-at-once-)
-  * [My deployment isn't starting/working correctly, how can I debug?](#my-deployment-isn-t-starting-working-correctly--how-can-i-debug-)
-    + [How do I write a program that accesses both OpenAI and Aviary backends at the same time?](#how-do-i-write-a-program-that-accesses-both-openai-and-aviary-backends-at-the-same-time-)
-
-## Getting Help and Filing Bugs / Feature Requests
-
-We are eager to help you get started with Aviary. You can get help on: 
-
-- Via Slack -- fill in [this form](https://docs.google.com/forms/d/e/1FAIpQLSfAcoiLCHOguOm8e7Jnn-JJdZaCxPGjgVCvFijHB5PLaQLeig/viewform) to sign up. 
-- Via [Discuss](https://discuss.ray.io/c/llms-generative-ai/27). 
-
-For bugs or for feature requests, please submit them [here](https://github.com/ray-project/aviary/issues/new).
-
-We have people in both US and European time zones who will help answer your questions. 
-
-## Contributions
-
-We are also interested in accepting contributions. Those could be anything from a new evaluator, to integrating a new model with a yaml file, to more.
-Feel free to post an issue first to get our feedback on a proposal first, or just file a PR and we commit to giving you prompt feedback.
-
-We use `pre-commit` hooks to ensure that all code is formatted correctly.
-Make sure to `pip install pre-commit` and then run `pre-commit install`.
-You can also run `./format` to run the hooks manually.
 
 # Getting started
 
-For a video introduction, see the following intro. Note: There have been some minor changes since the video was recorded. The guide below is more up to date. 
+## Deploying RayLLM 
 
-[![Watch the video](https://img.youtube.com/vi/WmqPfQOXJ-4/0.jpg)](https://www.youtube.com/watch?v=WmqPfQOXJ-4)
-
-## Deploying Aviary Backend 
-
-The guide below walks you through the steps required for deployment of Aviary Backend.
+The guide below walks you through the steps required for deployment of RayLLM on Ray Serve.
 
 ### Locally
 
-We highly recommend using the official `anyscale/aviary` Docker image to run Aviary Backend. Manually installing Aviary is currently not a supported use-case due to specific dependencies required, some of which are not available on pip.
+We highly recommend using the official `anyscale/aviary` Docker image to run RayLLM. Manually installing RayLLM is currently not a supported use-case due to specific dependencies required, some of which are not available on pip.
 
 
 ```shell
@@ -116,7 +46,7 @@ aviary run --model ~/models/continuous_batching/amazon--LightGPT.yaml
 
 ### On a Ray Cluster
 
-Aviary uses Ray, meaning it can be deployed on Ray Clusters.
+RayLLM uses Ray Serve, so it can be deployed on Ray Clusters.
 
 Currently, we only have a guide and pre-configured YAML file for AWS deployments.
 **Make sure you have exported your AWS credentials locally.**
@@ -134,8 +64,8 @@ See [Ray on Cloud VMs](https://docs.ray.io/en/latest/cluster/vms/index.html) pag
 Ray documentation for more details.
 
 ```shell
-git clone https://github.com/ray-project/aviary.git
-cd aviary
+git clone https://github.com/ray-project/ray-llm.git
+cd ray-llm
 
 # Start a Ray Cluster (This will take a few minutes to start-up)
 ray up deploy/ray/aviary-cluster.yaml
@@ -148,7 +78,7 @@ ray up deploy/ray/aviary-cluster.yaml
 ray attach deploy/ray/aviary-cluster.yaml
 
 # Deploy the LightGPT model. 
-aviary run --model ~/models/continuous_batching/amazon--LightGPT.yaml
+serve run serve/amazon--LightGPT.yaml
 ```
 
 You can deploy any model in the `models` directory of this repo, 
@@ -156,75 +86,107 @@ or define your own model YAML file and run that instead.
 
 ### On Kubernetes
 
-For Kubernetes deployments, see [Aviary on GKE guide](https://ray-project.github.io/aviary/kuberay/deploy-on-gke/) and [Aviary on EKS guide](https://ray-project.github.io/aviary/kuberay/deploy-on-eks/).
+For Kubernetes deployments, please see our extensive documentation for [deploying Ray Serve on KubeRay](https://docs.ray.io/en/latest/serve/production-guide/kubernetes.html).
+## Query your models
 
-## Query Aviary
-
-Once the Aviary Backend is running, you can install the Aviary Client outside of the Docker container to query the backend.
+Once the models are deployed, you can install a client outside of the Docker container to query the backend.
 
 ```shell
-pip install "aviary @ git+https://github.com/ray-project/aviary.git"
+pip install "aviary @ git+https://github.com/ray-project/ray-llm.git"
 ```
 
-You can query Aviary in many ways. Here we outline 4. 
+You can query your RayLLM deployment in many ways.
 
 In all cases start out by doing: 
 
 ```shell
-export AVIARY_URL="http://localhost:8000/v1"
+export ENDPOINT_URL="http://localhost:8000/v1"
 ```
 
-This is because the Aviary is running locally, but you can also access remote Aviary Backends (in which case you would set `AVIARY_URL` to a remote URL). 
+This is because your deployment is running locally, but you can also access remote deployments (in which case you would set `ENDPOINT_URL` to a remote URL).
 
 ### Using curl
 
-You can use curl at the command line to query Aviary: 
+You can use curl at the command line to query your deployed LLM: 
 
 ```shell
-% curl $AVIARY_URL/chat/completions \
+% curl $ENDPOINT_URL/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "amazon/LightGPT",
+    "model": "meta-llama/Llama-2-7b-chat-hf",
     "messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}],
     "temperature": 0.7
   }'
 ```
 ```text
 {
-"id":"amazon/LightGPT-52dce0d6-0050-4305-88ca-b8f27413847c",
-"object":"text_completion",
-"created":1691016843,
-"model":"amazon/LightGPT",
-"choices":[{"message":{
-	"role":"assistant","content":"That is a good question. Let me look it up. I think that it’s equal to 2."},
-	"index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":22,"completion_tokens":26,"total_tokens":48}
-}
+  "id":"meta-llama/Llama-2-7b-chat-hf-308fc81f-746e-4682-af70-05d35b2ee17d",
+  "object":"text_completion","created":1694809775,
+  "model":"meta-llama/Llama-2-7b-chat-hf",
+  "choices":[
+    {
+      "message":
+        {
+          "role":"assistant",
+          "content":"Hello there! *adjusts glasses* It's a pleasure to meet you! Is there anything I can help you with today? Have you got a question or a task you'd like me to assist you with? Just let me know!"
+        },
+      "index":0,
+      "finish_reason":"stop"
+    }
+  ],
+  "usage":{"prompt_tokens":30,"completion_tokens":53,"total_tokens":83}}
 ```
 
 ### Connecting directly over python
 
+Use the `requests` library to connect with Python. Use this script to receive a streamed response, automatically parse the outputs, and print just the content.
+
 ```python
 import os
+import json
 import requests
 
 s = requests.Session()
 
-api_base = os.getenv("AVIARY_URL")
+api_base = os.getenv("ENDPOINT_URL")
 url = f"{api_base}/chat/completions"
 body = {
-  "model": "amazon/LightGPT",
-  "messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Say 'test'."}],
-  "temperature": 0.7
+  "model": "meta-llama/Llama-2-7b-chat-hf",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Tell me a long story with many words."}
+  ],
+  "temperature": 0.7,
+  "stream": True,
 }
 
-with s.post(url, json=body) as resp:
-    print(resp.json())
+with s.post(url, json=body, stream=True) as response:
+    for chunk in response.iter_lines(decode_unicode=True):
+        if chunk is not None:
+            try:
+                # Get data from reponse chunk
+                chunk_data = chunk.split("data: ")[1]
+
+                # Get message choices from data
+                choices = json.loads(chunk_data)["choices"]
+
+                # Pick content from first choice
+                content = choices[0]["delta"]["content"]
+
+                print(content, end="", flush=True)
+            except json.decoder.JSONDecodeError:
+                # Chunk was not formatted as expected
+                pass
+            except KeyError:
+                # No message was contained in the chunk
+                pass
+    print("")
 ```
 
 ### Using the OpenAI SDK
 
-Aviary uses an OpenAI-compatible API, allowing us to use the OpenAI
-SDK to access Aviary backends. To do so, we need to set the `OPENAI_API_BASE` env var. 
+RayLLM uses an OpenAI-compatible API, allowing us to use the OpenAI
+SDK to access our deployments. To do so, we need to set the `OPENAI_API_BASE` env var. 
 
 
 ```shell
@@ -241,76 +203,48 @@ print(models)
 
 # Note: not all arguments are currently supported and will be ignored by the backend.
 chat_completion = openai.ChatCompletion.create(
-    model="amazon/LightGPT",
-    messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Say 'test'."}],
+    model="meta-llama/Llama-2-7b-chat-hf",
+    messages=[
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "Say 'test'."}
+    ],
     temperature=0.7
 )
 print(chat_completion)
 ```
 
-### Using the `aviary` command line
 
-With the Aviary Client installed, run the following commands on your laptop or on the head node of your Ray Cluster.
+# RayLLM Reference
 
-```shell
-# Set to the URL of the Aviary Backend.
-export AVIARY_URL="http://localhost:8000"
+## Installing RayLLM
 
-# List the available models
-aviary models
-```
-```text
-amazon/LightGPT
-```
-```shell
-# Query the model
-aviary query --model amazon/LightGPT --prompt "How do I make fried rice?"
-```
-```text
-amazon/LightGPT:
-To make fried rice, start by heating up some oil in a large pan over medium-high
-heat. Once the oil is hot, add your desired amount of vegetables and/or meat to the
-pan. Cook until they are lightly browned, stirring occasionally. Add any other
-desired ingredients such as eggs, cheese, or sauce to the pan. Finally, stir
-everything together and cook for another few minutes until all the ingredients are
-cooked through. Serve with your favorite sides and enjoy!
-```
-
-# Aviary Reference
-
-## Installing Aviary
-
-To install Aviary and its dependencies, run the following command:
+To install RayLLM and its dependencies, run the following command:
 
 ```shell
-pip install "aviary @ git+https://github.com/ray-project/aviary.git"
+pip install "aviary @ git+https://github.com/ray-project/ray-llm.git"
 ```
 
-The default Aviary installation only includes the Aviary API client.
-
-Aviary consists of a backend and a frontend (Aviary Explorer), both of which come with additional
+RayLLM consists of a set of configurations and utilities for deploying LLMs on Ray Serve,
+in addition to a frontend (Aviary Explorer), both of which come with additional
 dependencies. To install the dependencies for the frontend run the following commands:
 
 ```shell
-pip install "aviary[frontend] @ git+https://github.com/ray-project/aviary.git"
+pip install "aviary[frontend] @ git+https://github.com/ray-project/ray-llm.git"
 ```
 
 The backend dependencies are heavy weight, and quite large. We recommend using the official
 `anyscale/aviary` image. Installing the backend manually is not a supported usecase.
 
-## Running Aviary Frontend locally
-
-Aviary consists of two components, a backend, and a frontend.
-The Backend exposes a Ray Serve FastAPI interface running on a Ray cluster allowing you to deploy various LLMs efficiently.
+## Running Aviary Explorer locally
 
 The frontend is a [Gradio](https://gradio.app/) interface that allows you to interact
 with the models in the backend through a web interface.
 The Gradio app is served using [Ray Serve](https://docs.ray.io/en/latest/serve/index.html).
 
-To run the Aviary frontend locally, you need to set the following environment variable:
+To run the Aviary Explorer locally, you need to set the following environment variable:
 
 ```shell
-export AVIARY_URL=<hostname of the backend, eg. 'http://localhost:8000'>
+export ENDPOINT_URL=<hostname of the backend, eg. 'http://localhost:8000'>
 ```
 
 Once you have set these environment variables, you can run the frontend with the
@@ -327,107 +261,40 @@ with `python aviary/frontend/app.py`. In that case, the Gradio interface should 
 If running the frontend yourself is not an option, you can still use 
 [our hosted version](http://aviary.anyscale.com/) for your experiments.
 
-Note that the frontent will not dynamically update the list of models should they change in the backend. In order for the frontend to update, you will need to restart it.
+Note that the frontend will not dynamically update the list of models should they change in the backend. In order for the frontend to update, you will need to restart it.
 
 ### Usage stats collection
 
-Aviary backend collects basic, non-identifiable usage statistics to help us improve the project.
-The mechanism for collection is the same as in Ray.
+Ray collects basic, non-identifiable usage statistics to help us improve the project.
 For more information on what is collected and how to opt-out, see the
 [Usage Stats Collection](https://docs.ray.io/en/latest/cluster/usage-stats.html) page in
 Ray documentation.
 
-## Using the Aviary CLI
+## Using RayLLM through the CLI
 
-Aviary comes with a CLI that allows you to interact with the backend directly, without
-using the Gradio frontend.
-Installing Aviary as described earlier will install the `aviary` CLI as well.
-You can get a list of all available commands by running `aviary --help`.
+RayLLM uses the Ray Serve CLI that allows you to interact with deployed models.
 
-Currently, `aviary` supports a few basic commands, all of which can be used with the
-`--help` flag to get more information:
 
 ```shell
-# Get a list of all available models in Aviary
-aviary models
+# Start a new model in Ray Serve from provided configuration
+serve run serve/<model_config_path>
 
-# Query a model with a list of prompts
-aviary query --model <model-name> --prompt <prompt_1> --prompt <prompt_2>
+# Get the status of the running deployments
+serve status
 
-# Run a query on a text file of prompts
-aviary query  --model <model-name> --prompt-file <prompt-file>
+# Get the current config of current live Serve applications 
+serve config
 
-# Run a query with streaming
-aviary stream --model <model-name> --prompt <prompt_1>
-
-# Evaluate the quality of responses with GPT-4 for evaluation
-aviary evaluate --input-file <query-result-file>
-
-# Start a new model in Aviary from provided configuration
-aviary run <model>
+# Shutdown all Serve applications
+serve shutdown
 ```
 
-### CLI examples
 
-#### Listing all available models
+## RayLLM Model Registry
 
-```shell
-aviary models
-```
-```text
-mosaicml/mpt-7b-instruct
-meta-llama/Llama-2-7b-chat-hf
-```
-
-#### Running two models on the same prompt
-
-```shell
-aviary query --model mosaicml/mpt-7b-instruct --model meta-llama/Llama-2-7b-chat-hf \
-  --prompt "what is love?"
-```
-```text
-mosaicml/mpt-7b-instruct:
-love can be defined as feeling of affection, attraction or ...
-meta-llama/Llama-2-7b-chat-hf:
-Love is a feeling of strong affection and care for someone or something...
-```
-
-#### Running a batch-query of two prompts on the same model
-
-```shell
-aviary query --model mosaicml/mpt-7b-instruct \
-  --prompt "what is love?" --prompt "why are we here?"
-```
-
-#### Running a query on a text file of prompts
-
-```shell
-aviary query --model mosaicml/mpt-7b-instruct --prompt-file prompts.txt
-```
-
-#### Running a streaming response
-
-```shell
-aviary stream --model mosaicml/mpt-7b-instruct --prompt "What is love?"
-```
-
-#### Evaluating the quality of responses with GPT-4 for evaluation
-
-```shell
- aviary evaluate --input-file aviary-output.json --evaluator gpt-4
-```
-
-This will result in a leaderboard-like ranking of responses, but also save the
-results to file. 
-
-You can also use the Gradio API directly, by following the instructions
-provided in the [Aviary documentation](https://aviary.anyscale.com/?view=api).
-
-## Aviary Model Registry
-
-Aviary allows you to easily add new models by adding a single configuration file.
+You can easily add new models by adding two configuration files.
 To learn more about how to customize or add new models, 
-see the [Aviary Model Registry](models/README.md).
+see the [Model Registry](models/README.md).
 
 # Frequently Asked Questions
 
@@ -437,9 +304,38 @@ The easiest way is to copy the configuration of the existing model's YAML file a
 
 ## How do I deploy multiple models at once?
 
-You can run multiple models at once by running `aviary run` with multiple `--model` arguments, eg. `aviary run --model MODEL1 --model MODEL2`.
+Run multiple models at once by aggregating the Serve configs for different models into a single, unified config. For example, use this config to run the `LightGPT` and `Llama-2-7b-chat` model in a single Serve application:
 
-Note that running `aviary run` multiple times will override the previous deployment and _NOT_ append to it.
+```yaml
+# File name: serve/config.yaml
+
+applications:
+- name: router
+  route_prefix: /
+  import_path: aviary.backend:router_application
+  args:
+    models:
+      amazon/LightGPT: ./models/continuous_batching/amazon--LightGPT.yaml
+      meta-llama/Llama-2-7b-chat-hf: ./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
+- name: amazon--LightGPT
+  route_prefix: /amazon--LightGPT
+  import_path: aviary.backend:llm_application
+  args:
+    model: "./models/continuous_batching/amazon--LightGPT.yaml"
+- name: meta-llama--Llama-2-7b-chat-hf
+  route_prefix: /meta-llama--Llama-2-7b-chat-hf
+  import_path: aviary.backend:llm_application
+  args:
+    model: "./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml"
+```
+
+The config includes both models in the `model` argument for the `router`. Additionally, the Serve configs for both model applications are included. Save this unified config file to the `serve/` folder.
+
+Run the config to deploy the models:
+
+```shell
+serve run serve/<config.yaml>
+```
 
 ## How do I deploy a model to multiple nodes?
 
@@ -450,21 +346,39 @@ All our default model configurations enforce a model to be deployed on one node 
 There can be several reasons for the deployment not starting or not working correctly. Here are some things to check:
 1. You might have specified an invalid model id.
 2. Your model may require resources that are not available on the cluster. A common issue is that the model requires Ray custom resources (eg. `accelerator_type_a10`) in order to be scheduled on the right node type, while your cluster is missing those custom resources. You can either modify the model configuration to remove those custom resources or better yet, add them to the node configuration of your Ray cluster. You can debug this issue by looking at Ray Autoscaler logs ([monitor.log](https://docs.ray.io/en/latest/ray-observability/user-guides/configure-logging.html#system-component-logs)).
-3. Your model is a gated Hugging Face model (eg. meta-llama). In that case, you need to set the `HUGGING_FACE_HUB_TOKEN` environment variable cluster-wide. You can do that either in the Ray cluster configuration or by setting it before running `aviary run`.
-4. Your model may be running out of memory. You can usually spot this issue by looking for keywords related to "CUDA", "memory" and "NCCL" in the replica logs or `aviary run` output. In that case, consider reducing the `max_batch_prefill_tokens` and `max_batch_total_tokens` (if applicable). See models/README.md for more information on those parameters.
+3. Your model is a gated Hugging Face model (eg. meta-llama). In that case, you need to set the `HUGGING_FACE_HUB_TOKEN` environment variable cluster-wide. You can do that either in the Ray cluster configuration or by setting it before running `serve run`
+4. Your model may be running out of memory. You can usually spot this issue by looking for keywords related to "CUDA", "memory" and "NCCL" in the replica logs or `serve run` output. In that case, consider reducing the `max_batch_prefill_tokens` and `max_batch_total_tokens` (if applicable). See models/README.md for more information on those parameters.
 
-In general, [Ray Dashboard](https://docs.ray.io/en/latest/serve/monitoring.html#ray-dashboard) is a useful debugging tool, letting you monitor your Aviary application and access Ray logs.
+In general, [Ray Dashboard](https://docs.ray.io/en/latest/serve/monitoring.html#ray-dashboard) is a useful debugging tool, letting you monitor your Ray Serve / LLM application and access Ray logs.
 
 A good sanity check is deploying the test model in tests/models/. If that works, you know you can deploy _a_ model. 
 
-### How do I write a program that accesses both OpenAI and Aviary backends at the same time? 
+### How do I write a program that accesses both OpenAI and your hosted model at the same time? 
 
-The OpenAI `create()` commands allow you to specify the API_KEY and API_BASE. So you can do something like this. 
+The OpenAI `create()` commands allow you to specify the `API_KEY` and `API_BASE`. So you can do something like this. 
 
 ```python
-#Call Aviary running on the local host:
+# Call your self-hosted model running on the local host:
 OpenAI.ChatCompletion.create(api_base="http://localhost:8000/v1", api_key="",...)
 
-#Call OpenAI. Set OPENAI_API_KEY to your key and unset OPENAI_API_BASE 
+# Call OpenAI. Set OPENAI_API_KEY to your key and unset OPENAI_API_BASE 
 OpenAI.ChatCompletion.create(api_key="OPENAI_API_KEY", ...)
 ```
+
+## Getting Help and Filing Bugs / Feature Requests
+
+We are eager to help you get started with RayLLM. You can get help on: 
+
+- Via Slack -- fill in [this form](https://docs.google.com/forms/d/e/1FAIpQLSfAcoiLCHOguOm8e7Jnn-JJdZaCxPGjgVCvFijHB5PLaQLeig/viewform) to sign up. 
+- Via [Discuss](https://discuss.ray.io/c/llms-generative-ai/27). 
+
+For bugs or for feature requests, please submit them [here](https://github.com/ray-project/ray-llm/issues/new).
+
+## Contributions
+
+We are also interested in accepting contributions. Those could be anything from a new evaluator, to integrating a new model with a yaml file, to more.
+Feel free to post an issue first to get our feedback on a proposal first, or just file a PR and we commit to giving you prompt feedback.
+
+We use `pre-commit` hooks to ensure that all code is formatted correctly.
+Make sure to `pip install pre-commit` and then run `pre-commit install`.
+You can also run `./format` to run the hooks manually.

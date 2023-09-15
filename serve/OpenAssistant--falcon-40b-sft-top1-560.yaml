@@ -1,0 +1,12 @@
+applications:
+- name: router
+  route_prefix: /
+  import_path: aviary.backend:router_application
+  args:
+    models:
+      OpenAssistant/falcon-40b-sft-top1-696: ./models/continuous_batching/OpenAssistant--falcon-40b-sft-top1-696.yaml
+- name: OpenAssistant--falcon-40b-sft-top1-696
+  route_prefix: /OpenAssistant--falcon-40b-sft-top1-696
+  import_path: aviary.backend:llm_application
+  args:
+    model: "./models/continuous_batching/OpenAssistant--falcon-40b-sft-top1-696.yaml"
