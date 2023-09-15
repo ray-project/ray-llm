@@ -86,7 +86,7 @@ ray up deploy/ray/aviary-cluster.yaml
 ray attach deploy/ray/aviary-cluster.yaml
 
 # Deploy the LightGPT model. 
-TODO
+TODO(Shreyas)
 ```
 
 You can deploy any model in the `models` directory of this repo, 
@@ -94,17 +94,18 @@ or define your own model YAML file and run that instead.
 
 ### On Kubernetes
 
-For Kubernetes deployments, see [RayLLM on GKE guide](https://ray-project.github.io/aviary/kuberay/deploy-on-gke/) and [Aviary on EKS guide](https://ray-project.github.io/aviary/kuberay/deploy-on-eks/).
+For Kubernetes deployments, see [RayLLM on GKE guide](https://ray-project.github.io/aviary/kuberay/deploy-on-gke/) and [RayLLM on EKS guide](https://ray-project.github.io/aviary/kuberay/deploy-on-eks/).
 
 ## Query your models
 
-Once the models are deployed, you can install the Aviary Client outside of the Docker container to query the backend.
+Once the models are deployed, you can install a client outside of the Docker container to query the backend.
 
 ```shell
+TODO(rliaw)
 pip install "aviary @ git+https://github.com/ray-project/aviary.git"
 ```
 
-You can query Aviary in many ways. Here we outline 4. 
+You can query your RayLLM deployment in many ways. Here we outline 4. 
 
 In all cases start out by doing: 
 
@@ -112,11 +113,11 @@ In all cases start out by doing:
 export AVIARY_URL="http://localhost:8000/v1"
 ```
 
-This is because the Aviary is running locally, but you can also access remote Aviary Backends (in which case you would set `AVIARY_URL` to a remote URL). 
+This is because your deployment is running locally, but you can also access remote deployments (in which case you would set `AVIARY_URL` to a remote URL). 
 
 ### Using curl
 
-You can use curl at the command line to query Aviary: 
+You can use curl at the command line to query your deployed LLM: 
 
 ```shell
 % curl $AVIARY_URL/chat/completions \
@@ -162,7 +163,7 @@ with s.post(url, json=body) as resp:
 ### Using the OpenAI SDK
 
 RayLLM uses an OpenAI-compatible API, allowing us to use the OpenAI
-SDK to access Aviary backends. To do so, we need to set the `OPENAI_API_BASE` env var. 
+SDK to access our deployments. To do so, we need to set the `OPENAI_API_BASE` env var. 
 
 
 ```shell
@@ -187,7 +188,7 @@ print(chat_completion)
 ```
 
 
-# Aviary Reference
+# RayLLM Reference
 
 ## Installing RayLLM
 
@@ -207,10 +208,7 @@ pip install "aviary[frontend] @ git+https://github.com/ray-project/ray-llm.git"
 The backend dependencies are heavy weight, and quite large. We recommend using the official
 `anyscale/aviary` image. Installing the backend manually is not a supported usecase.
 
-## Running Aviary Frontend locally
-
-Aviary consists of two components, a backend, and a frontend.
-The Backend exposes a Ray Serve FastAPI interface running on a Ray cluster allowing you to deploy various LLMs efficiently.
+## Running the Aviary Frontend locally
 
 The frontend is a [Gradio](https://gradio.app/) interface that allows you to interact
 with the models in the backend through a web interface.
@@ -279,6 +277,8 @@ The easiest way is to copy the configuration of the existing model's YAML file a
 
 ## How do I deploy multiple models at once?
 
+
+TODO(Shreyas)
 You can run multiple models at once by running `aviary run` with multiple `--model` arguments, eg. `aviary run --model MODEL1 --model MODEL2`.
 
 Note that running `aviary run` multiple times will override the previous deployment and _NOT_ append to it.
