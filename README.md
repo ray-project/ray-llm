@@ -334,7 +334,7 @@ The config includes both models in the `model` argument for the `router`. Additi
 Run the config to deploy the models:
 
 ```shell
-cd aviary && serve run serve/config.yaml
+cd aviary && serve run serve/<config.yaml>
 ```
 
 ## How do I deploy a model to multiple nodes?
