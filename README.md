@@ -113,33 +113,43 @@ You can use curl at the command line to query your deployed LLM:
 % curl $AVIARY_URL/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "amazon/LightGPT",
+    "model": "meta-llama/Llama-2-7b-chat-hf",
     "messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}],
     "temperature": 0.7
   }'
 ```
 ```text
 {
-"id":"amazon/LightGPT-52dce0d6-0050-4305-88ca-b8f27413847c",
-"object":"text_completion",
-"created":1691016843,
-"model":"amazon/LightGPT",
-"choices":[{"message":{
-	"role":"assistant","content":"That is a good question. Let me look it up. I think that it’s equal to 2."},
-	"index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":22,"completion_tokens":26,"total_tokens":48}
-}
+  "id":"meta-llama/Llama-2-7b-chat-hf-308fc81f-746e-4682-af70-05d35b2ee17d",
+  "object":"text_completion","created":1694809775,
+  "model":"meta-llama/Llama-2-7b-chat-hf",
+  "choices":[
+    {
+      "message":
+        {
+          "role":"assistant",
+          "content":"Hello there! *adjusts glasses* It's a pleasure to meet you! Is there anything I can help you with today? Have you got a question or a task you'd like me to assist you with? Just let me know!"
+        },
+      "index":0,
+      "finish_reason":"stop"
+    }
+  ],
+  "usage":{"prompt_tokens":30,"completion_tokens":53,"total_tokens":83}}
 ```
 
 ### Connecting directly over python
 
+Use the `requests` library to connect with Python. Use this script to receive a streamed response, automatically parse the outputs, and print just the content.
+
 ```python
+import os
 import json
 import requests
 
 s = requests.Session()
 
-api_base = "http://localhost:8000"
-url = f"{api_base}/v1/chat/completions"
+api_base = os.getenv("AVIARY_URL")
+url = f"{api_base}/chat/completions"
 body = {
   "model": "meta-llama/Llama-2-7b-chat-hf",
   "messages": [
