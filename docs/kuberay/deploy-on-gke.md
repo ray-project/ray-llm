@@ -141,48 +141,90 @@ Note the following aspects of the YAML file:
 export HEAD_POD=$(kubectl get pods --selector=ray.io/node-type=head -o custom-columns=POD:metadata.name --no-headers)
 kubectl exec -it $HEAD_POD -- bash
 
-# Step 7.2: Deploy the `mosaicml/mpt-7b-chat` model
-TODO(shreyas)
-aviary run --model ./models/static_batching/mosaicml--mpt-7b-chat.yaml
+# Step 7.2: Deploy the `meta-llama/Llama-2-7b-chat-hf` model
+serve run serve/meta-llama--Llama-2-7b-chat-hf.yaml
 
 # Step 7.3: Check the Serve application status
 serve status
 
 # [Example output]
-# name: default
-# app_status:
-#   status: RUNNING
-#   message: ''
-#   deployment_timestamp: 1686006910.9571936
-# deployment_statuses:
-# - name: default_mosaicml--mpt-7b-chat
-#   status: HEALTHY
-#   message: ''
-# - name: default_RouterDeployment
-#   status: HEALTHY
-#   message: ''
+# proxies:
+#   e4dc8d29f19e3900c0b93dabb76ce9bcc6f42e36bdf5484ca57ec774: HEALTHY
+#   4f4edf80bf644846175eec0a4daabb3f3775e64738720b6b2ae5c139: HEALTHY
+# applications:
+#   router:
+#     status: RUNNING
+#     message: ''
+#     last_deployed_time_s: 1694808658.0861287
+#     deployments:
+#       Router:
+#         status: HEALTHY
+#         replica_states:
+#           RUNNING: 2
+#         message: ''
+#   meta-llama--Llama-2-7b-chat-hf:
+#     status: RUNNING
+#     message: ''
+#     last_deployed_time_s: 1694808658.0861287
+#     deployments:
+#       meta-llama--Llama-2-7b-chat-hf:
+#         status: HEALTHY
+#         replica_states:
+#           RUNNING: 1
+#         message: ''
 
-# Step 7.4: List all models
-TODO(shreyas)
-export AVIARY_URL="http://localhost:8000"
-aviary models
+# Step 7.4: Check the live Serve app's config
+serve config
 
 # [Example output]
-# Connecting to Aviary backend at:  http://localhost:8000/
-# mosaicml/mpt-7b-chat
+# name: router
+# route_prefix: /
+# import_path: aviary.backend:router_application
+# args:
+#   models:
+#     meta-llama/Llama-2-7b-chat-hf: ./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
 
-# Step 7.5: Send a query to `mosaicml/mpt-7b-chat`.
-TODO(shreyas)
-aviary query --model mosaicml/mpt-7b-chat --prompt "What are the top 5 most popular programming languages?"
+# ---
 
-# [Example output]
-# Connecting to Aviary backend at:  http://localhost:8000/
-# mosaicml/mpt-7b-chat:
-# 1. Python
-# 2. Java
-# 3. JavaScript
-# 4. C++
-# 5. C#
+# name: meta-llama--Llama-2-7b-chat-hf
+# route_prefix: /meta-llama--Llama-2-7b-chat-hf
+# import_path: aviary.backend:llm_application
+# args:
+#   model: ./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
+
+# Step 7.5: Send a query to `meta-llama/Llama-2-7b-chat-hf`.
+curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta-llama/Llama-2-7b-chat-hf",
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What are the top 5 most popular programming languages?"}
+    ],
+    "temperature": 0.7
+  }'
+
+# [Example output for `meta-llama/Llama-2-7b-chat-hf`]
+{
+  "id":"meta-llama/Llama-2-7b-chat-hf-95239f0b-4601-4557-8a33-3977e9b6b779",
+  "object":"text_completion","created":1694814804,"model":"meta-llama/Llama-2-7b-chat-hf",
+  "choices":[
+    {
+      "message":
+      {
+        "role":"assistant",
+        "content":"As a helpful assistant, I'm glad to provide you with the top 5 most popular programming languages based on various sources and metrics:\n\n1. Java: Java is a popular language used for developing enterprise-level applications, Android apps, and web applications. It's known for its platform independence, which allows Java developers to create applications that can run on any device supporting the Java Virtual Machine (JVM).\n\n2. Python: Python is a versatile language that's widely used in various industries, including web development, data science, artificial intelligence, and machine learning. Its simplicity, readability, and ease of use make it a favorite among developers.\n\n3. JavaScript: JavaScript is the language of the web and is used for creating interactive client-side functionality for web applications. It's also used in mobile app development, game development, and server-side programming.\n\n4. C++: C++ is a high-performance language used for developing operating systems, games, and other high-performance applications. It's known for its efficiency, speed, and flexibility, making it a popular choice among developers.\n\n5. PHP: PHP is a server-side scripting language used for web development, especially for building dynamic websites and web applications. It's known for its ease of use and is widely used in the web development community.\n\nThese are the top 5 most popular programming languages based on various sources, but it's worth noting that programming language popularity can vary depending on the source and the time frame considered."
+      },
+      "index":0,
+      "finish_reason":"stop"
+    }
+  ],
+  "usage":{
+    "prompt_tokens":39,
+    "completion_tokens":330,
+    "total_tokens":369
+  }
+}
 ```
 
 ## Step 8: Clean up resources
