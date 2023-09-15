@@ -1,16 +1,16 @@
-# Aviary - Study stochastic parrots in the wild
+# RayLLM - LLMs on Ray
 
 [![Build status](https://badge.buildkite.com/d6d7af987d1db222827099a953410c4e212b32e8199ca513be.svg?branch=master)](https://buildkite.com/anyscale/aviary-docker)
 
-Try it now: [🦜🔍 Aviary Explorer 🦜🔍](http://aviary.anyscale.com/)
+Try it now: [🦜🔍 Ray Aviary Explorer 🦜🔍](http://aviary.anyscale.com/)
 
-Aviary is an LLM serving solution that makes it easy to deploy and manage
-a variety of open source LLMs. It does this by: 
+RayLLM (formerly known as Aviary) is an LLM serving solution that makes it easy to deploy and manage
+a variety of open source LLMs, built on [Ray Serve](https://docs.ray.io/en/latest/serve/index.html). It does this by: 
 
 - Providing an extensive suite of pre-configured open source LLMs, with defaults that work out of the box.
 - Supporting Transformer models hosted on [Hugging Face Hub](http://hf.co) or present on local disk.
-- Simplifying the deployment of multiple LLMs within a single unified framework.
-- Simplifying the addition of new LLMs to within minutes in most cases.
+- Simplifying the deployment of multiple LLMs
+- Simplifying the addition of new LLMs
 - Offering unique autoscaling support, including scale-to-zero.
 - Fully supporting multi-GPU & multi-node model deployments.
 - Offering high performance features like continuous batching, quantization and streaming.
@@ -18,21 +18,11 @@ a variety of open source LLMs. It does this by:
 
 In addition to LLM serving, it also includes a CLI and a web frontend (Aviary Explorer) that you can use to compare the outputs of different models directly, rank them by quality, get a cost and latency estimate, and more. 
 
-Aviary supports continuous batching by integrating with [Hugging Face text-generation-inference (based off Apache 2.0-licensed fork)](https://github.com/Yard1/text-generation-inference) and [vLLM](https://github.com/vllm-project/vllm). Continuous batching allows you to get much better throughput and latency than static batching.
+RayLLM supports continuous batching by integrating with [Hugging Face text-generation-inference (based off Apache 2.0-licensed fork)](https://github.com/Yard1/text-generation-inference) and [vLLM](https://github.com/vllm-project/vllm). Continuous batching allows you to get much better throughput and latency than static batching.
 
-Aviary has native support for autoscaling and multi-node deployments thanks to [Ray](https://ray.io) and
-[Ray Serve](https://docs.ray.io/en/latest/serve/index.html). Aviary can scale to zero and create
-new model replicas (each composed of multiple GPU workers) in response to demand. Ray ensures
-that the orchestration and resource management is handled automatically. Aviary is able to
-support hundreds of replicas and clusters of hundreds of nodes, deployed either in the cloud
-or on-prem.
-
-Aviary is built on top of [Ray](https://ray.io) by [Anyscale](https://anyscale.com).
-It's an [open source project](https://github.com/ray-project/aviary), which means
-that you can deploy it yourself to a cloud service, 
-or simply use our [hosted version](http://aviary.anyscale.com/).
-If you would like to use a managed version of Aviary specific to your company,
-please [reach out to us](mailto:aviary@anyscale.com).
+RayLLM leverages [Ray Serve](https://docs.ray.io/en/latest/serve/index.html), which has native support for autoscaling 
+and multi-node deployments. RayLLM can scale to zero and create
+new model replicas (each composed of multiple GPU workers) in response to demand.
 
 
 ## Table of Contents
@@ -73,7 +63,7 @@ please [reach out to us](mailto:aviary@anyscale.com).
 
 ## Getting Help and Filing Bugs / Feature Requests
 
-We are eager to help you get started with Aviary. You can get help on: 
+We are eager to help you get started with RayLLM. You can get help on: 
 
 - Via Slack -- fill in [this form](https://docs.google.com/forms/d/e/1FAIpQLSfAcoiLCHOguOm8e7Jnn-JJdZaCxPGjgVCvFijHB5PLaQLeig/viewform) to sign up. 
 - Via [Discuss](https://discuss.ray.io/c/llms-generative-ai/27). 
@@ -93,17 +83,13 @@ You can also run `./format` to run the hooks manually.
 
 # Getting started
 
-For a video introduction, see the following intro. Note: There have been some minor changes since the video was recorded. The guide below is more up to date. 
+## Deploying RayLLM 
 
-[![Watch the video](https://img.youtube.com/vi/WmqPfQOXJ-4/0.jpg)](https://www.youtube.com/watch?v=WmqPfQOXJ-4)
-
-## Deploying Aviary Backend 
-
-The guide below walks you through the steps required for deployment of Aviary Backend.
+The guide below walks you through the steps required for deployment of RayLLM on Ray Serve.
 
 ### Locally
 
-We highly recommend using the official `anyscale/aviary` Docker image to run Aviary Backend. Manually installing Aviary is currently not a supported use-case due to specific dependencies required, some of which are not available on pip.
+We highly recommend using the official `anyscale/aviary` Docker image to run RayLLM. Manually installing RayLLM is currently not a supported use-case due to specific dependencies required, some of which are not available on pip.
 
 
 ```shell
@@ -423,9 +409,9 @@ results to file.
 You can also use the Gradio API directly, by following the instructions
 provided in the [Aviary documentation](https://aviary.anyscale.com/?view=api).
 
-## Aviary Model Registry
+## RayLLM Model Registry
 
-Aviary allows you to easily add new models by adding a single configuration file.
+You can easily add new models by adding two configuration files.
 To learn more about how to customize or add new models, 
 see the [Aviary Model Registry](models/README.md).
 
