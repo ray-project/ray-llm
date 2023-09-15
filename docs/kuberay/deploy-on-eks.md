@@ -263,17 +263,14 @@ It's important to note that the `model` argument refers to the path of the LLM m
 
 ## Step 2: Send a query to both `amazon/LightGPT` and `OpenAssistant/falcon-7b-sft-top1-696`.
 
-The `router` Serve application, used to support the Aviary CLI backend, will not be created by RayService. As a result, some Aviary CLI commands (e.g., `aviary query`) may cease to function.
-
 ```sh
 # Step 2.1: Port forward the Kubernetes Serve service.
 # Note that the service will be created only when all Serve applications are ready.
 kubectl get svc # Check if `aviary-serve-svc` is created.
 kubectl port-forward service/aviary-serve-svc 8000:8000
 
-# Step 2.2: List models via the Aviary CLI outside the Kubernetes cluster.
-export AVIARY_URL="http://localhost:8000"
-aviary models
+# Step 2.2: Check that the models have started running using `serve status`
+serve status
 
 # [Example output]
 # Connecting to Aviary backend at:  http://localhost:8000/v1
@@ -281,10 +278,18 @@ aviary models
 # amazon/LightGPT
 
 # Step 2.3: Send a query to `amazon/LightGPT`.
-aviary query --model amazon/LightGPT --prompt "What are the top 5 most popular programming languages?"
+curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "amazon/LightGPT",
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What are the top 5 most popular programming languages?"}
+    ],
+    "temperature": 0.7
+  }'
 
 # [Example output]
-# Connecting to Aviary backend at:  http://localhost:8000/v1
 # amazon/LightGPT:
 # 1. Java
 # 2. C++
@@ -293,7 +298,16 @@ aviary query --model amazon/LightGPT --prompt "What are the top 5 most popular p
 # 5. SQL
 
 # Step 2.4: Send a query to `OpenAssistant/falcon-7b-sft-top1-696`.
-aviary query --model OpenAssistant/falcon-7b-sft-top1-696 --prompt "What are the top 5 most popular programming languages?"
+curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "OpenAssistant/falcon-7b-sft-top1-696",
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What are the top 5 most popular programming languages?"}
+    ],
+    "temperature": 0.7
+  }'
 
 # [Example output for `OpenAssistant/falcon-7b-sft-top1-696`]
 # Connecting to Aviary backend at:  http://localhost:8000/v1
@@ -310,10 +324,9 @@ aviary query --model OpenAssistant/falcon-7b-sft-top1-696 --prompt "What are the
 # * **Top 10 programming languages in 2021**: Python, JavaScript, Java, C++, C#, PHP, Swift, Go, Kotlin, and TypeScript.
 # .....
 # These rankings can change frequently, so it's important to keep up to date with the latest trends.
-
-# Step 2.5: Send a query to `OpenAssistant/falcon-7b-sft-top1-696` and get streaming response.
-aviary stream --model OpenAssistant/falcon-7b-sft-top1-696 --prompt "What are the top 5 most popular programming languages?"
 ```
+
+Check out the RayLLM README to learn more ways to query models, such as with the Python `requests` library or the OpenAI package. Use these techniques to stream responses from the models.
 
 # Part 5: Clean up resources
 
