@@ -1,0 +1,65 @@
+apiVersion: ray.io/v1alpha1
+kind: RayJob
+metadata:
+  name: finetune-job-full
+spec:
+  entrypoint: cd 04_finetuning_llms && ./run_llama_ft.sh --size=7b # Set your entrypoint script here
+  shutdownAfterJobFinishes: false
+  # Other RayJob-specific configurations can go here (e.g., runtimeEnvYAML, shutdownAfterJobFinishes, etc.)
+
+  rayClusterSpec:
+    rayVersion: '2.6.3' 
+    headGroupSpec:
+      rayStartParams:
+        dashboard-host: '0.0.0.0'
+      template:
+        spec:
+          containers:
+            - name: ray-head
+              image: architkulkarni/ray-py39-torch-deepspeed:v2
+              resources:
+                limits:
+                  cpu: 2
+                  memory: 8Gi
+                requests:
+                  cpu: 2
+                  memory: 8Gi
+              ports:
+                - containerPort: 6379
+                  name: gcs-server
+                - containerPort: 8265
+                  name: dashboard
+                - containerPort: 10001
+                  name: client
+    workerGroupSpecs:
+      - replicas: 16
+        minReplicas: 0
+        maxReplicas: 16
+        groupName: gpu-group
+        rayStartParams: {}
+        template:
+          spec:
+            containers:
+              - name: llm
+                image: architkulkarni/ray-py39-torch-deepspeed:v2
+                lifecycle:
+                  preStop:
+                    exec:
+                      command: ["/bin/sh","-c","ray stop"]
+                resources:
+                  limits:
+                    cpu: "16"
+                    memory: "64G"
+                    nvidia.com/gpu: 1
+                  requests:
+                    cpu: "12"
+                    memory: "48G"
+                    nvidia.com/gpu: 1
+            tolerations:
+              - key: "ray.io/node-type"
+                operator: "Equal"
+                value: "worker"
+                effect: "NoSchedule"
+
+  # Add SubmitterPodTemplate if needed
+  # submitterPodTemplate: ...

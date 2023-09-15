@@ -55,6 +55,14 @@ spec:
               name: client
             - containerPort: 8000
               name: serve
+            volumeMounts:
+            - name: meta-llama-volume
+              mountPath: /home/ray/models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
+              subPath: meta-llama--Llama-2-7b-chat-hf.yaml
+          volumes:
+          - name: meta-llama-volume
+            configMap:
+              name: meta-llama-config
     workerGroupSpecs:
     # the pod replicas in this group typed worker
     - replicas: 1
@@ -92,6 +100,14 @@ spec:
             ports:
             - containerPort: 8000
               name: serve
+            volumeMounts:
+            - name: meta-llama-volume
+              mountPath: /home/ray/models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
+              subPath: meta-llama--Llama-2-7b-chat-hf.yaml
+          volumes:
+          - name: meta-llama-volume
+            configMap:
+              name: meta-llama-config
           # Please add the following taints to the GPU node.
           tolerations:
             - key: "ray.io/node-type"
