@@ -100,17 +100,17 @@ You can query your RayLLM deployment in many ways.
 In all cases start out by doing: 
 
 ```shell
-export AVIARY_URL="http://localhost:8000/v1"
+export ENDPOINT_URL="http://localhost:8000/v1"
 ```
 
-This is because your deployment is running locally, but you can also access remote deployments (in which case you would set `AVIARY_URL` to a remote URL). 
+This is because your deployment is running locally, but you can also access remote deployments (in which case you would set `ENDPOINT_URL` to a remote URL).
 
 ### Using curl
 
 You can use curl at the command line to query your deployed LLM: 
 
 ```shell
-% curl $AVIARY_URL/chat/completions \
+% curl $ENDPOINT_URL/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "meta-llama/Llama-2-7b-chat-hf",
@@ -148,7 +148,7 @@ import requests
 
 s = requests.Session()
 
-api_base = os.getenv("AVIARY_URL")
+api_base = os.getenv("ENDPOINT_URL")
 url = f"{api_base}/chat/completions"
 body = {
   "model": "meta-llama/Llama-2-7b-chat-hf",
@@ -244,7 +244,7 @@ The Gradio app is served using [Ray Serve](https://docs.ray.io/en/latest/serve/i
 To run the Aviary Explorer locally, you need to set the following environment variable:
 
 ```shell
-export AVIARY_URL=<hostname of the backend, eg. 'http://localhost:8000'>
+export ENDPOINT_URL=<hostname of the backend, eg. 'http://localhost:8000'>
 ```
 
 Once you have set these environment variables, you can run the frontend with the
