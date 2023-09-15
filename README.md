@@ -268,11 +268,38 @@ The easiest way is to copy the configuration of the existing model's YAML file a
 
 ## How do I deploy multiple models at once?
 
+Run multiple models at once by aggregating the Serve configs for different models into a single, unified config. For example, use this config to run the `LightGPT` and `Llama-2-7b-chat` model in a single Serve application:
 
-TODO(Shreyas)
-You can run multiple models at once by running `aviary run` with multiple `--model` arguments, eg. `aviary run --model MODEL1 --model MODEL2`.
+```yaml
+# File name: serve/config.yaml
 
-Note that running `aviary run` multiple times will override the previous deployment and _NOT_ append to it.
+applications:
+- name: router
+  route_prefix: /
+  import_path: aviary.backend:router_application
+  args:
+    models:
+      amazon/LightGPT: ./models/continuous_batching/amazon--LightGPT.yaml
+      meta-llama/Llama-2-7b-chat-hf: ./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
+- name: amazon--LightGPT
+  route_prefix: /amazon--LightGPT
+  import_path: aviary.backend:llm_application
+  args:
+    model: "./models/continuous_batching/amazon--LightGPT.yaml"
+- name: meta-llama--Llama-2-7b-chat-hf
+  route_prefix: /meta-llama--Llama-2-7b-chat-hf
+  import_path: aviary.backend:llm_application
+  args:
+    model: "./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml"
+```
+
+The config includes both models in the `model` argument for the `router`. Additionally, the Serve configs for both model applications are included. Save this unified config file to the `serve/` folder.
+
+Run the config to deploy the models:
+
+```shell
+cd aviary && serve run serve/config.yaml
+```
 
 ## How do I deploy a model to multiple nodes?
 
