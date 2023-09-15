@@ -78,7 +78,7 @@ ray up deploy/ray/aviary-cluster.yaml
 ray attach deploy/ray/aviary-cluster.yaml
 
 # Deploy the LightGPT model. 
-cd aviary && serve run serve/amazon--LightGPT.yaml
+serve run serve/amazon--LightGPT.yaml
 ```
 
 You can deploy any model in the `models` directory of this repo, 
@@ -100,17 +100,17 @@ You can query your RayLLM deployment in many ways.
 In all cases start out by doing: 
 
 ```shell
-export AVIARY_URL="http://localhost:8000/v1"
+export ENDPOINT_URL="http://localhost:8000/v1"
 ```
 
-This is because your deployment is running locally, but you can also access remote deployments (in which case you would set `AVIARY_URL` to a remote URL). 
+This is because your deployment is running locally, but you can also access remote deployments (in which case you would set `ENDPOINT_URL` to a remote URL).
 
 ### Using curl
 
 You can use curl at the command line to query your deployed LLM: 
 
 ```shell
-% curl $AVIARY_URL/chat/completions \
+% curl $ENDPOINT_URL/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "meta-llama/Llama-2-7b-chat-hf",
@@ -148,7 +148,7 @@ import requests
 
 s = requests.Session()
 
-api_base = os.getenv("AVIARY_URL")
+api_base = os.getenv("ENDPOINT_URL")
 url = f"{api_base}/chat/completions"
 body = {
   "model": "meta-llama/Llama-2-7b-chat-hf",
@@ -244,7 +244,7 @@ The Gradio app is served using [Ray Serve](https://docs.ray.io/en/latest/serve/i
 To run the Aviary Explorer locally, you need to set the following environment variable:
 
 ```shell
-export AVIARY_URL=<hostname of the backend, eg. 'http://localhost:8000'>
+export ENDPOINT_URL=<hostname of the backend, eg. 'http://localhost:8000'>
 ```
 
 Once you have set these environment variables, you can run the frontend with the
@@ -277,7 +277,7 @@ RayLLM uses the Ray Serve CLI that allows you to interact with deployed models.
 
 ```shell
 # Start a new model in Ray Serve from provided configuration
-cd aviary && serve run serve/<model_config_path>
+serve run serve/<model_config_path>
 
 # Get the status of the running deployments
 serve status
@@ -334,7 +334,7 @@ The config includes both models in the `model` argument for the `router`. Additi
 Run the config to deploy the models:
 
 ```shell
-cd aviary && serve run serve/<config.yaml>
+serve run serve/<config.yaml>
 ```
 
 ## How do I deploy a model to multiple nodes?
