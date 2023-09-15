@@ -78,7 +78,7 @@ ray up deploy/ray/aviary-cluster.yaml
 ray attach deploy/ray/aviary-cluster.yaml
 
 # Deploy the LightGPT model. 
-cd aviary && serve run serve/amazon--LightGPT.yaml
+serve run serve/amazon--LightGPT.yaml
 ```
 
 You can deploy any model in the `models` directory of this repo, 
@@ -277,7 +277,7 @@ RayLLM uses the Ray Serve CLI that allows you to interact with deployed models.
 
 ```shell
 # Start a new model in Ray Serve from provided configuration
-cd aviary && serve run serve/<model_config_path>
+serve run serve/<model_config_path>
 
 # Get the status of the running deployments
 serve status
@@ -334,7 +334,7 @@ The config includes both models in the `model` argument for the `router`. Additi
 Run the config to deploy the models:
 
 ```shell
-cd aviary && serve run serve/<config.yaml>
+serve run serve/<config.yaml>
 ```
 
 ## How do I deploy a model to multiple nodes?
