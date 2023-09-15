@@ -258,19 +258,16 @@ serveConfigV2: |
           OpenAssistant/falcon-7b-sft-top1-696: ./models/continuous_batching/OpenAssistant--falcon-7b-sft-top1-696.yaml
 ```
 
-In the YAML file, we use the `serveConfigV2` field to configure two LLM serve applications, one for LightGPT and one for Falcon-7B.
+In the YAML file, we use the `serveConfigV2` field to configure two LLM Serve applications, one for LightGPT and one for Falcon-7B.
 It's important to note that the `model` argument refers to the path of the LLM model's YAML file, located in the Ray head Pod.
 
 ## Step 2: Send a query to both `amazon/LightGPT` and `OpenAssistant/falcon-7b-sft-top1-696`.
 
-Please note, there is a slight difference between deploying a model with `aviary run` and RayService.
-The `router` serve application, used to support the Aviary CLI backend, will not be created by RayService. As a result, some Aviary CLI commands (e.g., `aviary query`) may cease to function.
-However, this seems to be acceptable.
-We can still send a query to the model via the `curl` command.
+The `router` Serve application, used to support the Aviary CLI backend, will not be created by RayService. As a result, some Aviary CLI commands (e.g., `aviary query`) may cease to function.
 
 ```sh
-# Step 2.1: Port forward the Kubernetes serve service.
-# Note that the service will be created only when all serve applications are ready.
+# Step 2.1: Port forward the Kubernetes Serve service.
+# Note that the service will be created only when all Serve applications are ready.
 kubectl get svc # Check if `aviary-serve-svc` is created.
 kubectl port-forward service/aviary-serve-svc 8000:8000
 
