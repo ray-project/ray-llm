@@ -188,7 +188,8 @@ To install RayLLM and its dependencies, run the following command:
 pip install "aviary @ git+https://github.com/ray-project/ray-llm.git"
 ```
 
-Aviary consists of a backend and a frontend (Aviary Explorer), both of which come with additional
+RayLLM consists of a set of configurations and utilities for deploying LLMs on Ray Serve,
+in addition to a frontend (Aviary Explorer), both of which come with additional
 dependencies. To install the dependencies for the frontend run the following commands:
 
 ```shell
@@ -308,7 +309,7 @@ We are eager to help you get started with RayLLM. You can get help on:
 - Via Slack -- fill in [this form](https://docs.google.com/forms/d/e/1FAIpQLSfAcoiLCHOguOm8e7Jnn-JJdZaCxPGjgVCvFijHB5PLaQLeig/viewform) to sign up. 
 - Via [Discuss](https://discuss.ray.io/c/llms-generative-ai/27). 
 
-For bugs or for feature requests, please submit them [here](https://github.com/ray-project/aviary/issues/new).
+For bugs or for feature requests, please submit them [here](https://github.com/ray-project/ray-llm/issues/new).
 
 ## Contributions
 
