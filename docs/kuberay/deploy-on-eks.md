@@ -263,6 +263,8 @@ It's important to note that the `model` argument refers to the path of the LLM m
 
 ## Step 2: Send a query to both `amazon/LightGPT` and `OpenAssistant/falcon-7b-sft-top1-696`.
 
+TODO(shreyas)
+
 Please note, there is a slight difference between deploying a model with `aviary run` and RayService.
 The `router` serve application, used to support the Aviary CLI backend, will not be created by RayService. As a result, some Aviary CLI commands (e.g., `aviary query`) may cease to function.
 However, this seems to be acceptable.
