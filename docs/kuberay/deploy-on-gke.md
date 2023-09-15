@@ -134,7 +134,7 @@ Note the following aspects of the YAML file:
         resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 4}"'
     ```
 
-## Step 7: Deploy a LLM model with RayLLM
+## Step 7: Deploy an LLM model with RayLLM
 
 ```sh
 # Step 7.1: Log in to the head Pod

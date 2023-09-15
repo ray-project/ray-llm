@@ -122,7 +122,7 @@ Something is worth noticing:
       resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100\": 2}"'
     ```
 
-## Step 2: Deploy a LLM model with RayLLM
+## Step 2: Deploy an LLM model with RayLLM
 
 ```sh
 # Step 7.1: Log in to the head Pod
@@ -133,7 +133,7 @@ kubectl exec -it $HEAD_POD -- bash
 # If you don't have one, you can skip this step and deploy other models in Step 7.3.
 export HUGGING_FACE_HUB_TOKEN=${YOUR_HUGGING_FACE_HUB_TOKEN}
 
-# Step 7.3: Deploy a LLM model. You can deploy Falcon-7B if you don't have a Hugging Face Hub token.
+# Step 7.3: Deploy an LLM model. You can deploy Falcon-7B if you don't have a Hugging Face Hub token.
 # (1) Llama 2 7B
 serve run serve/meta-llama--Llama-2-7b-chat-hf.yaml
 
