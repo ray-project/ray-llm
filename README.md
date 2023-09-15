@@ -78,7 +78,7 @@ ray up deploy/ray/aviary-cluster.yaml
 ray attach deploy/ray/aviary-cluster.yaml
 
 # Deploy the LightGPT model. 
-TODO(Shreyas)
+cd aviary && serve run serve/amazon--LightGPT.yaml
 ```
 
 You can deploy any model in the `models` directory of this repo, 
