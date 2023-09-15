@@ -95,7 +95,7 @@ Once the models are deployed, you can install a client outside of the Docker con
 pip install "aviary @ git+https://github.com/ray-project/ray-llm.git"
 ```
 
-You can query your RayLLM deployment in many ways. Here we outline 4. 
+You can query your RayLLM deployment in many ways.
 
 In all cases start out by doing: 
 
@@ -355,7 +355,7 @@ A good sanity check is deploying the test model in tests/models/. If that works,
 
 ### How do I write a program that accesses both OpenAI and your hosted model at the same time? 
 
-The OpenAI `create()` commands allow you to specify the API_KEY and API_BASE. So you can do something like this. 
+The OpenAI `create()` commands allow you to specify the `API_KEY` and `API_BASE`. So you can do something like this. 
 
 ```python
 # Call your self-hosted model running on the local host:
