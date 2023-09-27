@@ -1,3 +1,7 @@
+import pytest
+
+
+@pytest.mark.skip(reason="Needs GPU CI/mock vllm engine")
 class TestFrontend:
     def test_do_query(self, aviary_testing_model):  # noqa: F811
         from aviary.frontend.app import do_query

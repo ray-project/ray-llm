@@ -1,6 +1,9 @@
+import pytest
+
 from aviary import sdk
 
 
+@pytest.mark.skip(reason="Needs GPU CI/mock vllm engine")
 class TestAviarySDK:
     """Test the core functions of the Aviary SDK."""
 

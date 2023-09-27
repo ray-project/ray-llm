@@ -5,9 +5,11 @@ import time
 import traceback
 from collections import defaultdict
 from functools import wraps
-from typing import Callable, List, Optional, TypeVar, Union
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, TypeVar, Union
 from unittest.mock import patch
 
+import requests
 import torch
 import torch.distributed as dist
 from filelock import FileLock
@@ -21,7 +23,7 @@ from torch.hub import _get_torch_home
 from transformers import PreTrainedTokenizer
 
 from aviary.backend.logger import get_logger
-from aviary.backend.server.models import S3MirrorConfig
+from aviary.backend.server.models import S3AWSCredentials, S3MirrorConfig
 
 T = TypeVar("T")
 logger = get_logger(__name__)
@@ -35,6 +37,7 @@ def download_model(
     s3_sync_args: Optional[List[str]] = None,
     tokenizer_only: bool = False,
     aws_executable: str = AWS_EXECUTABLE,
+    env: Optional[Dict[str, str]] = None,
 ) -> None:
     """
     Download a model from an S3 bucket and save it in TRANSFORMERS_CACHE for
@@ -47,7 +50,8 @@ def download_model(
     subprocess.run(
         [aws_executable, "s3", "cp", "--quiet"]
         + s3_sync_args
-        + [os.path.join(bucket_uri, "hash"), "."]
+        + [os.path.join(bucket_uri, "hash"), "."],
+        env=env,
     )
     if not os.path.exists(os.path.join(".", "hash")):
         f_hash = "0000000000000000000000000000000000000000"
@@ -78,7 +82,8 @@ def download_model(
         + [
             bucket_uri,
             os.path.join(path, "snapshots", f_hash),
-        ]
+        ],
+        env=env,
     )
     with open(os.path.join(path, "refs", "main"), "w") as f:
         f.write(f_hash)
@@ -100,6 +105,31 @@ def timeit(func):
     return inner
 
 
+def get_aws_credentials(
+    s3_aws_credentials_config: S3AWSCredentials,
+) -> Optional[Dict[str, str]]:
+    """
+    This function creates temporary AWS credentials from a configured endpoint by issuing a POST request to the configured API.
+    The function optionally uses an env variable for authorization and the returned result is a set of env variables that should
+    be injected to the process issuing the S3 sync.
+    """
+    token = (
+        os.getenv(s3_aws_credentials_config.auth_token_env_variable)
+        if s3_aws_credentials_config.auth_token_env_variable
+        else None
+    )
+    headers = {"Authorization": f"Bearer {token}"} if token else None
+    resp = requests.post(
+        s3_aws_credentials_config.create_aws_credentials_url, headers=headers
+    )
+    if not resp.ok:
+        logger.error(f"Request to create AWS credentials had failed with {resp.reason}")
+        return None
+
+    env = resp.json()
+    return env
+
+
 def initialize_node(
     model_id: Optional[str] = None,
     s3_mirror_config: Optional[S3MirrorConfig] = None,
@@ -118,7 +148,15 @@ def initialize_node(
     torch_cache_home = _get_torch_home()
     os.makedirs(os.path.join(torch_cache_home, "kernels"), exist_ok=True)
     path = None
-    if model_id and s3_mirror_config and s3_mirror_config.bucket_uri:
+    bucket_uri = None
+    env = None
+    if s3_mirror_config and s3_mirror_config.bucket_uri:
+        bucket_uri = s3_mirror_config.bucket_uri
+
+    if s3_mirror_config and s3_mirror_config.s3_aws_credentials:
+        env = get_aws_credentials(s3_mirror_config.s3_aws_credentials)
+
+    if model_id and bucket_uri:
         from transformers.utils.hub import TRANSFORMERS_CACHE
 
         path = os.path.expanduser(
@@ -132,8 +170,9 @@ def initialize_node(
             # This allows us to make sure that subsequent processes don't
             # duplicate work.
             with FileLock(lock_path, timeout=0):
-                bucket_uri = s3_mirror_config.bucket_uri
-                s3_sync_args = s3_mirror_config.s3_sync_args
+                s3_sync_args = (
+                    s3_mirror_config.s3_sync_args if s3_mirror_config else None
+                )
                 try:
                     download_model(
                         model_id,
@@ -141,6 +180,7 @@ def initialize_node(
                         bucket_uri,
                         s3_sync_args=s3_sync_args,
                         tokenizer_only=tokenizer_only,
+                        env=env,
                     )
                     logger.info("Done downloading the model from bucket!")
                 except RuntimeError:
@@ -152,22 +192,6 @@ def initialize_node(
             with FileLock(lock_path, timeout=-1):
                 pass
     return get_model_location_on_disk(model_id) if path else None
-
-
-def merge_dicts(overwrite: dict, base: dict) -> dict:
-    """
-    Merge two dictionaries recursively, with keys from overwrite taking precedence.
-    """
-    base = base.copy()
-    for key, value in overwrite.items():
-        if isinstance(value, dict):
-            # get node or create one
-            node = base.setdefault(key, {})
-            merge_dicts(value, node)
-        else:
-            base[key] = value
-
-    return base
 
 
 def noop(*args, **kwargs):
@@ -369,18 +393,22 @@ def get_model_location_on_disk(model_id: str) -> str:
     """
     from transformers.utils.hub import TRANSFORMERS_CACHE
 
-    path = os.path.expanduser(
-        os.path.join(TRANSFORMERS_CACHE, f"models--{model_id.replace('/', '--')}")
-    )
+    model_dir = Path(
+        TRANSFORMERS_CACHE, f"models--{model_id.replace('/', '--')}"
+    ).expanduser()
     model_id_or_path = model_id
 
-    if os.path.exists(path) and os.path.exists(os.path.join(path, "refs", "main")):
-        with open(os.path.join(path, "refs", "main"), "r") as f:
+    model_dir_refs_main = Path(model_dir, "refs", "main")
+
+    if model_dir.exists() and model_dir_refs_main.exists():
+        with open(model_dir_refs_main, "r") as f:
             snapshot_hash = f.read().strip()
-        if os.path.exists(
-            os.path.join(path, "snapshots", snapshot_hash)
-        ) and os.path.exists(
-            os.path.join(path, "snapshots", snapshot_hash, "config.json")
+
+        snapshot_hash_path = Path(model_dir, "snapshots", snapshot_hash)
+        if (
+            snapshot_hash_path.exists()
+            and Path(snapshot_hash_path, "config.json").exists()
         ):
-            model_id_or_path = os.path.join(path, "snapshots", snapshot_hash)
+            model_id_or_path = str(snapshot_hash_path.absolute())
+
     return model_id_or_path

@@ -9,6 +9,7 @@ from aviary.common.utils import (
     ResponseError,
     _is_aviary_model,
 )
+from aviary.frontend.endpoints_sdk import get_endpoints_backend
 
 from ..sdk import get_aviary_backend
 
@@ -21,18 +22,24 @@ response = namedtuple("Response", ["text", "status_code"])
 # Without async, the tokens would be printed very slowly making for bad UX in
 # the frontend
 async def stream(
-    model: str, prompt: str
+    model: str, prompt: str, backend: str = "aviary"
 ) -> AsyncIterator[Dict[str, Union[str, float, int]]]:
     """Query Aviary and stream response"""
     r = None
     if _is_aviary_model(model):
-        backend = get_aviary_backend()
+        if backend == "aviary":
+            backend = get_aviary_backend()
+        elif backend == "endpoints":
+            backend = get_endpoints_backend()
+        else:
+            raise ValueError(f"Expected one of 'aviary' or 'endpoints. Got: {backend}")
         url = backend.backend_url + "/chat/completions"
+        headers = {"Authorization": f"{backend.bearer}"}
 
         chunk = b""
         try:
             async with aiohttp.ClientSession(
-                raise_for_status=True, headers=backend.bearer
+                raise_for_status=True, headers=headers
             ) as session:
                 async with session.post(
                     url,

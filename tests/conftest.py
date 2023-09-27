@@ -1,4 +1,3 @@
-import contextlib
 import os
 import pathlib
 import subprocess
@@ -22,6 +21,8 @@ except ImportError:
 
 @pytest.fixture(scope="class")
 def aviary_testing_model():
+    # Needs GPU CI/mock vllm engine
+    return
     current_file_dir = pathlib.Path(__file__).absolute().parent
     test_model_path = os.environ.get(
         "AVIARY_TEST_MODEL_PATH",
@@ -64,12 +65,12 @@ def aviary_testing_model():
             # Block until the deployment is ready
             while True:
                 try:
-                    with contextlib.redirect_stdout(None):
-                        model = aviary.sdk.models()[0]
+                    model = aviary.sdk.models()[0]
                     assert model
                     break
-                except Exception:
+                except Exception as e:
+                    print("Error", e)
                     pass
-                time.sleep(1)
+                time.sleep(10)
             yield model
         serve.shutdown()

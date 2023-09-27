@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, TypeVar, Union
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, root_validator, validator
 
 if TYPE_CHECKING:
     from aviary.backend.server.models import AviaryModelResponse
@@ -44,12 +44,14 @@ class Usage(BaseModel):
         cls, response: Union["AviaryModelResponse", Dict[str, Any]]
     ) -> "Usage":
         if isinstance(response, BaseModel):
-            response = response.dict()
+            response_dict = response.dict()
+        else:
+            response_dict = response
         return cls(
-            prompt_tokens=response["num_input_tokens"] or 0,
-            completion_tokens=response["num_generated_tokens"] or 0,
-            total_tokens=(response["num_input_tokens"] or 0)
-            + (response["num_generated_tokens"] or 0),
+            prompt_tokens=response_dict["num_input_tokens"] or 0,
+            completion_tokens=response_dict["num_generated_tokens"] or 0,
+            total_tokens=(response_dict["num_input_tokens"] or 0)
+            + (response_dict["num_generated_tokens"] or 0),
         )
 
 
@@ -150,8 +152,7 @@ class ChatCompletion(BaseModel):
 class Prompt(BaseModel):
     prompt: Union[str, List[Message]]
     use_prompt_format: bool = True
-    parameters: Optional[Dict[str, Any]] = None
-    stopping_sequences: Optional[List[str]] = None
+    parameters: Optional[Union[Dict[str, Any], BaseModel]] = None
 
 
 class ErrorResponse(BaseModel):
@@ -169,6 +170,9 @@ class PromptFormat(BaseModel):
     user: str
 
     default_system_message: str = ""
+    system_in_user: bool = False
+    add_system_tags_even_if_message_is_empty: bool = False
+    strip_whitespace: bool = True
 
     @validator("system")
     def check_system(cls, value):
@@ -191,15 +195,28 @@ class PromptFormat(BaseModel):
         ), "user must be a string containing '{instruction}'"
         return value
 
+    @root_validator
+    def check_user_system_in_user(cls, values):
+        if values["system_in_user"]:
+            assert (
+                "{system}" in values["user"]
+            ), "If system_in_user=True, user must contain '{system}'"
+        return values
+
     def generate_prompt(self, messages: Union[Prompt, List[Message]]) -> str:
         if isinstance(messages, Prompt):
             if isinstance(messages.prompt, str):
                 if not messages.use_prompt_format:
                     return messages.prompt
-                messages = [
-                    Message(role="system", content=self.default_system_message),
+                new_messages = []
+                if self.default_system_message:
+                    new_messages.append(
+                        Message(role="system", content=self.default_system_message),
+                    )
+                new_messages.append(
                     Message(role="user", content=messages.prompt),
-                ]
+                )
+                messages = new_messages
             else:
                 messages = messages.prompt
 
@@ -212,19 +229,45 @@ class PromptFormat(BaseModel):
                 else:
                     raise ValueError("Only one system message can be specified.")
 
+        system_message = None
         if system_message_index != -1:
             system_message = messages.pop(system_message_index)
-        else:
+        elif (
+            self.default_system_message or self.add_system_tags_even_if_message_is_empty
+        ):
             system_message = Message(role="system", content=self.default_system_message)
-        messages.insert(0, system_message)
+        if (
+            system_message is not None
+            and (
+                system_message.content or self.add_system_tags_even_if_message_is_empty
+            )
+            and not self.system_in_user
+        ):
+            messages.insert(0, system_message)
 
         prompt = []
         for message in messages:
+            message_content = message.content
+            if self.strip_whitespace:
+                message_content = message_content.strip()
             if message.role == "system":
-                prompt.append(self.system.format(instruction=message.content))
-            elif message.role == "assistant":
-                prompt.append(self.assistant.format(instruction=message.content))
+                prompt.append(self.system.format(instruction=message_content))
             elif message.role == "user":
-                prompt.append(self.user.format(instruction=message.content))
+                if self.system_in_user:
+                    prompt.append(
+                        self.user.format(
+                            instruction=message_content,
+                            system=self.system.format(
+                                instruction=system_message.content
+                            )
+                            if system_message
+                            else "",
+                        )
+                    )
+                    system_message = None
+                else:
+                    prompt.append(self.user.format(instruction=message_content))
+            elif message.role == "assistant":
+                prompt.append(self.assistant.format(instruction=message_content))
         prompt.append(self.trailing_assistant)
         return "".join(prompt)

@@ -37,6 +37,7 @@ from aviary.common.constants import (
     SUB_HEADER,
 )
 from aviary.frontend.async_sdk import stream
+from aviary.frontend.endpoints_sdk import get_endpoints_metadata, get_endpoints_models
 from aviary.frontend.javascript_loader import JavaScriptLoader
 from aviary.frontend.leaderboard import DummyLeaderboard, Leaderboard
 from aviary.frontend.mongo_secrets import get_mongo_secret_url
@@ -58,6 +59,12 @@ from aviary.frontend.utils import (
 # NOTE: In the context of Gradio "global" means shared between all sessions.
 ALL_MODELS = sdk.models()
 ALL_MODELS_METADATA = {model: sdk.metadata(model) for model in ALL_MODELS}
+ALL_ENDPOINT_MODELS = get_endpoints_models()
+ALL_MODELS.extend(ALL_ENDPOINT_MODELS)
+ALL_MODELS_METADATA.update(
+    {model: get_endpoints_metadata(model) for model in ALL_ENDPOINT_MODELS}
+)
+
 MODEL_DESCRIPTIONS = (
     MODEL_DESCRIPTIONS_HEADER
     + "\n\n"
@@ -111,7 +118,11 @@ def get_next_response(generator):
 
 async def stream_response(model, prompt, index: int, queue: Queue) -> None:
     try:
-        async for response in stream(model, prompt):
+        if model in ALL_ENDPOINT_MODELS:
+            backend = "endpoints"
+        else:
+            backend = "aviary"
+        async for response in stream(model, prompt, backend):
             queue.put_nowait((index, response))
             if response is None:
                 break

@@ -16,7 +16,7 @@ spec:
       spec:
         containers:
         - name: ray-head
-          image: anyscale/aviary:latest-tgi
+          image: anyscale/aviary:latest
           resources:
             limits:
               cpu: 2
@@ -39,13 +39,13 @@ spec:
     # logical group name, for this called small-group, also can be functional
     groupName: gpu-group
     rayStartParams:
-      resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100\": 2}"'
+      resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100_80g\": 2}"'
     # pod template
     template:
       spec:
         containers:
         - name: llm
-          image: anyscale/aviary:latest-tgi
+          image: anyscale/aviary:latest
           lifecycle:
             preStop:
               exec:

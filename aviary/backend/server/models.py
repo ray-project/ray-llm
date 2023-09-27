@@ -1,17 +1,30 @@
 import time
-from typing import Any, Dict, List, Literal, Optional, Union
+from enum import IntEnum
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 import yaml
-from huggingface_hub import hf_hub_download, hf_hub_url
 from markdown_it import MarkdownIt
-from pydantic import BaseModel, Extra, root_validator, validator
+from pydantic import BaseModel, Extra, PrivateAttr, root_validator, validator
 from ray.air import ScalingConfig as AIRScalingConfig
 from ray.serve.config import AutoscalingConfig
 
-from aviary.common.models import ErrorResponse, Prompt, PromptFormat  # noqa
+from aviary.backend.llm.dict_utils import merge_dicts
+from aviary.backend.llm.error_handling import TooManyStoppingSequences
+from aviary.common.models import ErrorResponse, Message, Prompt, PromptFormat  # noqa
+from aviary.env_conf import MAX_NUM_STOPPING_SEQUENCES
+
+T = TypeVar("T")
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-def markdown_extract_first_paragraph(markdown_text: str):
+class QueuePriority(IntEnum):
+    """Lower value = higher priority"""
+
+    GENERATE_TEXT = 0
+    BATCH_GENERATE_TEXT = 1
+
+
+def markdown_extract_first_paragraph(markdown_text: str) -> str:
     """Extract the first paragraph from a markdown-formatted string."""
     from mdit_py_plugins.front_matter import front_matter_plugin
 
@@ -19,7 +32,7 @@ def markdown_extract_first_paragraph(markdown_text: str):
         front_matter_plugin
     )
     tokens = md.parse(markdown_text)
-    first_paragraph = []
+    first_paragraph: List[str] = []
     in_paragraph = False
     for token in tokens:
         if in_paragraph and token.tag == "p":
@@ -40,7 +53,7 @@ def markdown_extract_first_paragraph(markdown_text: str):
 
 class BaseModelExtended(BaseModel):
     @classmethod
-    def parse_yaml(cls, file, **kwargs) -> "BaseModelExtended":
+    def parse_yaml(cls: Type[ModelT], file, **kwargs) -> ModelT:
         kwargs.setdefault("Loader", yaml.SafeLoader)
         dict_args = yaml.load(file, **kwargs)
         return cls.parse_obj(dict_args)
@@ -90,7 +103,7 @@ class ComputedPropertyMixin:
         self.__dict__.update(
             {prop: getattr(self, prop) for prop in self.get_properties()}
         )
-        return super().dict(*args, **kwargs)
+        return super().dict(*args, **kwargs)  # type: ignore
 
     def json(
         self,
@@ -101,7 +114,7 @@ class ComputedPropertyMixin:
             {prop: getattr(self, prop) for prop in self.get_properties()}
         )
 
-        return super().json(*args, **kwargs)
+        return super().json(*args, **kwargs)  # type: ignore
 
 
 class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
@@ -151,13 +164,13 @@ class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
             for response in responses
             if response.num_input_tokens is not None
         ]
-        num_input_tokens = max(num_input_tokens) if num_input_tokens else None
+        max_num_input_tokens = max(num_input_tokens) if num_input_tokens else None
         num_input_tokens_batch = [
             response.num_input_tokens_batch
             for response in responses
             if response.num_input_tokens_batch is not None
         ]
-        num_input_tokens_batch = (
+        max_num_input_tokens_batch = (
             max(num_input_tokens_batch) if num_input_tokens_batch else None
         )
         num_generated_tokens = [
@@ -165,7 +178,7 @@ class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
             for response in responses
             if response.num_generated_tokens is not None
         ]
-        num_generated_tokens = (
+        total_generated_tokens = (
             sum(num_generated_tokens) if num_generated_tokens else None
         )
         num_generated_tokens_batch = [
@@ -173,7 +186,7 @@ class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
             for response in responses
             if response.num_generated_tokens_batch is not None
         ]
-        num_generated_tokens_batch = (
+        total_generated_tokens_batch = (
             sum(num_generated_tokens_batch) if num_generated_tokens_batch else None
         )
         preprocessing_time = [
@@ -181,25 +194,25 @@ class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
             for response in responses
             if response.preprocessing_time is not None
         ]
-        preprocessing_time = max(preprocessing_time) if preprocessing_time else None
+        max_preprocessing_time = max(preprocessing_time) if preprocessing_time else None
         generation_time = [
             response.generation_time
             for response in responses
             if response.generation_time is not None
         ]
-        generation_time = sum(generation_time) if generation_time else None
+        total_generation_time = sum(generation_time) if generation_time else None
         error = next(
             (response.error for response in reversed(responses) if response.error), None
         )
 
         return cls(
             generated_text=generated_text,
-            num_input_tokens=num_input_tokens,
-            num_input_tokens_batch=num_input_tokens_batch,
-            num_generated_tokens=num_generated_tokens,
-            num_generated_tokens_batch=num_generated_tokens_batch,
-            preprocessing_time=preprocessing_time,
-            generation_time=generation_time,
+            num_input_tokens=max_num_input_tokens,
+            num_input_tokens_batch=max_num_input_tokens_batch,
+            num_generated_tokens=total_generated_tokens,
+            num_generated_tokens_batch=total_generated_tokens_batch,
+            preprocessing_time=max_preprocessing_time,
+            generation_time=total_generation_time,
             timestamp=responses[-1].timestamp,
             finish_reason=responses[-1].finish_reason,
             error=error,
@@ -214,97 +227,50 @@ class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
     @property
     def num_total_tokens(self) -> Optional[float]:
         try:
-            return self.num_input_tokens + self.num_generated_tokens
+            return (self.num_input_tokens or 0) + (self.num_generated_tokens or 0)
         except Exception:
             return None
 
     @property
     def num_total_tokens_batch(self) -> Optional[float]:
         try:
-            return self.num_input_tokens_batch + self.num_generated_tokens_batch
-        except Exception:
-            return None
-
-    @property
-    def total_time_per_token(self) -> Optional[float]:
-        try:
-            return self.total_time / self.num_total_tokens
-        except Exception:
-            return None
-
-    @property
-    def generation_time_per_token(self) -> Optional[float]:
-        try:
-            return self.generation_time / self.num_total_tokens
-        except Exception:
-            return None
-
-    @property
-    def total_time_per_token_batch(self) -> Optional[float]:
-        try:
-            return self.total_time / self.num_total_tokens_batch
-        except Exception:
-            return None
-
-    @property
-    def generation_time_per_token_batch(self) -> Optional[float]:
-        try:
-            return self.generation_time / self.num_total_tokens_batch
-        except Exception:
-            return None
-
-
-class SchedulerPolicyConfig(BaseModelExtended, extra=Extra.forbid):
-    type: str
-
-
-class QuotaBasedTaskSelectionPolicyConfig(SchedulerPolicyConfig):
-    type: Literal["QuotaBasedTaskSelectionPolicy"] = "QuotaBasedTaskSelectionPolicy"
-    # Max total tokens (input+output) in a batch of multiple tasks
-    max_batch_total_tokens: Optional[int] = None
-    # Max total tokens (input+output) in a single task. Shouldn't be higher than
-    # context length of the model.
-    max_total_tokens: int = 2048
-    # This setting defines how many tokens can be passed before forcing the waiting
-    # queries to be put on the batch (if the size of the batch allows for it).
-    # tgi calls this max_waiting tokens
-    max_iterations_curr_batch: int = 20
-    # Max input tokens in a single task. Note: this is not validated yet
-    max_input_length: int = 1024
-    # Limits the number of tokens for the prefill operation.
-    max_batch_prefill_tokens: int = 4096
-    # This represents the ratio of waiting queries vs running queries where
-    # you want to start considering pausing the running queries to include the waiting
-    # ones into the same batch.
-    waiting_served_ratio: float = 1.2
-
-    @root_validator
-    def validate_values(cls, values):
-        if values.get("max_input_length") > values.get("max_batch_prefill_tokens"):
-            raise ValueError(
-                f"max_batch_prefill_tokens ({values.get('max_batch_prefill_tokens')}) must be >= max_input_length ({values.get('max_input_length')})"
+            return (self.num_input_tokens_batch or 0) + (
+                self.num_generated_tokens_batch or 0
             )
-        if values.get("max_batch_total_tokens"):
-            if values.get("max_batch_prefill_tokens") > values.get(
-                "max_batch_total_tokens"
-            ):
-                raise ValueError(
-                    f"max_batch_prefill_tokens ({values.get('max_batch_prefill_tokens')}) must be <= max_batch_total_tokens ({values.get('max_batch_total_tokens')})"
-                )
-            if values.get("max_total_tokens") > values.get("max_batch_total_tokens"):
-                raise ValueError(
-                    f"max_total_tokens ({values.get('max_total_tokens')}) must be <= max_batch_total_tokens ({values.get('max_batch_total_tokens')})"
-                )
-        return values
+        except Exception:
+            return None
+
+    def unpack(self) -> Tuple["AviaryModelResponse", ...]:
+        return (self,)
 
 
-class SchedulerConfig(BaseModelExtended, extra=Extra.forbid):
-    policy: Union[SchedulerPolicyConfig, QuotaBasedTaskSelectionPolicyConfig]
+class BatchedAviaryModelResponse(AviaryModelResponse):
+    # Same as AviaryModelResponse, but persists the individual responses
+    # that were batched together to produce this response.
+
+    _individual_responses: Optional[List[AviaryModelResponse]] = PrivateAttr(None)
+
+    @classmethod
+    def merge_stream(cls, *responses: "AviaryModelResponse") -> "AviaryModelResponse":
+        if len(responses) == 1:
+            return responses[0]
+        obj = super().merge_stream(*responses)
+        obj._individual_responses = list(responses)  # type: ignore
+        return obj
+
+    def unpack(self) -> Tuple["AviaryModelResponse", ...]:
+        return tuple(self._individual_responses or [])
+
+
+class S3AWSCredentials(BaseModelExtended):
+    create_aws_credentials_url: str
+    auth_token_env_variable: Optional[str]
 
 
 class S3MirrorConfig(BaseModelExtended):
     bucket_uri: Optional[str] = None
     s3_sync_args: Optional[List[str]] = None
+    s3_aws_credentials: Optional[S3AWSCredentials] = None
 
 
 class GenerationConfig(BaseModelExtended):
@@ -331,55 +297,133 @@ class GenerationConfig(BaseModelExtended):
         return {"stopping_sequences": self.stopping_sequences, **self.generate_kwargs}
 
 
-class TextGenerationInferenceEngineConfig(BaseModelExtended):
+class EngineConfig(BaseModelExtended, extra=Extra.forbid):
     type: str
-    model_id: str
-    model_url: Optional[str] = None
-    model_description: Optional[str] = None
-    generation: GenerationConfig
-    scheduler: SchedulerConfig
 
-    s3_mirror_config: Optional[S3MirrorConfig] = None
-    runtime_env: Optional[Dict[str, Any]] = None
-    hf_model_id: Optional[str] = None
-    model_init_kwargs: Dict[str, Any] = {}
 
-    @root_validator(pre=True)
-    def resolve_model_url_and_description(cls, values):
-        model_id = values.get("model_id")
-        model_url = values.get("model_url")
-        model_description = values.get("model_description")
-        if not model_url:
-            # If we do not have a model URL, use model ID to
-            # get it from HF Hub
-            model_url = hf_hub_url(model_id, "dummy")
-            model_url = model_url[: model_url.rfind("/resolve")]
-            values["model_url"] = model_url
-        if not model_description:
-            # If we do not have a model description, use model ID to
-            # obtain it from HF Hub and get the first text paragraph
-            # from readme. This is not foolproof, but should work
-            # OK for most cases.
-            try:
-                readme = hf_hub_download(model_id, "README.md")
-                assert readme
-                with open(readme, "r") as f:
-                    model_description = markdown_extract_first_paragraph(f.read())
-            except Exception:
-                model_description = ""
-            values["model_description"] = model_description
-        return values
+class SchedulingMetadata(BaseModelExtended):
+    request_id: str
+    priority: QueuePriority
 
-    @property
-    def actual_hf_model_id(self) -> str:
-        return self.hf_model_id or self.model_id
 
-    def get_initialization_kwargs(self) -> dict:
-        """
-        Get kwargs that will be actually passed to the LLMInitializer
-        constructor.
-        """
-        return self.model_init_kwargs.copy()
+class SamplingParams(BaseModelExtended):
+    """
+    Args:
+        max_tokens: The maximum number of tokens to generate. Defaults to inf.
+        temperature: What sampling temperature to use.
+        top_p: An alternative to sampling with temperature, called nucleus sampling.
+        n: How many completions to generate for each prompt.
+        logprobs: Include the log probabilities on the `logprobs` most likely
+            tokens, as well the chosen tokens.
+        stop: Up to 4 sequences where the API will stop generating further tokens.
+            The returned text will not contain the stop sequence.
+        presence_penalty: Number between -2.0 and 2.0.
+            Positive values penalize new tokens based on whether they appear in
+            the text so far, increasing the model's likelihood to talk about
+            new topics.
+        frequency_penalty: Number between -2.0 and 2.0. Positive values penalize
+            new tokens based on their existing frequency in the text so far,
+            decreasing the model's likelihood to repeat the same line verbatim.
+        best_of: Generates `best_of` completions server-side and returns the "best".
+        logit_bias: Modify the likelihood of specified tokens appearing in
+            the completion.
+    """
+
+    _ignored_fields: Set[str] = set()
+
+    max_tokens: Optional[int] = None
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    n: int = 1
+    logprobs: Optional[int] = None
+    logit_bias: Optional[Dict[str, float]] = None
+    stop: Optional[List[str]] = None
+    presence_penalty: Optional[float] = None
+    frequency_penalty: Optional[float] = None
+    best_of: int = 1
+
+    def dict(self, **kwargs):
+        if kwargs.get("exclude", None) is None:
+            kwargs["exclude"] = self._ignored_fields
+        return super().dict(**kwargs)
+
+    @validator("stop", always=True)
+    def validate_stopping_sequences(cls, values):
+        if not values:
+            return values
+
+        unique_val = sorted(list(set(values)))
+
+        if len(unique_val) > MAX_NUM_STOPPING_SEQUENCES:
+            TooManyStoppingSequences(
+                len(unique_val), MAX_NUM_STOPPING_SEQUENCES
+            ).raise_exception()
+
+        return unique_val
+
+    @classmethod
+    def merge_generation_params(
+        cls: Type[ModelT], prompt: Prompt, generation: GenerationConfig
+    ) -> ModelT:
+        # Extract parameters object from prompt
+        parameters = prompt.parameters or {}
+        if not isinstance(parameters, dict):
+            parameters = parameters.dict()
+
+        # Merge in the generate kwargs
+        generate_kwargs = merge_dicts(
+            parameters,
+            generation.generate_kwargs,
+        )
+
+        # The stoppping sequence needs to be merged manually
+        generate_kwargs["stop"] = (parameters.get("stop") or []) + (
+            generation.stopping_sequences or []
+        )
+
+        return cls.parse_obj(generate_kwargs)
+
+
+class ChatCompletions(BaseModelExtended):
+    """
+    Args:
+        model: The model to query.
+        messages: A list of messages describing the conversation so far.
+            Contains a required "role", which is the role of the author of this
+            message. One of "system", "user", or "assistant".
+            Also contains required "content", the contents of the message, and
+            an optional "name", the name of the author of this message.
+        stream: Whether to stream back partial progress.
+        echo: Echo back the prompt in addition to the completion.
+        user: A unique identifier representing your end-user, which can help us
+            to monitor and detect abuse. Learn more.
+    """
+
+    model: str
+    messages: List[Message]
+    stream: bool = False
+    echo: Optional[bool] = False
+    user: Optional[str] = None
+
+
+class Completions(BaseModelExtended):
+    """
+    Args:
+        model: The model to query.
+        prompt: The prompt to generate completions for, encoded as string.
+        suffix: The suffix that comes after a completion of inserted text.
+        stream: Whether to stream back partial progress.
+        echo: Echo back the prompt in addition to the completion.
+        user: A unique identifier representing your end-user, which can help us
+            to monitor and detect abuse. Learn more.
+    """
+
+    model: str
+    prompt: str
+    suffix: Optional[str] = None
+    stream: bool = False
+    echo: Optional[bool] = False
+    user: Optional[str] = None
 
 
 class ScalingConfig(BaseModelExtended):
@@ -414,12 +458,16 @@ class ScalingConfig(BaseModelExtended):
 
 
 class Args(BaseModelExtended):
-    engine_config: TextGenerationInferenceEngineConfig
+    engine_config: EngineConfig
     scaling_config: ScalingConfig
 
     @property
     def air_scaling_config(self) -> AIRScalingConfig:
         return self.scaling_config.as_air_scaling_config()
+
+
+class ServeMultiplexConfig(BaseModelExtended):
+    max_num_models_per_replica: int
 
 
 class DeploymentConfig(BaseModelExtended):
@@ -432,7 +480,23 @@ class LLMApp(Args):
     """The full configuration of a single LLM Model"""
 
     deployment_config: Optional[DeploymentConfig] = None
+    multiplex_config: Optional[ServeMultiplexConfig] = None
     enabled: bool = True
+
+    @property
+    def model_id(self):
+        return self.engine_config.model_id
+
+    def short_metadata(self):
+        return self.dict(
+            include={
+                "engine_config": {
+                    "generation",
+                    "model_url",
+                    "model_description",
+                }
+            }
+        )
 
 
 class ServeArgs(BaseModel):
@@ -445,3 +509,8 @@ class AppArgs(BaseModel):
 
 class RouterArgs(BaseModel):
     models: Dict[str, Union[str, LLMApp]]
+
+
+class PlacementConfig(BaseModel):
+    world_size: int
+    scaling_config: ScalingConfig

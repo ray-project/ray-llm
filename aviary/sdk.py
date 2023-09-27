@@ -170,11 +170,11 @@ def stream(
         raise RuntimeError("Streaming is currently only supported for aviary models")
 
 
-def run(*model: str, blocking: bool = True) -> None:
+def run(*models: List[str], blocking: bool = True) -> None:
     """Run Aviary on the local ray cluster
 
     args:
-        *model: Models to run.
+        *models: Models to run.
         blocking: Whether to block the CLI until the application is ready.
 
     NOTE: This only works if you are running this command
@@ -185,7 +185,7 @@ def run(*model: str, blocking: bool = True) -> None:
     assert_has_backend()
     from aviary.backend.server.run import run
 
-    run(*model, blocking=blocking)
+    run(*models, blocking=blocking)
 
 
 def shutdown() -> None:

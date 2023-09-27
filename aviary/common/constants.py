@@ -152,7 +152,7 @@ body, gradio-app {
     color: var(--button-primary-text-color) !important;
 }
 .block.ref-link.primary {
-    min-width: 160px;
+    min-width: 160px !important;
 }
 .block.ref-link.primary a {
     background: var(--button-primary-background-fill) !important;

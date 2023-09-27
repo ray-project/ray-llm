@@ -1,3 +1,4 @@
+import pytest
 from typer.testing import CliRunner
 
 from aviary.cli import app
@@ -5,6 +6,7 @@ from aviary.cli import app
 runner = CliRunner()
 
 
+@pytest.mark.skip(reason="Needs GPU CI/mock vllm engine")
 class TestCli:
     def test_metadata(self, aviary_testing_model):  # noqa: F811
         result = runner.invoke(

@@ -167,7 +167,7 @@ def run(
         pass  # Aviary is not running
 
     sdk.shutdown()
-    sdk.run(*model, blocking=blocking)
+    sdk.run(model, blocking=blocking)
 
 
 @app.command()
