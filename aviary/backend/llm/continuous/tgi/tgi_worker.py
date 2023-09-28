@@ -630,9 +630,7 @@ class TGIInferenceWorker(AbstractInferenceWorker):
             self._parse_requests(requests, verbose=False), key=lambda x: x.id
         )
         batch_state = create_batch(self._model, requests, 0)
-        suggested_max_batch_total_tokens = self._model.warmup(
-            batch_state, max_batch_total_tokens
-        )
+        suggested_max_batch_total_tokens = self._model.warmup(batch_state)
         if not suggested_max_batch_total_tokens:
             suggested_max_batch_total_tokens = max_batch_total_tokens
         logger.info(
