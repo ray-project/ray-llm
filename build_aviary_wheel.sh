@@ -1,12 +1,6 @@
 #!/bin/bash
-set -euxo pipefail
-
-GIT_COMMIT="${1:-}"
-
-if [[ -n "$GIT_COMMIT" ]];then
-    git diff-index --quiet HEAD --
-    GIT_COMMIT=`git rev-parse HEAD`
-fi
+[[ "${DEBUG:-}" =~ [1..9]|[Tt]rue|[Yy]es ]] && set -x
+set -euo pipefail
 
 rm -rf dist
 rm -rf build

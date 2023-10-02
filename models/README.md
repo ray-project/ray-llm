@@ -29,29 +29,12 @@ The `engine_config` section specifies the Hugging Face model ID (`model_id`), ho
 
 RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others.
 
-
 * `model_id` is the model ID. This is the ID that is used to refer to the model in the RayLLM API.
-* `type` is the type of the engine. Currently that's only `TextGenerationInferenceEngine`.
+* `type` is the type of the engine. Currently that's only `VLLMEngine`.
 * `generation` contains configuration related to default generation parameters.
-* `scheduler.policy` contains configuration related to the continuous batching scheduler. Those settings are very important for the performance and memory usage of the model.
 * `hf_model_id` is the Hugging Face model ID. This can also be a path to a local directory. If not specified, defaults to `model_id`.
 * `runtime_env` is a dictionary that contains Ray runtime environment configuration. It allows you to set per-model pip packages and environment variables. See [Ray documentation on Runtime Environments](https://docs.ray.io/en/latest/ray-core/handling-dependencies.html#runtime-environments) for more information.
 * `s3_mirror_config` is a dictionary that contains configuration for loading the model from S3 instead of Hugging Face Hub. You can use this to speed up downloads.
-
-#### Scheduler policy
-
-The scheduler is responsible for batching incoming requests together before running
-an iteration of inference on the model. It has a policy to determine how requests should
-be batched together. Currently the only policy is a quota based policy that uses bin
-packing to determine how many requests can fit in a single batch.
-
-The following settings can be configured under the `scheduler.policy` section:
-- `max_total_tokens` - the maximum number of input+output tokens in a single request. This should usually be set to the model context length.
-- `max_input_length` - maximum number of input tokens in a single request. Must be less than or equal to `max_total_tokens`.
-- `max_batch_prefill_tokens` - limits the number of tokens for the prefill operation. This is the main parameter to tune in regards to throughput and memory consumption. Setting this too high will result in out-of-memory errors while setting it too low will result in underutilization of memory.
-- `max_batch_total_tokens` - limits the total number of tokens in a running batch. This parameter will be automatically derived from `max_batch_prefill_tokens` for most model architectures, but you may need to set it manually for other architectures (an exception will be thrown if this parameter is unspecified and the model requires it).
-- `max_iterations_curr_batch` - defines how many scheduler iterations can be passed before forcing the waiting queries to be put on the batch (if the size of the batch allows for it). Usually, you shouldn't need to change it.
-- `waiting_served_ratio` - represents the ratio of waiting queries vs running queries where you want to start considering pausing the running queries to include the waiting ones into the same batch.
 
 ### Scaling config
 
@@ -90,17 +73,13 @@ deployment_config:
     resources:
       accelerator_type_cpu: 0.01
 engine_config:
-  # Model id
+  # Model id - this is a RayLLM id
   model_id: mosaicml/mpt-7b-instruct
   # Id of the model on Hugging Face Hub. Can also be a disk path. Defaults to model_id if not specified.
   hf_model_id: mosaicml/mpt-7b-instruct
-  # TGI and transformers keyword arguments passed when constructing the model.
-  model_init_kwargs:
+  # vLLM keyword arguments passed when constructing the model.
+  engine_kwargs:
     trust_remote_code: true
-  # This is a metadata field that is used to display information about the model in the UI.
-  model_description: mosaic mpt 7b is a transformer trained from scratch...
-  # This is a metadata field that is used to display information about the model in the UI.
-  model_url: https://www.mosaicml.com/blog/mpt-7b
   # Optional Ray Runtime Environment configuration. See Ray documentation for more details.
   # Add dependent libraries, environment variables, etc.
   runtime_env:
@@ -109,27 +88,7 @@ engine_config:
   # Optional configuration for loading the model from S3 instead of Hugging Face Hub. You can use this to speed up downloads or load models not on Hugging Face Hub.
   s3_mirror_config:
     bucket_uri: s3://large-dl-models-mirror/models--mosaicml--mpt-7b-instruct/main-safetensors/
-  # Parameters for configuring the scheduler. See above for more details.
-  scheduler:
-    policy:
-      max_batch_prefill_tokens: 58000
-      max_batch_total_tokens: 140000
-      max_input_length: 2048
-      max_iterations_curr_batch: 20
-      max_total_tokens: 4096
-      type: QuotaBasedTaskSelectionPolicy
-      waiting_served_ratio: 1.2
   generation:
-    # Default kwargs passed to `model.generate`. These can be overrided by a
-    # user's request.
-    generate_kwargs:
-      do_sample: true
-      max_new_tokens: 512
-      min_new_tokens: 16
-      top_p: 1.0
-      top_k: 0
-      temperature: 0.1
-      repetition_penalty: 1.1
     # Prompt format to wrap queries in. {instruction} refers to user-supplied input.
     prompt_format:
       system: "{instruction}\n"  # System message. Will default to default_system_message
@@ -137,8 +96,12 @@ engine_config:
       trailing_assistant: "### Response:\n"  # New assistant message. After this point, model will generate tokens.
       user: "### Instruction:\n{instruction}\n"  # User message.
       default_system_message: "Below is an instruction that describes a task. Write a response that appropriately completes the request."  # Default system message.
+      system_in_user: false  # Whether the system prompt is inside the user prompt. If true, the user field should include '{system}'
+      add_system_tags_even_if_message_is_empty: false  # Whether to include the system tags even if the user message is empty.
+      strip_whitespace: false  # Whether to automaticall strip whitespace from left and right of user supplied messages for chat completions
     # Stopping sequences. The generation will stop when it encounters any of the sequences, or the tokenizer EOS token.
     # Those can be strings, integers (token ids) or lists of integers.
+    # Stopping sequences supplied by the user in a request will be appended to this.
     stopping_sequences: ["### Response:", "### End"]
 
 # Resources assigned to each model replica. This corresponds to Ray AIR ScalingConfig.

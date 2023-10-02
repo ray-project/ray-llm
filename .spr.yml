@@ -1,5 +1,5 @@
 githubRepoOwner: ray-project
-githubRepoName: aviary
+githubRepoName: ray-llm
 githubHost: github.com
 requireChecks: true
 requireApproval: true

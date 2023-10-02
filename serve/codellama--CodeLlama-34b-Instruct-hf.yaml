@@ -1,0 +1,7 @@
+applications:
+- name: codellama--CodeLlama-34b-Instruct-hf
+  route_prefix: /codellama--CodeLlama-34b-Instruct-hf
+  import_path: aviary.backend:router_application
+  args:
+    args:
+      - "./models/continuous_batching/codellama--CodeLlama-34b-Instruct-hf.yaml"
