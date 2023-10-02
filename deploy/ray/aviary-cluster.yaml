@@ -7,7 +7,7 @@ provider:
     region: us-west-2
     cache_stopped_nodes: False
 docker:
-    image: "anyscale/aviary:latest"
+    image: "anyscale/aviary:test"
     container_name: "aviary"
     run_options:
       - --entrypoint ""
@@ -41,11 +41,6 @@ available_node_types:
         Ebs:
             VolumeSize: 256
             VolumeType: gp3
-      BlockDeviceMappings:
-      - DeviceName: /dev/sda1
-        Ebs:
-            VolumeSize: 256
-            VolumeType: gp3
     resources:
       head_node: 1
       instance_type_m5: 1
@@ -59,16 +54,26 @@ available_node_types:
       accelerator_type_a10: 1
     min_workers: 0
     max_workers: 8
-  gpu_worker_p3:
+  gpu_worker_p4d:
     node_config:
-      InstanceType: p3.8xlarge
+      InstanceType: p4d.24xlarge
       BlockDeviceMappings: *mount
     resources:
       worker_node: 1
-      instance_type_p3: 1
-      accelerator_type_v100: 1
+      instance_type_p4d: 1
+      accelerator_type_a10_40g: 1
     min_workers: 0
-    max_workers: 4
+    max_workers: 8
+  gpu_worker_p4de:
+    node_config:
+      InstanceType: p4de.24xlarge
+      BlockDeviceMappings: *mount
+    resources:
+      worker_node: 1
+      instance_type_p4de: 1
+      accelerator_type_a10_80g: 1
+    min_workers: 0
+    max_workers: 8
   cpu_worker:
     node_config:
       InstanceType: m5.xlarge

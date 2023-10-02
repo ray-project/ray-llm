@@ -1,2 +1,2 @@
 #!/bin/bash
-PYTHONPATH="." python deploy/_internal/deploy.py $@
+PYTHONPATH="." python deploy/_internal/deploy.py "$@"

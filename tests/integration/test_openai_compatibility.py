@@ -1,4 +1,5 @@
 import openai
+import openai.error
 import pytest
 
 from aviary.sdk import openai_aviary_context
@@ -25,14 +26,11 @@ class TestOpenAICompatibility:
             model=openai_testing_model,
             prompt="Hello world",
             typical_p=0.1,
+            max_tokens=2,
         )
         assert completion.model == openai_testing_model
         assert completion.model
-        assert completion.usage.total_tokens == 21
-        assert completion.choices[0].finish_reason == "length"
-        assert (
-            30 < len(completion.choices[0].text) < 100
-        )  # roughly between 30 and 100 characters should be produced.
+        assert completion.choices[0].text == "test_0 test_1 "
 
     def test_chat(self, openai_testing_model):  # noqa: F811
         # create a chat completion
@@ -44,8 +42,26 @@ class TestOpenAICompatibility:
         assert chat_completion
         assert chat_completion.usage
         assert chat_completion.id
-        assert type(chat_completion.choices) == list
+        assert isinstance(chat_completion.choices, list)
         assert chat_completion.choices[0].message.content
+
+    def test_completions_bad_request(self, openai_testing_model):  # noqa: F811
+        with pytest.raises(openai.error.InvalidRequestError) as exc_info:
+            openai.Completion.create(
+                model=openai_testing_model,
+                prompt="Hello world",
+                temperature=-0.1,
+            )
+        assert "temperature" in str(exc_info.value)
+
+    def test_chat_bad_request(self, openai_testing_model):  # noqa: F811
+        with pytest.raises(openai.error.InvalidRequestError) as exc_info:
+            openai.ChatCompletion.create(
+                model=openai_testing_model,
+                messages=[{"role": "user", "content": "Hello world"}],
+                temperature=-0.1,
+            )
+        assert "temperature" in str(exc_info.value)
 
     def test_completions_stream(self, openai_testing_model):  # noqa: F811
         i = 0
@@ -55,7 +71,7 @@ class TestOpenAICompatibility:
             i += 1
             assert completion
             assert completion.id
-            assert type(completion.choices) == list
+            assert isinstance(completion.choices, list)
             assert isinstance(completion.choices[0].text, str)
         assert i > 4
 
@@ -72,19 +88,41 @@ class TestOpenAICompatibility:
             if i == 0:
                 assert chat_completion
                 assert chat_completion.id
-                assert type(chat_completion.choices) == list
+                assert isinstance(chat_completion.choices, list)
                 assert chat_completion.choices[0].delta.role
             else:
                 assert chat_completion
                 assert chat_completion.id
-                assert type(chat_completion.choices) == list
+                assert isinstance(chat_completion.choices, list)
                 assert chat_completion.choices[0].delta == {} or hasattr(
                     chat_completion.choices[0].delta, "content"
                 )
             i += 1
         assert chat_completion
         assert chat_completion.id
-        assert type(chat_completion.choices) == list
+        assert isinstance(chat_completion.choices, list)
         assert chat_completion.choices[0].delta == {}
         assert chat_completion.choices[0].finish_reason
         assert i > 4
+
+    def test_completions_stream_bad_request(self, openai_testing_model):  # noqa: F811
+        with pytest.raises(openai.error.APIError) as exc_info:
+            for _ in openai.Completion.create(
+                model=openai_testing_model,
+                prompt="Hello world",
+                stream=True,
+                temperature=-0.1,
+            ):
+                pass
+        assert "temperature" in str(exc_info.value)
+
+    def test_chat_stream(self, openai_testing_model):  # noqa: F811
+        with pytest.raises(openai.error.APIError) as exc_info:
+            for _chat_completion in openai.ChatCompletion.create(
+                model=openai_testing_model,
+                messages=[{"role": "user", "content": "Hello world"}],
+                stream=True,
+                temperature=-0.1,
+            ):
+                pass
+        assert "temperature" in str(exc_info.value)

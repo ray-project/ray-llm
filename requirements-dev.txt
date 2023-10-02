@@ -1,0 +1,16 @@
+openai
+pre-commit
+mypy_extensions
+ruff==0.0.270
+black==23.3.0
+types-PyYAML
+types-redis
+types-filelock
+types-requests
+types-cachetools
+pytest
+pytest-asyncio
+pytest-timeout
+buildkite-test-collector
+locust
+asynctest
