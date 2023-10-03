@@ -7,7 +7,7 @@ from ray import serve
 from aviary.backend.llm.vllm.vllm_engine import VLLMEngine
 from aviary.backend.llm.vllm.vllm_models import VLLMApp
 from aviary.backend.server.app import RouterDeployment
-from aviary.backend.server.models import LLMApp, ScalingConfig, RouterArgs
+from aviary.backend.server.models import LLMApp, RouterArgs, ScalingConfig
 from aviary.backend.server.plugins.deployment_base_client import DeploymentBaseClient
 from aviary.backend.server.plugins.execution_hooks import (
     ExecutionHooks,
