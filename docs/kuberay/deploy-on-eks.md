@@ -1,7 +1,9 @@
 # Deploy Aviary on Amazon EKS using KubeRay
+
 * Note that this document will be extended to include Ray autoscaling and the deployment of multiple models in the near future.
 
 # Part 1: Set up a Kubernetes cluster on Amazon EKS
+
 ## Step 1: Create a Kubernetes cluster on Amazon EKS
 
 Follow the first two steps in this [AWS documentation](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-console.html#)
@@ -100,7 +102,9 @@ kubectl apply -f ray-cluster.aviary-eks.yaml
 ```
 
 Something is worth noticing:
+
 * The `tolerations` for workers must match the taints on the GPU node group.
+
     ```yaml
     # Please add the following taints to the GPU node.
     tolerations:
@@ -109,7 +113,9 @@ Something is worth noticing:
         value: "worker"
         effect: "NoSchedule"
     ```
+
 * Update `rayStartParams.resources` for Ray scheduling. The `OpenAssistant--falcon-7b-sft-top1-696.yaml` file uses both `accelerator_type_cpu` and `accelerator_type_a10`.
+
     ```yaml
     # Ray head: The Ray head has a Pod resource limit of 2 CPUs.
     rayStartParams:
@@ -210,23 +216,13 @@ If this process takes longer, follow the instructions in [the RayService trouble
 ```yaml
 serveConfigV2: |
     applications:
-    - name: amazon--LightGPT
-      import_path: aviary.backend:llm_application
-      route_prefix: /amazon--LightGPT
-      args:
-        model: "./models/continuous_batching/amazon--LightGPT.yaml"
-    - name: OpenAssistant--falcon-7b-sft-top1-696
-      import_path: aviary.backend:llm_application
-      route_prefix: /OpenAssistant--falcon-7b-sft-top1-696
-      args:
-        model: "./models/continuous_batching/OpenAssistant--falcon-7b-sft-top1-696.yaml"
     - name: router
       import_path: aviary.backend:router_application
       route_prefix: /
       args:
         models:
-          amazon/LightGPT: ./models/continuous_batching/amazon--LightGPT.yaml
-          OpenAssistant/falcon-7b-sft-top1-696: ./models/continuous_batching/OpenAssistant--falcon-7b-sft-top1-696.yaml
+          - ./models/continuous_batching/amazon--LightGPT.yaml
+          - ./models/continuous_batching/OpenAssistant--falcon-7b-sft-top1-696.yaml
 ```
 
 In the YAML file, we use the `serveConfigV2` field to configure two LLM serve applications, one for LightGPT and one for Falcon-7B.

@@ -178,11 +178,12 @@ Note the following aspects of the YAML file:
     deploymentUnhealthySecondThreshold: 1200 # Config for the health check threshold for deployments. Default value is 60.
     serveConfigV2: |
         applications:
-        - name: amazon--LightGPT
-          import_path: aviary.backend:llm_application
-          route_prefix: /amazon--LightGPT
+        - name: router
+          import_path: aviary.backend:router_application
+          route_prefix: /
           args:
-            model: "./models/continuous_batching/amazon--LightGPT.yaml"
+            models:
+              - ./models/continuous_batching/amazon--LightGPT.yaml
     ```
 
     It also has a field `RayClusterSpec`, which describes the spec for the underlying `RayCluster`. Here we have used the same configuration as in `ray-cluster.aviary-gke.yaml` above, with the following change:
@@ -190,12 +191,9 @@ Note the following aspects of the YAML file:
 
 ## Step 7: Deploy an LLM model with Aviary
 
-
 In [Step 6](#step-6-deploy-aviary), if you used "Option 1: Deploy Aviary on a RayCluster", please follow [Step 7A](#step-7a-deploy-an-llm-model-with-aviary-on-a-raycluster).  Otherwise, if you used "Option 2: Deploy Aviary as a RayService", please follow [Step 7B](#step-7b-deploy-an-llm-model-with-aviary-as-a-rayservice).
 
 ### Step 7A: Deploy an LLM model with Aviary via SSH on a RayCluster
-
-
 
 ```sh
 # Step 7A.1: Log in to the head Pod
