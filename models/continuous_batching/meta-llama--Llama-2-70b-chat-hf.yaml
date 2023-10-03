@@ -14,7 +14,7 @@ deployment_config:
     resources:
       accelerator_type_a100_80g: 0.01
 engine_config:
-  model_id: vllm-meta-llama/Llama-2-70b-chat-hf
+  model_id: meta-llama/Llama-2-70b-chat-hf
   hf_model_id: meta-llama/Llama-2-70b-chat-hf
   type: VLLMEngine
   engine_kwargs:

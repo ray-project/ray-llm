@@ -14,7 +14,7 @@ deployment_config:
     resources:
       accelerator_type_a100_80g: 0.01
 engine_config:
-  model_id: vllm-codellama/CodeLlama-34b-Instruct-hf
+  model_id: codellama/CodeLlama-34b-Instruct-hf
   hf_model_id: codellama/CodeLlama-34b-Instruct-hf
   type: VLLMEngine
   engine_kwargs:
