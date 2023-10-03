@@ -7,13 +7,23 @@ spec:
   deploymentUnhealthySecondThreshold: 1200 # Config for the health check threshold for deployments. Default value is 60.
   serveConfigV2: |
       applications:
+      - name: amazon--LightGPT
+        import_path: aviary.backend:llm_application
+        route_prefix: /amazon--LightGPT
+        args:
+          model: "./models/continuous_batching/amazon--LightGPT.yaml"
+      - name: OpenAssistant--falcon-7b-sft-top1-696
+        import_path: aviary.backend:llm_application
+        route_prefix: /OpenAssistant--falcon-7b-sft-top1-696
+        args:
+          model: "./models/continuous_batching/OpenAssistant--falcon-7b-sft-top1-696.yaml"
       - name: router
         import_path: aviary.backend:router_application
         route_prefix: /
         args:
           models:
-            - ./models/continuous_batching/amazon--LightGPT.yaml
-            - ./models/continuous_batching/OpenAssistant--falcon-7b-sft-top1-696.yaml
+            amazon/LightGPT: ./models/continuous_batching/amazon--LightGPT.yaml
+            OpenAssistant/falcon-7b-sft-top1-696: ./models/continuous_batching/OpenAssistant--falcon-7b-sft-top1-696.yaml
   rayClusterConfig:
     # Ray head pod template
     headGroupSpec:
@@ -53,7 +63,7 @@ spec:
       # logical group name, for this called small-group, also can be functional
       groupName: gpu-group
       rayStartParams:
-        resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100_80g\": 2}"'
+        resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100\": 2}"'
       #pod template
       template:
         spec:
