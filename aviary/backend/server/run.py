@@ -115,6 +115,7 @@ def router_application(args):
     llm_apps = parse_args(router_args.models, llm_app_cls=VLLMApp)
     return router_deployment(llm_apps, enable_duplicate_models=False)
 
+
 def run(
     vllm_base_args: List[str],
     blocking: bool = False,
