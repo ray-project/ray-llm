@@ -7,7 +7,7 @@ from ray import serve
 from aviary.backend.llm.vllm.vllm_engine import VLLMEngine
 from aviary.backend.llm.vllm.vllm_models import VLLMApp
 from aviary.backend.server.app import RouterDeployment
-from aviary.backend.server.models import LLMApp, ScalingConfig
+from aviary.backend.server.models import LLMApp, RouterArgs, ScalingConfig
 from aviary.backend.server.plugins.deployment_base_client import DeploymentBaseClient
 from aviary.backend.server.plugins.execution_hooks import (
     ExecutionHooks,
@@ -111,7 +111,8 @@ def router_deployment(
 
 
 def router_application(args):
-    llm_apps = parse_args(args, llm_app_cls=VLLMApp)
+    router_args = RouterArgs.parse_obj(args)
+    llm_apps = parse_args(router_args.models, llm_app_cls=VLLMApp)
     return router_deployment(llm_apps, enable_duplicate_models=False)
 
 
