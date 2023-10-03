@@ -1,0 +1,7 @@
+applications:
+- name: amazon--LightGPT
+  route_prefix: /amazon--LightGPT
+  import_path: aviary.backend:router_application
+  args:
+    args:
+      - "./models/continuous_batching/amazon--LightGPT.yaml"
