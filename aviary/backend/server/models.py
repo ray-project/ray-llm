@@ -508,7 +508,7 @@ class AppArgs(BaseModel):
 
 
 class RouterArgs(BaseModel):
-    models: Union[str, LLMApp, List[Union[LLMApp, str]]]
+    models: Dict[str, Union[str, LLMApp]]
 
 
 class PlacementConfig(BaseModel):
