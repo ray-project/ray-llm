@@ -17,7 +17,7 @@ with open("requirements-docs.txt") as f:
 
 setup(
     name="aviary",
-    version="0.3.0",
+    version="0.3.1",
     description="A tool to deploy and query LLMs",
     packages=find_packages(include="aviary*"),
     include_package_data=True,
