@@ -78,7 +78,7 @@ ray up deploy/ray/aviary-cluster.yaml
 ray attach deploy/ray/aviary-cluster.yaml
 
 # Deploy the LightGPT model. 
-serve run serve/amazon--LightGPT.yaml
+serve run serve_configs/amazon--LightGPT.yaml
 ```
 
 You can deploy any model in the `models` directory of this repo, 
@@ -277,7 +277,7 @@ RayLLM uses the Ray Serve CLI that allows you to interact with deployed models.
 
 ```shell
 # Start a new model in Ray Serve from provided configuration
-serve run serve/<model_config_path>
+serve run serve_configs/<model_config_path>
 
 # Get the status of the running deployments
 serve status
@@ -307,7 +307,7 @@ The easiest way is to copy the configuration of the existing model's YAML file a
 Run multiple models at once by aggregating the Serve configs for different models into a single, unified config. For example, use this config to run the `LightGPT` and `Llama-2-7b-chat` model in a single Serve application:
 
 ```yaml
-# File name: serve/config.yaml
+# File name: serve_configs/config.yaml
 
 applications:
 - name: router
@@ -329,12 +329,12 @@ applications:
     model: "./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml"
 ```
 
-The config includes both models in the `model` argument for the `router`. Additionally, the Serve configs for both model applications are included. Save this unified config file to the `serve/` folder.
+The config includes both models in the `model` argument for the `router`. Additionally, the Serve configs for both model applications are included. Save this unified config file to the `serve_configs/` folder.
 
 Run the config to deploy the models:
 
 ```shell
-serve run serve/<config.yaml>
+serve run serve_configs/<config.yaml>
 ```
 
 ## How do I deploy a model to multiple nodes?
