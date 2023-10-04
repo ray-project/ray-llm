@@ -1,5 +1,5 @@
 applications:
-- name: amazon--LightGPT
+- name: ray-llm
   route_prefix: /
   import_path: aviary.backend:router_application
   args:
