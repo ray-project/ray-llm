@@ -1,6 +1,6 @@
 applications:
-- name: meta-llama--Llama-2-70b-chat-hf
-  route_prefix: /meta-llama--Llama-2-70b-chat-hf
+- name: ray-llm
+  route_prefix: /
   import_path: aviary.backend:router_application
   args:
     models:
