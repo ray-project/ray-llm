@@ -3,5 +3,5 @@ applications:
   route_prefix: /meta-llama--Llama-2-70b-chat-hf
   import_path: aviary.backend:router_application
   args:
-    args:
+    models:
       - "./models/continuous_batching/meta-llama--Llama-2-70b-chat-hf.yaml"
