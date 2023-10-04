@@ -116,10 +116,10 @@ Something is worth noticing:
       resources: '"{\"accelerator_type_cpu\": 2}"'
 
     # Ray workers: The Ray worker has a Pod resource limit of 48 CPUs and 4 GPUs.
-    # `accelerator_type_a10` and `accelerator_type_a100` below are only used for Ray logical-resource scheduling.
+    # `accelerator_type_a10` and `accelerator_type_a100_80g` below are only used for Ray logical-resource scheduling.
     # This does not imply that each worker has 2 A10 GPUs and 2 A100 GPUs.
     rayStartParams:
-      resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100\": 2}"'
+      resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100_80g\": 2}"'
     ```
 
 ## Step 2: Deploy an LLM model with RayLLM
