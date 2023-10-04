@@ -1,6 +1,6 @@
 applications:
 - name: amazon--LightGPT
-  route_prefix: /amazon--LightGPT
+  route_prefix: /
   import_path: aviary.backend:router_application
   args:
     models:
