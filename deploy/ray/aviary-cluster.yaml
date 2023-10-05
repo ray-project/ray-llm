@@ -61,7 +61,7 @@ available_node_types:
     resources:
       worker_node: 1
       instance_type_p4d: 1
-      accelerator_type_a10_40g: 1
+      accelerator_type_a100_40g: 1
     min_workers: 0
     max_workers: 8
   gpu_worker_p4de:
@@ -71,7 +71,7 @@ available_node_types:
     resources:
       worker_node: 1
       instance_type_p4de: 1
-      accelerator_type_a10_80g: 1
+      accelerator_type_a100_80g: 1
     min_workers: 0
     max_workers: 8
   cpu_worker:
