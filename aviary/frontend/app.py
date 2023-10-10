@@ -15,6 +15,7 @@ import ray
 import requests
 from ray import serve
 from ray.serve.gradio_integrations import GradioIngress
+from ray.serve._private.constants import SERVE_CONTROLLER_NAME, SERVE_NAMESPACE
 
 from aviary import sdk
 from aviary.common.constants import (
@@ -478,7 +479,7 @@ class AviaryFrontend(GradioIngress):
             pass
 
         # Get the port the serve app is running on
-        controller = ray.serve.context.get_global_client()._controller
+        controller = ray.get_actor(name=SERVE_CONTROLLER_NAME, namespace=SERVE_NAMESPACE)
         port = ray.get(controller.get_http_config.remote()).port
 
         blocks._queue.set_url(f"http://localhost:{port}{route_prefix}/")
