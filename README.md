@@ -84,7 +84,7 @@ or define your own model YAML file and run that instead.
 
 ### On Kubernetes
 
-For Kubernetes deployments, please see our extensive documentation for [deploying Ray Serve on KubeRay](https://docs.ray.io/en/latest/serve/production-guide/kubernetes.html).
+For Kubernetes deployments, please see our documentation for [deploying on KubeRay](https://github.com/ray-project/ray-llm/tree/master/docs/kuberay).
 
 ## Query your models
 
