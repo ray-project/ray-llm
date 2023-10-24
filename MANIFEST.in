@@ -1,5 +1,5 @@
-include README.md README.ipynb LICENSE *.sh
+include README.md LICENSE *.sh
 recursive-include tests *.py
 recursive-include models *.yaml
 recursive-include examples *.*
-recursive-include aviary/frontend *.js
+recursive-include rayllm/frontend *.js

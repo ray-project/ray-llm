@@ -1,7 +1,7 @@
 apiVersion: ray.io/v1alpha1
 kind: RayCluster
 metadata:
-  name: aviary
+  name: rayllm
 spec:
   # Ray head pod template
   headGroupSpec:
@@ -16,7 +16,7 @@ spec:
       spec:
         containers:
         - name: ray-head
-          image: anyscale/aviary:latest
+          image: anyscale/ray-llm:latest
           resources:
             limits:
               cpu: 2
@@ -45,7 +45,7 @@ spec:
       spec:
         containers:
         - name: llm
-          image: anyscale/aviary:latest
+          image: anyscale/ray-llm:latest
           lifecycle:
             preStop:
               exec:

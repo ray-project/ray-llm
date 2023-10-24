@@ -4,8 +4,8 @@ import time
 
 import pytest
 
-from aviary.backend.server.plugins.execution_hooks import ShieldedTaskSet
-from aviary.backend.server.utils import make_async
+from rayllm.backend.server.plugins.execution_hooks import ShieldedTaskSet
+from rayllm.backend.server.utils import make_async
 
 
 class AsyncCounter:

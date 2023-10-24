@@ -232,6 +232,7 @@ tag-mapping.json
 *.tmp
 deploy/anyscale/service.yaml
 out
+temp.py
 
 # build output
 build/
@@ -248,3 +249,7 @@ prompts.txt
 site/
 
 *.orig
+
+__pycache__
+
+.secretenv.yml

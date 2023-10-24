@@ -4,14 +4,14 @@ import pytest
 from starlette.requests import Request
 from starlette.responses import Response
 
-from aviary.backend.llm.vllm.vllm_models import VLLMChatCompletions, VLLMCompletions
-from aviary.backend.server.models import (
+from rayllm.backend.llm.vllm.vllm_models import VLLMChatCompletions, VLLMCompletions
+from rayllm.backend.server.models import (
     AviaryModelResponse,
     BatchedAviaryModelResponse,
     ErrorResponse,
     Message,
 )
-from aviary.backend.server.routers.router_app import (
+from rayllm.backend.server.routers.router_app import (
     _chat_completions_wrapper,
     _completions_wrapper,
 )

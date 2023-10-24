@@ -2,7 +2,7 @@ import openai
 import openai.error
 import pytest
 
-from aviary.sdk import openai_aviary_context
+from rayllm.sdk import openai_aviary_context
 
 
 @pytest.fixture

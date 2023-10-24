@@ -178,7 +178,7 @@ serve config
 # [Example output]
 # name: router
 # route_prefix: /
-# import_path: aviary.backend:router_application
+# import_path: rayllm.backend:router_application
 # args:
 #   models:
 #     meta-llama/Llama-2-7b-chat-hf: ./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
@@ -187,7 +187,7 @@ serve config
 
 # name: meta-llama--Llama-2-7b-chat-hf
 # route_prefix: /meta-llama--Llama-2-7b-chat-hf
-# import_path: aviary.backend:llm_application
+# import_path: rayllm.backend:llm_application
 # args:
 #   model: ./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
 
@@ -246,7 +246,7 @@ If this process takes longer, follow the instructions in [the RayService trouble
 serveConfigV2: |
     applications:
     - name: router
-      import_path: aviary.backend:router_application
+      import_path: rayllm.backend:router_application
       route_prefix: /
       args:
         models:

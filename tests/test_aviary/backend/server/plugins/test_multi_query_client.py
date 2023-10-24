@@ -6,10 +6,10 @@ from asynctest import CoroutineMock
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from aviary.backend.server.models import AviaryModelResponse, Prompt, QueuePriority
-from aviary.backend.server.plugins.execution_hooks import ExecutionHooks
-from aviary.backend.server.plugins.multi_query_client import MultiQueryClient
-from aviary.backend.server.plugins.router_query_engine import RouterQueryClient
+from rayllm.backend.server.models import AviaryModelResponse, Prompt, QueuePriority
+from rayllm.backend.server.plugins.execution_hooks import ExecutionHooks
+from rayllm.backend.server.plugins.multi_query_client import MultiQueryClient
+from rayllm.backend.server.plugins.router_query_engine import RouterQueryClient
 
 
 class FakeRouterQueryClient(RouterQueryClient):
