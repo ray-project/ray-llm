@@ -26,8 +26,8 @@ engine_config:
   generation:
     prompt_format:
       system: "<<SYS>>\n{instruction}\n<</SYS>>\n\n"
-      assistant: " {instruction} </s><s> "
-      trailing_assistant: " "
+      assistant: " {instruction} </s><s>"
+      trailing_assistant: ""
       user: "[INST] {system}{instruction} [/INST]"
       system_in_user: true
       default_system_message: ""

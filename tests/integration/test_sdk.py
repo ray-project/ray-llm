@@ -1,4 +1,4 @@
-from aviary import sdk
+from rayllm import sdk
 
 
 class TestAviarySDK:

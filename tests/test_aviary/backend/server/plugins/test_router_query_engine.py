@@ -5,11 +5,11 @@ from unittest.mock import Mock, patch
 import pytest
 from starlette.requests import Request
 
-from aviary.backend.llm.error_handling import InputTooLong, ValidationError
-from aviary.backend.server.models import AviaryModelResponse, Prompt, QueuePriority
-from aviary.backend.server.plugins.execution_hooks import ExecutionHooks
-from aviary.backend.server.plugins.router_query_engine import StreamingErrorHandler
-from aviary.backend.server.plugins.serve_application_query_client import (
+from rayllm.backend.llm.error_handling import InputTooLong, ValidationError
+from rayllm.backend.server.models import AviaryModelResponse, Prompt, QueuePriority
+from rayllm.backend.server.plugins.execution_hooks import ExecutionHooks
+from rayllm.backend.server.plugins.router_query_engine import StreamingErrorHandler
+from rayllm.backend.server.plugins.serve_application_query_client import (
     ServeApplicationQueryClient,
 )
 
@@ -52,7 +52,7 @@ async def test_serve_application_query_engine():
 
     out = None
     with patch.multiple(
-        "aviary.backend.server.plugins.serve_application_query_client",
+        "rayllm.backend.server.plugins.serve_application_query_client",
         stream_model_responses=mock_stream_model_responses,
     ):
         out: List[AviaryModelResponse] = await collect(
@@ -164,11 +164,11 @@ async def test_streaming_error_handler_validation_error(handler):
         last_response = response
     assert (
         last_response.error.message
-        == f"aviary.backend.llm.error_handling.ValidationError: error (Request ID: {request_id})"
+        == f"rayllm.backend.llm.error_handling.ValidationError: error (Request ID: {request_id})"
     )
     assert (
         last_response.error.internal_message
-        == f"aviary.backend.llm.error_handling.ValidationError: error (Request ID: {request_id})"
+        == f"rayllm.backend.llm.error_handling.ValidationError: error (Request ID: {request_id})"
     )
     assert last_response.error.type == "ValidationError"
     assert last_response.error.code == 400
@@ -185,11 +185,11 @@ async def test_streaming_error_handler_prompt_too_long(handler):
         last_response = response
     assert (
         last_response.error.message
-        == f"aviary.backend.llm.error_handling.PromptTooLongError: Input too long. Recieved 2 tokens, but the maximum input length is 1 tokens. (Request ID: {request_id})"
+        == f"rayllm.backend.llm.error_handling.PromptTooLongError: Input too long. Recieved 2 tokens, but the maximum input length is 1 tokens. (Request ID: {request_id})"
     )
     assert (
         last_response.error.internal_message
-        == f"aviary.backend.llm.error_handling.PromptTooLongError: Input too long. Recieved 2 tokens, but the maximum input length is 1 tokens. (Request ID: {request_id})"
+        == f"rayllm.backend.llm.error_handling.PromptTooLongError: Input too long. Recieved 2 tokens, but the maximum input length is 1 tokens. (Request ID: {request_id})"
     )
     assert last_response.error.type == "PromptTooLongError"
     assert last_response.error.code == 400

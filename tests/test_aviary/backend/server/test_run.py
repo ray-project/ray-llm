@@ -1,7 +1,7 @@
 import pytest
 
-from aviary.backend.server.models import ScalingConfig
-from aviary.backend.server.run import set_deployment_placement_options
+from rayllm.backend.server.models import ScalingConfig
+from rayllm.backend.server.run import set_deployment_placement_options
 
 
 def test_set_deployment_placement_options():

@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 
-from aviary.cli import app
+from rayllm.cli import app
 
 runner = CliRunner()
 

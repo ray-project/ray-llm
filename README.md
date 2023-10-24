@@ -37,7 +37,7 @@ We highly recommend using the official `anyscale/aviary` Docker image to run Ray
 ```shell
 cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}
 
-docker run -it --gpus all --shm-size 1g -p 8000:8000 -e HF_HOME=~/data -v $cache_dir:~/data anyscale/aviary:latest bash
+docker run -it --gpus all --shm-size 1g -p 8000:8000 -e HF_HOME=~/data -v $cache_dir:~/data anyscale/ray-llm:latest bash
 # Inside docker container
 aviary run --model ~/models/continuous_batching/amazon--LightGPT.yaml
 ```
@@ -307,7 +307,7 @@ Run multiple models at once by aggregating the Serve configs for different model
 
 applications:
 - name: router
-  import_path: aviary.backend:router_application
+  import_path: rayllm.backend:router_application
   route_prefix: /
   args:
     models:

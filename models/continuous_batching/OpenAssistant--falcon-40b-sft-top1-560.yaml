@@ -1,0 +1,43 @@
+deployment_config:
+  autoscaling_config:
+    min_replicas: 1
+    initial_replicas: 1
+    max_replicas: 1
+    target_num_ongoing_requests_per_replica: 100.0
+    metrics_interval_s: 10.0
+    look_back_period_s: 30.0
+    smoothing_factor: 1.0
+    downscale_delay_s: 300.0
+    upscale_delay_s: 60.0
+  max_concurrent_queries: 3000
+  ray_actor_options:
+    resources:
+      accelerator_type_a100_40g: 0.01
+engine_config:
+  model_id: OpenAssistant/falcon-40b-sft-top1-560
+  type: VLLMEngine
+  max_total_tokens: 2048
+  engine_kwargs:
+    trust_remote_code: true
+    max_num_batched_tokens: 2048
+    max_num_seqs: 32
+  generation:
+    generate_kwargs:
+      do_sample: true
+      temperature: 0.4
+      top_p: 0.9
+      return_token_type_ids: false
+    prompt_format:
+      system: "<|prefix_begin|>{instruction}<|prefix_end|>"
+      assistant: "<|assistant|>{instruction}<|endoftext|>"
+      trailing_assistant: "<|assistant|>"
+      user: "<|prompter|>{instruction}<|endoftext|>"
+      default_system_message: "Below are a series of dialogues between various people and an AI assistant. The AI tries to be helpful, polite, honest, sophisticated, emotionally aware, and humble-but-knowledgeable. The assistant is happy to help with almost anything, and will do its best to understand exactly what is needed. It also tries to avoid giving false or misleading information, and it caveats when it isn't entirely sure about the right answer. That said, the assistant is practical and really does its best, and doesn't let caution get too much in the way of being useful."
+    stopping_sequences: ["<|prompter|>", "<|assistant|>", "<|endoftext|>"]
+scaling_config:
+  num_workers: 4
+  num_gpus_per_worker: 1
+  num_cpus_per_worker: 8
+  placement_strategy: "STRICT_PACK"
+  resources_per_worker:
+    accelerator_type_a100_40g: 0.01
