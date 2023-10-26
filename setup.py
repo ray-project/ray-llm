@@ -17,7 +17,7 @@ with open("requirements-docs.txt") as f:
 
 setup(
     name="rayllm",
-    version="0.3.1",
+    version="0.4.0",
     description="A tool to deploy and query LLMs",
     packages=find_packages(include=["rayllm", "rayllm.*"]),
     include_package_data=True,
