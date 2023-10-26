@@ -32,14 +32,14 @@ The guide below walks you through the steps required for deployment of RayLLM on
 
 ### Locally
 
-We highly recommend using the official `anyscale/aviary` Docker image to run RayLLM. Manually installing RayLLM is currently not a supported use-case due to specific dependencies required, some of which are not available on pip.
+We highly recommend using the official `anyscale/rayllm` Docker image to run RayLLM. Manually installing RayLLM is currently not a supported use-case due to specific dependencies required, some of which are not available on pip.
 
 ```shell
 cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}
 
-docker run -it --gpus all --shm-size 1g -p 8000:8000 -e HF_HOME=~/data -v $cache_dir:~/data anyscale/ray-llm:latest bash
+docker run -it --gpus all --shm-size 1g -p 8000:8000 -e HF_HOME=~/data -v $cache_dir:~/data anyscale/rayllm:latest bash
 # Inside docker container
-aviary run --model ~/models/continuous_batching/amazon--LightGPT.yaml
+serve run ~/serve_config/amazon--LightGPT.yaml
 ```
 
 ### On a Ray Cluster
@@ -57,7 +57,7 @@ export AWS_SESSION_TOKEN=...
 
 Start by cloning this repo to your local machine.
 
-You may need to specify your AWS private key in the `deploy/ray/aviary-cluster.yaml` file.
+You may need to specify your AWS private key in the `deploy/ray/rayllm-cluster.yaml` file.
 See [Ray on Cloud VMs](https://docs.ray.io/en/latest/cluster/vms/index.html) page in
 Ray documentation for more details.
 
@@ -66,14 +66,14 @@ git clone https://github.com/ray-project/ray-llm.git
 cd ray-llm
 
 # Start a Ray Cluster (This will take a few minutes to start-up)
-ray up deploy/ray/aviary-cluster.yaml
+ray up deploy/ray/rayllm-cluster.yaml
 ```
 
 #### Connect to your Cluster
 
 ```shell
 # Connect to the Head node of your Ray Cluster (This will take several minutes to autoscale)
-ray attach deploy/ray/aviary-cluster.yaml
+ray attach deploy/ray/rayllm-cluster.yaml
 
 # Deploy the LightGPT model. 
 serve run serve_configs/amazon--LightGPT.yaml
@@ -91,7 +91,7 @@ For Kubernetes deployments, please see our documentation for [deploying on KubeR
 Once the models are deployed, you can install a client outside of the Docker container to query the backend.
 
 ```shell
-pip install "aviary @ git+https://github.com/ray-project/ray-llm.git"
+pip install "rayllm @ git+https://github.com/ray-project/ray-llm.git"
 ```
 
 You can query your RayLLM deployment in many ways.
@@ -219,7 +219,7 @@ print(chat_completion)
 To install RayLLM and its dependencies, run the following command:
 
 ```shell
-pip install "aviary @ git+https://github.com/ray-project/ray-llm.git"
+pip install "rayllm @ git+https://github.com/ray-project/ray-llm.git"
 ```
 
 RayLLM consists of a set of configurations and utilities for deploying LLMs on Ray Serve,
@@ -227,11 +227,11 @@ in addition to a frontend (Aviary Explorer), both of which come with additional
 dependencies. To install the dependencies for the frontend run the following commands:
 
 ```shell
-pip install "aviary[frontend] @ git+https://github.com/ray-project/ray-llm.git"
+pip install "rayllm[frontend] @ git+https://github.com/ray-project/ray-llm.git"
 ```
 
 The backend dependencies are heavy weight, and quite large. We recommend using the official
-`anyscale/aviary` image. Installing the backend manually is not a supported usecase.
+`anyscale/rayllm` image. Installing the backend manually is not a supported usecase.
 
 ## Running Aviary Explorer locally
 

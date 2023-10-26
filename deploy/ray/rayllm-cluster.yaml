@@ -1,5 +1,5 @@
 # An unique identifier for the head node and workers of this cluster.
-cluster_name: aviary-deploy
+cluster_name: rayllm-deploy
 
 # Cloud-provider specific configuration.
 provider:
@@ -7,8 +7,8 @@ provider:
     region: us-west-2
     cache_stopped_nodes: False
 docker:
-    image: "anyscale/ray-llm:latest"
-    container_name: "aviary"
+    image: "anyscale/rayllm:latest"
+    container_name: "rayllm"
     run_options:
       - --entrypoint ""
 

@@ -41,8 +41,8 @@ docker run \
     -e HUGGING_FACE_HUB_TOKEN=<your_token> \
     --shm-size 1g \
     -p 8000:8000 \
-    --entrypoint aviary \
-    anyscale/ray-llm:latest run --model models/continuous_batching/amazon--LightGPT.yaml
+    --entrypoint rayllm \
+    anyscale/rayllm:latest run --model models/continuous_batching/amazon--LightGPT.yaml
 ```
 
 # Source

@@ -1,8 +1,13 @@
 import logging
 import time
-from typing import TYPE_CHECKING, Any, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type, Union
 
+import ray
 from ray.util.placement_group import PlacementGroup
+from vllm.config import CacheConfig as VllmCacheConfig
+from vllm.config import ModelConfig as VllmModelConfig
+from vllm.config import ParallelConfig as VllmParallelConfig
+from vllm.config import SchedulerConfig as VllmSchedulerConfig
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine, AsyncStream, _AsyncLLMEngine
 
@@ -20,6 +25,10 @@ if TYPE_CHECKING:
     from vllm.sampling_params import SamplingParams
 
 logger = logging.getLogger(__name__)
+
+VllmConfigs = Tuple[
+    VllmCacheConfig, VllmModelConfig, VllmParallelConfig, VllmSchedulerConfig
+]
 
 
 class AviaryLLMEngine(_AsyncLLMEngine):
@@ -89,6 +98,27 @@ class AviaryLLMEngine(_AsyncLLMEngine):
         return last_stats
 
 
+def _get_vllm_engine_config(vllm_app) -> Tuple[AsyncEngineArgs, VllmConfigs]:
+    # Generate engine arguements and engine configs
+
+    async_engine_args = AsyncEngineArgs(
+        # This is the local path on disk, or the hf model id
+        # If it is the hf_model_id, vllm automatically downloads the correct model.
+        **dict(
+            model=vllm_app.engine_config.actual_hf_model_id,
+            worker_use_ray=True,
+            engine_use_ray=False,
+            tensor_parallel_size=vllm_app.placement_config.world_size,
+            max_model_len=vllm_app.engine_config.max_total_tokens,
+            disable_log_stats=False,
+            max_log_len=64,
+            **vllm_app.engine_config.get_initialization_kwargs(),
+        )
+    )
+    configs = async_engine_args.create_engine_configs()
+    return async_engine_args, configs
+
+
 class AviaryAsyncLLMEngine(AsyncLLMEngine):
     _engine_class: Type[_AsyncLLMEngine] = AviaryLLMEngine
 
@@ -116,15 +146,25 @@ class AviaryAsyncLLMEngine(AsyncLLMEngine):
         )
 
     @classmethod
-    def from_engine_args(
+    def from_llm_app(
         cls,
-        engine_args: AsyncEngineArgs,
+        vllm_app: VLLMApp,
         placement_group: PlacementGroup,
         runtime_env: dict,
-    ) -> "AsyncLLMEngine":
+    ) -> "AviaryAsyncLLMEngine":
         """Creates an async LLM engine from the engine arguments."""
-        # Create the engine configs.
-        engine_configs = engine_args.create_engine_configs()
+
+        scaling_config = vllm_app.get_scaling_options(placement_group)
+        # When using gpu special type, vllm does a type check that requires
+        # torch to have access to CUDA devices. We use a remote task
+        # with `num_gpus` set here, so the type check happens in an environment
+        # with `CUDA_VISIBLE_DEVICES` set.
+        engine_args, engine_configs = ray.get(
+            ray.remote(_get_vllm_engine_config)
+            .options(**scaling_config)
+            .remote(vllm_app)
+        )
+
         # Create the async LLM engine.
         engine = cls(
             engine_args.worker_use_ray,
@@ -139,27 +179,3 @@ class AviaryAsyncLLMEngine(AsyncLLMEngine):
             start_engine_loop=True,
         )
         return engine
-
-    @classmethod
-    def from_llm_app(
-        cls,
-        vllm_app: VLLMApp,
-        placement_group: PlacementGroup,
-        runtime_env: dict,
-    ) -> "AviaryAsyncLLMEngine":
-        """Creates an async LLM engine from the engine arguments."""
-        async_engine_args = AsyncEngineArgs(
-            # This is the local path on disk, or the hf model id
-            # If it is the hf_model_id, vllm automatically downloads the correct model.
-            **dict(
-                model=vllm_app.engine_config.actual_hf_model_id,
-                worker_use_ray=True,
-                engine_use_ray=False,
-                tensor_parallel_size=vllm_app.placement_config.world_size,
-                max_model_len=vllm_app.engine_config.max_total_tokens,
-                disable_log_stats=False,
-                max_log_len=64,
-                **vllm_app.engine_config.get_initialization_kwargs(),
-            )
-        )
-        return cls.from_engine_args(async_engine_args, placement_group, runtime_env)

@@ -98,7 +98,7 @@ The second option is recommended for production use due to the additional high a
 
 ```sh
 # path: docs/kuberay
-kubectl apply -f ray-cluster.aviary-eks.yaml
+kubectl apply -f ray-cluster.rayllm-eks.yaml
 ```
 
 Something is worth noticing:
@@ -232,10 +232,10 @@ curl http://localhost:8000/v1/chat/completions \
 
 ```sh
 # path: docs/kuberay
-kubectl apply -f ray-service.aviary-eks.yaml
+kubectl apply -f ray-service.rayllm-eks.yaml
 ```
 
-The `spec.rayClusterConfig` in `ray-service.aviary-eks.yaml` is the same as the `spec` in `ray-cluster.aviary-eks.yaml`.
+The `spec.rayClusterConfig` in `ray-service.rayllm-eks.yaml` is the same as the `spec` in `ray-cluster.rayllm-eks.yaml`.
 The only difference lies in the `serve` port, which is required for both the Ray head and Ray worker Pods in the case of RayService.
 Hence, you can refer to Part 3 for more details about how to configure the RayCluster.
 
@@ -331,9 +331,9 @@ Check out the RayLLM README to learn more ways to query models, such as with the
 ```sh
 # path: docs/kuberay
 # Case 1: RayLLM was deployed on a RayCluster
-kubectl delete -f ray-cluster.aviary-eks.yaml
+kubectl delete -f ray-cluster.rayllm-eks.yaml
 # Case 2: RayLLM was deployed as a RayService
-kubectl delete -f ray-service.aviary-eks.yaml
+kubectl delete -f ray-service.rayllm-eks.yaml
 
 # Uninstall the KubeRay operator chart
 helm uninstall kuberay-operator

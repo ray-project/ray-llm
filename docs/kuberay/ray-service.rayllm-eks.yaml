@@ -13,6 +13,7 @@ spec:
         args:
           models:
             - ./models/continuous_batching/amazon--LightGPT.yaml
+            - ./models/continuous_batching/OpenAssistant--falcon-7b-sft-top1-696.yaml
   rayClusterConfig:
     # Ray head pod template
     headGroupSpec:
@@ -27,7 +28,7 @@ spec:
         spec:
           containers:
           - name: ray-head
-            image: anyscale/ray-llm:latest
+            image: anyscale/rayllm:latest
             resources:
               limits:
                 cpu: 2
@@ -53,12 +54,12 @@ spec:
       groupName: gpu-group
       rayStartParams:
         resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100_80g\": 2}"'
-      # Pod template
+      #pod template
       template:
         spec:
           containers:
           - name: llm
-            image: anyscale/ray-llm:latest
+            image: anyscale/rayllm:latest
             lifecycle:
               preStop:
                 exec:
@@ -81,5 +82,3 @@ spec:
               operator: "Equal"
               value: "worker"
               effect: "NoSchedule"
-          nodeSelector:
-            cloud.google.com/gke-accelerator: nvidia-l4-vws
