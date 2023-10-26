@@ -21,7 +21,7 @@ engine_config:
     trust_remote_code: true
     max_num_batched_tokens: 4096
     max_num_seqs: 64
-    gpu_memory_utilization: 0.95
+    gpu_memory_utilization: 0.9
   max_total_tokens: 4096
   generation:
     prompt_format:
