@@ -5,10 +5,10 @@ Each model is defined by a YAML configuration file in this directory.
 ## Modify an existing model
 
 To modify an existing model, simply edit the YAML file for that model.
-Each config file consists of three sections: 
+Each config file consists of three sections:
 
-- `deployment_config`, 
-- `engine_config`, 
+- `deployment_config`,
+- `engine_config`,
 - `scaling_config`.
 
 It's best to check out examples of existing models to see how they are configured.
@@ -29,12 +29,12 @@ The `engine_config` section specifies the Hugging Face model ID (`model_id`), ho
 
 RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others.
 
-* `model_id` is the model ID. This is the ID that is used to refer to the model in the RayLLM API.
-* `type` is the type of the engine. Currently that's only `VLLMEngine`.
-* `generation` contains configuration related to default generation parameters.
-* `hf_model_id` is the Hugging Face model ID. This can also be a path to a local directory. If not specified, defaults to `model_id`.
-* `runtime_env` is a dictionary that contains Ray runtime environment configuration. It allows you to set per-model pip packages and environment variables. See [Ray documentation on Runtime Environments](https://docs.ray.io/en/latest/ray-core/handling-dependencies.html#runtime-environments) for more information.
-* `s3_mirror_config` is a dictionary that contains configuration for loading the model from S3 instead of Hugging Face Hub. You can use this to speed up downloads.
+- `model_id` is the model ID. This is the ID that is used to refer to the model in the RayLLM API.
+- `type` is the type of the engine. Currently that's only `VLLMEngine`.
+- `generation` contains configuration related to default generation parameters.
+- `hf_model_id` is the Hugging Face model ID. This can also be a path to a local directory. If not specified, defaults to `model_id`.
+- `runtime_env` is a dictionary that contains Ray runtime environment configuration. It allows you to set per-model pip packages and environment variables. See [Ray documentation on Runtime Environments](https://docs.ray.io/en/latest/ray-core/handling-dependencies.html#runtime-environments) for more information.
+- `s3_mirror_config` is a dictionary that contains configuration for loading the model from S3 instead of Hugging Face Hub. You can use this to speed up downloads.
 
 ### Scaling config
 
@@ -47,7 +47,7 @@ If you need to learn more about a specific configuration option, or need to add 
 ## Adding a new model
 
 To add an entirely new model to the zoo, you will need to create a new YAML file.
-This file should follow the naming convention 
+This file should follow the naming convention
 `<organisation-name>--<model-name>-<model-parameters>-<extra-info>.yaml`. We recommend using one of the existing models as a template (ideally, one that is the same architecture as the model you are adding).
 
 ```yaml
@@ -80,6 +80,10 @@ engine_config:
   # vLLM keyword arguments passed when constructing the model.
   engine_kwargs:
     trust_remote_code: true
+    # Optional quantization configuration
+    # Set the quantization method to 'awq' when serving an AWQ quantized model.
+    # As of vllm 0.2.0, AWQ quantization is supported.
+    quantization: awq
   # Optional Ray Runtime Environment configuration. See Ray documentation for more details.
   # Add dependent libraries, environment variables, etc.
   runtime_env:
