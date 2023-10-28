@@ -1,7 +1,8 @@
 import pytest
 from pydantic import ValidationError
+from transformers import AutoTokenizer
 
-from aviary.common.models import Message, Prompt, PromptFormat
+from rayllm.common.models import Message, Prompt, PromptFormat
 
 
 def test_prompt_format_with_prompt_obj():
@@ -486,3 +487,100 @@ def test_prompt_format_strip_whitespace():
         prompt
         == "[user] hello1  [/user] [assistant]  hello2 [/assistant] [user] hello3 [/user] [assistant]"
     )
+
+
+def test_prompt_format_equivalency_llama():
+    model = "meta-llama/Llama-2-7b-chat-hf"
+    tokenizer = AutoTokenizer.from_pretrained(model)
+
+    prompt_format = PromptFormat(
+        system="<<SYS>>\n{instruction}\n<</SYS>>\n\n",
+        assistant=" {instruction} </s><s>",
+        trailing_assistant="",
+        user="[INST] {system}{instruction} [/INST]",
+        default_system_message="",
+        system_in_user=True,
+    )
+
+    conversations = [
+        [Message(role="user", content="hello1")],
+        [
+            Message(role="system", content="hello1"),
+            Message(role="user", content="hello2"),
+        ],
+        [
+            Message(role="user", content="hello1"),
+            Message(role="assistant", content="hello2"),
+            Message(role="user", content="hello3"),
+        ],
+        [
+            Message(role="system", content="hello1"),
+            Message(role="user", content="hello2"),
+            Message(role="assistant", content="hello3"),
+            Message(role="user", content="hello4"),
+        ],
+        [
+            Message(role="user", content="hello1"),
+            Message(role="assistant", content="hello2"),
+            Message(role="user", content="hello3"),
+            Message(role="assistant", content="hello4"),
+            Message(role="user", content="hello5"),
+        ],
+        [
+            Message(role="system", content="hello1"),
+            Message(role="user", content="hello2"),
+            Message(role="assistant", content="hello3"),
+            Message(role="user", content="hello4"),
+            Message(role="assistant", content="hello5"),
+            Message(role="user", content="hello6"),
+        ],
+    ]
+    for conversation in conversations:
+        dict_conversation = [message.dict() for message in conversation]
+        reference_tokens = tokenizer.apply_chat_template(
+            dict_conversation, tokenize=True
+        )
+        our_tokens = tokenizer.encode(prompt_format.generate_prompt(conversation))
+        assert reference_tokens == our_tokens
+
+
+def test_prompt_format_equivalency_mistral():
+    model = "mistralai/Mistral-7B-Instruct-v0.1"
+    tokenizer = AutoTokenizer.from_pretrained(model)
+
+    prompt_format = PromptFormat(
+        system="{instruction} + ",
+        assistant="{instruction}</s> ",
+        trailing_assistant="",
+        user="[INST] {system}{instruction} [/INST]",
+        default_system_message="",
+        system_in_user=True,
+    )
+
+    conversations = [
+        [Message(role="user", content="hello1")],
+        [
+            Message(role="user", content="hello1"),
+            Message(role="assistant", content="hello2"),
+            Message(role="user", content="hello3"),
+        ],
+        [
+            Message(role="user", content="hello2"),
+            Message(role="assistant", content="hello3"),
+            Message(role="user", content="hello4"),
+        ],
+        [
+            Message(role="user", content="hello1"),
+            Message(role="assistant", content="hello2"),
+            Message(role="user", content="hello3"),
+            Message(role="assistant", content="hello4"),
+            Message(role="user", content="hello5"),
+        ],
+    ]
+    for conversation in conversations:
+        dict_conversation = [message.dict() for message in conversation]
+        reference_tokens = tokenizer.apply_chat_template(
+            dict_conversation, tokenize=True
+        )
+        our_tokens = tokenizer.encode(prompt_format.generate_prompt(conversation))
+        assert reference_tokens == our_tokens

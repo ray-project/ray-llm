@@ -16,15 +16,15 @@ with open("requirements-docs.txt") as f:
     required_docs = f.read().splitlines()
 
 setup(
-    name="aviary",
-    version="0.3.1",
+    name="rayllm",
+    version="0.4.0",
     description="A tool to deploy and query LLMs",
-    packages=find_packages(include="aviary*"),
+    packages=find_packages(include=["rayllm", "rayllm.*"]),
     include_package_data=True,
-    package_data={"aviary": ["models/*"]},
+    package_data={"rayllm": ["models/*"]},
     entry_points={
         "console_scripts": [
-            "aviary=aviary.cli:app",
+            "rayllm=rayllm.cli:app",
         ]
     },
     install_requires=required,

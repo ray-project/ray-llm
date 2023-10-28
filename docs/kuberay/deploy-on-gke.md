@@ -57,7 +57,7 @@ tolerations:
   effect: NoSchedule
 ```
 
-This toleration has already been added to the RayCluster YAML manifest `ray-cluster.aviary-gke.yaml` used in Step 6.
+This toleration has already been added to the RayCluster YAML manifest `ray-cluster.rayllm-gke.yaml` used in Step 6.
 
 For more on taints and tolerations, see the [Kubernetes documentation](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
 
@@ -100,13 +100,13 @@ helm repo update
 
 ## Step 6: Create a RayCluster with RayLLM
 
-If you are running this tutorial on the Google Cloud Shell, please copy the file `docs/kuberay/ray-cluster.aviary-gke.yaml` to the Google Cloud Shell. You may find it useful to use the [Cloud Shell Editor](https://cloud.google.com/shell/docs/editor-overview) to edit the file.
+If you are running this tutorial on the Google Cloud Shell, please copy the file `docs/kuberay/ray-cluster.rayllm-gke.yaml` to the Google Cloud Shell. You may find it useful to use the [Cloud Shell Editor](https://cloud.google.com/shell/docs/editor-overview) to edit the file.
 
-Now you can create a RayCluster with RayLLM. RayLLM is included in the image `anyscale/aviary:latest`, which is specified in the RayCluster YAML manifest `ray-cluster.aviary-gke.yaml`.
+Now you can create a RayCluster with RayLLM. RayLLM is included in the image `anyscale/rayllm:latest`, which is specified in the RayCluster YAML manifest `ray-cluster.rayllm-gke.yaml`.
 
 ```sh
 # path: docs/kuberay
-kubectl apply -f ray-cluster.aviary-gke.yaml
+kubectl apply -f ray-cluster.rayllm-gke.yaml
 ```
 
 Note the following aspects of the YAML file:
@@ -179,7 +179,7 @@ serve config
 # [Example output]
 # name: router
 # route_prefix: /
-# import_path: aviary.backend:router_application
+# import_path: rayllm.backend:router_application
 # args:
 #   models:
 #     meta-llama/Llama-2-7b-chat-hf: ./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
@@ -188,7 +188,7 @@ serve config
 
 # name: meta-llama--Llama-2-7b-chat-hf
 # route_prefix: /meta-llama--Llama-2-7b-chat-hf
-# import_path: aviary.backend:llm_application
+# import_path: rayllm.backend:llm_application
 # args:
 #   model: ./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
 
@@ -234,7 +234,7 @@ curl http://localhost:8000/v1/chat/completions \
 ```sh
 # Step 8.1: Delete the RayCluster
 # path: docs/kuberay
-kubectl delete -f ray-cluster.aviary-gke.yaml
+kubectl delete -f ray-cluster.rayllm-gke.yaml
 
 # Step 8.2: Uninstall the KubeRay operator chart
 helm uninstall kuberay-operator

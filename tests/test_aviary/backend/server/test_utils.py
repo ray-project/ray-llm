@@ -1,8 +1,8 @@
 import pytest
 import ray
 
-from aviary.backend.server.models import AviaryModelResponse
-from aviary.backend.server.utils import (
+from rayllm.backend.server.models import AviaryModelResponse
+from rayllm.backend.server.utils import (
     extract_message_from_exception,
     get_lines_batched,
     get_model_response_batched,

@@ -1,15 +1,8 @@
 import pytest
 
-from aviary.backend.llm.vllm.vllm_engine import VLLMEngine
-from aviary.backend.llm.vllm.vllm_models import (
-    VLLMApp,
-    VLLMEngineConfig,
-)
-from aviary.backend.server.models import (
-    GenerationConfig,
-    PromptFormat,
-    ScalingConfig,
-)
+from rayllm.backend.llm.vllm.vllm_engine import VLLMEngine
+from rayllm.backend.llm.vllm.vllm_models import VLLMApp, VLLMEngineConfig
+from rayllm.backend.server.models import GenerationConfig, PromptFormat, ScalingConfig
 
 MODEL_ID = "hf-internal-testing/tiny-random-gpt2"
 

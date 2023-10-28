@@ -1,10 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from aviary.backend.server.models import (
-    SamplingParams,
-)
-from aviary.env_conf import MAX_NUM_STOPPING_SEQUENCES
+from rayllm.backend.server.models import SamplingParams
+from rayllm.env_conf import MAX_NUM_STOPPING_SEQUENCES
 
 
 def test_sampling_params():

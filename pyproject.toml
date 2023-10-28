@@ -5,5 +5,5 @@ ignore = ["F403", "B905"]
 
 [[tool.mypy.overrides]]
 # TODO (temporarily ignoring aviary issues) remove this
-module = "aviary.*"
+module = "rayllm.*"
 ignore_errors = true

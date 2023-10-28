@@ -1,7 +1,7 @@
 applications:
 - name: ray-llm
   route_prefix: /
-  import_path: aviary.backend:router_application
+  import_path: rayllm.backend:router_application
   args:
     models:
       - "./models/continuous_batching/codellama--CodeLlama-34b-Instruct-hf.yaml"

@@ -1,7 +1,9 @@
 from unittest.mock import MagicMock, patch
 
-from aviary.backend.llm.utils import get_aws_credentials
-from aviary.backend.server.models import S3AWSCredentials
+from pytest import mark, raises
+
+from rayllm.backend.llm.utils import get_aws_credentials, get_gcs_bucket_name_and_prefix
+from rayllm.backend.server.models import S3AWSCredentials
 
 
 @patch("os.getenv")
@@ -72,3 +74,43 @@ def test_get_aws_credentials_request_failure(mock_post):
         "http://dummy-url.com",
         headers=None,
     )
+
+
+class TestGetGcsBucketNameAndPrefix:
+    def run_and_validate(
+        self, gcs_uri: str, expected_bucket_name: str, expected_prefix: str
+    ):
+        bucket_name, prefix = get_gcs_bucket_name_and_prefix(gcs_uri)
+
+        assert bucket_name == expected_bucket_name
+        assert prefix == expected_prefix
+
+    @mark.parametrize("trailing_slash", [True, False])
+    def test_plain_bucket_name(self, trailing_slash: bool):
+        gcs_uri = "gs://bucket_name"
+        if trailing_slash:
+            gcs_uri += "/"
+
+        expected_bucket_name = "bucket_name"
+        expected_prefix = ""
+
+        self.run_and_validate(gcs_uri, expected_bucket_name, expected_prefix)
+
+    @mark.parametrize("trailing_slash", [True, False])
+    def test_bucket_name_with_prefix(self, trailing_slash: bool):
+        gcs_uri = "gs://bucket_name/my/prefix"
+        if trailing_slash:
+            gcs_uri += "/"
+
+        expected_bucket_name = "bucket_name"
+        expected_prefix = "my/prefix/"
+
+        self.run_and_validate(gcs_uri, expected_bucket_name, expected_prefix)
+
+    def test_invalid_uri(self):
+        gcs_uri = "s3://bucket/prefix"
+        expected_bucket_name = None
+        expected_prefix = None
+
+        with raises(ValueError):
+            self.run_and_validate(gcs_uri, expected_bucket_name, expected_prefix)

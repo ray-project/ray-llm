@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from fastapi.datastructures import State
 
-from aviary.backend.observability import request_context
+from rayllm.backend.observability import request_context
 
 
 async def nested(state_value, level=5):
