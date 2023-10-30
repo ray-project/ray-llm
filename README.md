@@ -32,12 +32,12 @@ The guide below walks you through the steps required for deployment of RayLLM on
 
 ### Locally
 
-We highly recommend using the official `anyscale/rayllm` Docker image to run RayLLM. Manually installing RayLLM is currently not a supported use-case due to specific dependencies required, some of which are not available on pip.
+We highly recommend using the official `anyscale/ray-llm` Docker image to run RayLLM. Manually installing RayLLM is currently not a supported use-case due to specific dependencies required, some of which are not available on pip.
 
 ```shell
 cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}
 
-docker run -it --gpus all --shm-size 1g -p 8000:8000 -e HF_HOME=~/data -v $cache_dir:~/data anyscale/rayllm:latest bash
+docker run -it --gpus all --shm-size 1g -p 8000:8000 -e HF_HOME=~/data -v $cache_dir:~/data anyscale/ray-llm:latest bash
 # Inside docker container
 serve run ~/serve_config/amazon--LightGPT.yaml
 ```
