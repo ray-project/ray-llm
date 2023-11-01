@@ -102,7 +102,7 @@ helm repo update
 
 If you are running this tutorial on the Google Cloud Shell, please copy the file `docs/kuberay/ray-cluster.rayllm-gke.yaml` to the Google Cloud Shell. You may find it useful to use the [Cloud Shell Editor](https://cloud.google.com/shell/docs/editor-overview) to edit the file.
 
-Now you can create a RayCluster with RayLLM. RayLLM is included in the image `anyscale/rayllm:latest`, which is specified in the RayCluster YAML manifest `ray-cluster.rayllm-gke.yaml`.
+Now you can create a RayCluster with RayLLM. RayLLM is included in the image `anyscale/ray-llm:latest`, which is specified in the RayCluster YAML manifest `ray-cluster.rayllm-gke.yaml`.
 
 ```sh
 # path: docs/kuberay
