@@ -142,7 +142,7 @@ export HEAD_POD=$(kubectl get pods --selector=ray.io/node-type=head -o custom-co
 kubectl exec -it $HEAD_POD -- bash
 
 # Step 7.2: Deploy the `meta-llama/Llama-2-7b-chat-hf` model
-serve run serve/meta-llama--Llama-2-7b-chat-hf.yaml
+serve run serve_configs/meta-llama--Llama-2-7b-chat-hf.yaml
 
 # Step 7.3: Check the Serve application status
 serve status
