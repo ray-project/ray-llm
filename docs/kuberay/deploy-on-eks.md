@@ -141,7 +141,7 @@ export HUGGING_FACE_HUB_TOKEN=${YOUR_HUGGING_FACE_HUB_TOKEN}
 
 # Step 7.3: Deploy an LLM model. You can deploy Falcon-7B if you don't have a Hugging Face Hub token.
 # (1) Llama 2 7B
-serve run serve/meta-llama--Llama-2-7b-chat-hf.yaml
+serve run serve_configs/meta-llama--Llama-2-7b-chat-hf.yaml
 
 # Step 7.3: Check the Serve application status
 serve status

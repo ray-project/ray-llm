@@ -249,13 +249,13 @@ Once you have set these environment variables, you can run the frontend with the
 following command:
 
 ```shell
-serve run aviary.frontend.app:app --non-blocking
+serve run rayllm.frontend.app:app --non-blocking
 ```
 
 You will be able to access it at `http://localhost:8000/frontend` in your browser.
 
 To just use the Gradio frontend without Ray Serve, you can start it
-with `python aviary/frontend/app.py`. In that case, the Gradio interface should be accessible at `http://localhost:7860` in your browser.
+with `python rayllm/frontend/app.py`. In that case, the Gradio interface should be accessible at `http://localhost:7860` in your browser.
 If running the frontend yourself is not an option, you can still use
 [our hosted version](http://aviary.anyscale.com/) for your experiments.
 
