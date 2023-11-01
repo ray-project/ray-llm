@@ -19,7 +19,12 @@ The `deployment_config` section corresponds to
 [Ray Serve configuration](https://docs.ray.io/en/latest/serve/production-guide/config.html)
 and specifies how to [auto-scale the model](https://docs.ray.io/en/latest/serve/scaling-and-resource-allocation.html)
 (via `autoscaling_config`) and what specific options you may need for your
-Ray Actors during deployments (using `ray_actor_options`).
+Ray Actors during deployments (using `ray_actor_options`). We recommend using the values from our sample configuration files for `metrics_interval_s`, `look_back_period_s`, `smoothing_factor`, `downscale_delay_s` and `upscale_delay_s`. These are the configuration options you may want to modify:
+
+* `min_replicas`, `initial_replicas`, `max_replicas` - Minimum, initial and maximum number of replicas of the model to deploy on your Ray cluster.
+* `max_concurrent_queries` - Maximum number of queries that a Ray Serve replica can process at a time. Additional queries are queued at the proxy.
+* `target_num_ongoing_requests_per_replica` - Guides the auto-scaling behavior. If the average number of ongoing requests across replicas is above this number, Ray Serve attempts to scale up the number of replicas, and vice-versa for downscaling. We typically set this to ~40% of the `max_concurrent_queries`.
+* `ray_actor_options` - Similar to the `resources_per_worker` configuration in the `scaling_config`. Refer to the `scaling_config` section for more guidance.
 
 ### Engine config
 
@@ -29,18 +34,24 @@ The `engine_config` section specifies the Hugging Face model ID (`model_id`), ho
 
 RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others.
 
-* `model_id` is the model ID. This is the ID that is used to refer to the model in the RayLLM API.
-* `type` is the type of the engine. Currently that's only `VLLMEngine`.
-* `generation` contains configuration related to default generation parameters.
+* `model_id` is the ID that refers to the model in the RayLLM or OpenAI API.
+* `type` is the type of  inference engine. Only `VLLMEngine` is currently supported.
+* `engine_kwargs` and `max_total_tokens` are configuration options for the inference engine. These options may vary depending on the hardware accelerator type and model size. We have tuned the parameters in the configuration files included in RayLLM for you to use as reference. 
+* `generation` contains configurations related to default generation parameters such as `prompt_format` and `stopping_sequences`.
 * `hf_model_id` is the Hugging Face model ID. This can also be a path to a local directory. If not specified, defaults to `model_id`.
 * `runtime_env` is a dictionary that contains Ray runtime environment configuration. It allows you to set per-model pip packages and environment variables. See [Ray documentation on Runtime Environments](https://docs.ray.io/en/latest/ray-core/handling-dependencies.html#runtime-environments) for more information.
 * `s3_mirror_config` is a dictionary that contains configuration for loading the model from S3 instead of Hugging Face Hub. You can use this to speed up downloads.
+* `gcs_mirror_config` is a dictionary that contains configuration for loading the model from Google Cloud Storage instead of Hugging Face Hub. You can use this to speed up downloads.
 
 ### Scaling config
 
 Finally, the `scaling_config` section specifies what resources should be used to serve the model - this corresponds to Ray AIR [ScalingConfig](https://docs.ray.io/en/latest/train/api/doc/ray.train.ScalingConfig.html). Note that the `scaling_config` applies to each model replica, and not the entire model deployment (in other words, each replica will have `num_workers` workers).
-Notably, we use `resources_per_worker` to set [Ray custom resources](https://docs.ray.io/en/latest/ray-core/scheduling/resources.html#id1)
-to force the models onto specific node types - the corresponding resources are set in node definitions.
+
+* `num_workers` - Number of workers (i.e. Ray Actors) for each replica of the model. This controls the tensor parallelism for the model.
+* `num_gpus_per_worker` - Number of GPUs to be allocated per worker. Typically, this should be 1. 
+* `num_cpus_per_worker` - Number of CPUs to be allocated per worker. 
+* `placement_strategy` - Ray supports different [placement strategies](https://docs.ray.io/en/latest/ray-core/scheduling/placement-group.html#placement-strategy) for guiding the physical distribution of workers. To ensure all workers are on the same node, use "STRICT_PACK".
+* `resources_per_worker` - we use `resources_per_worker` to set [Ray custom resources](https://docs.ray.io/en/latest/ray-core/scheduling/resources.html#id1) and place the models on specific node types. The node resources are set in node definitions. Here are some node setup examples while using [KubeRay](https://github.com/ray-project/ray-llm/tree/master/docs/kuberay) or [Ray Clusters](https://github.com/ray-project/ray-llm/blob/master/deploy/ray/rayllm-cluster.yaml#L35). If you're deploying locally, please refer to this [guide](https://docs.ray.io/en/latest/ray-core/scheduling/resources.html#specifying-node-resources). An example configuration of `resources_per_worker` involves setting `accelerator_type_a10`: 0.01 for a Llama-2-7b model to be deployed on an A10 GPU. Note the small fraction here (0.01). The `num_gpus_per_worker` configuration along with number of GPUs available on the node will help limit the actual number of workers that Ray schedules on the node. 
 
 If you need to learn more about a specific configuration option, or need to add a new one, don't hesitate to reach out to the team.
 
@@ -119,10 +130,10 @@ scaling_config:
 
 ### Adding a private model
 
-To add a private model, you can either choose to use a filesystem path or an S3 mirror.
+To add a private model, you can either choose to use a filesystem path or an S3/GCS mirror.
 
 - For loading a model from file system, set `engine_config.hf_model_id` to an absolute filesystem path accessible from every node in the cluster and set `engine_config.model_id` to any ID you desire in the `organization/model` format, eg. `myorganization/llama2-finetuned`.
-- For loading a model from S3, set `engine_config.s3_mirror_config.bucket_uri` to point to a folder containing your model and tokenizer files (`config.json`, `tokenizer_config.json`, `.bin`/`.safetensors` files, etc.) and set `engine_config.model_id` to any ID you desire in the `organization/model` format, eg. `myorganization/llama2-finetuned`. The model will be downloaded to a folder in the `<TRANSFORMERS_CACHE>/models--<organization-name>--<model-name>/snapshots/<HASH>` directory on each node in the cluster. `<HASH>` will be determined by the contents of `hash` file in the S3 folder, or default to `0000000000000000000000000000000000000000`. See the [HuggingFace transformers documentation](https://huggingface.co/docs/transformers/main/en/installation#cache-setup).
+- For loading a model from S3 or GCS, set `engine_config.s3_mirror_config.bucket_uri` or `engine_config.gcs_mirror_config.bucket_uri` to point to a folder containing your model and tokenizer files (`config.json`, `tokenizer_config.json`, `.bin`/`.safetensors` files, etc.) and set `engine_config.model_id` to any ID you desire in the `organization/model` format, eg. `myorganization/llama2-finetuned`. The model will be downloaded to a folder in the `<TRANSFORMERS_CACHE>/models--<organization-name>--<model-name>/snapshots/<HASH>` directory on each node in the cluster. `<HASH>` will be determined by the contents of `hash` file in the S3 folder, or default to `0000000000000000000000000000000000000000`. See the [HuggingFace transformers documentation](https://huggingface.co/docs/transformers/main/en/installation#cache-setup).
 
 For loading a model from your local file system:
 
