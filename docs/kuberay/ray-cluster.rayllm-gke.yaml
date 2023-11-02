@@ -16,7 +16,7 @@ spec:
       spec:
         containers:
         - name: ray-head
-          image: anyscale/rayllm:latest
+          image: anyscale/ray-llm:latest
           resources:
             limits:
               cpu: 2
@@ -45,7 +45,7 @@ spec:
       spec:
         containers:
         - name: llm
-          image: anyscale/rayllm:latest
+          image: anyscale/ray-llm:latest
           lifecycle:
             preStop:
               exec:
