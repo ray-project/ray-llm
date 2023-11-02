@@ -80,9 +80,7 @@ engine_config:
   # vLLM keyword arguments passed when constructing the model.
   engine_kwargs:
     trust_remote_code: true
-    # Optional quantization configuration
-    # Set the quantization method to 'awq' when serving an AWQ quantized model.
-    # As of vllm 0.2.0, AWQ quantization is supported.
+    # Optional quantization configuration. This is required only when serving an AWQ quantized model.
     quantization: awq
   # Optional Ray Runtime Environment configuration. See Ray documentation for more details.
   # Add dependent libraries, environment variables, etc.
