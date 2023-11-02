@@ -133,6 +133,7 @@ Something is worth noticing:
 ```sh
 # Step 7.1: Log in to the head Pod
 export HEAD_POD=$(kubectl get pods --selector=ray.io/node-type=head -o custom-columns=POD:metadata.name --no-headers)
+kubectl cp ../../serve_configs $HEAD_POD:/home/ray/serve_configs # If it does not exist
 kubectl exec -it $HEAD_POD -- bash
 
 # Step 7.2: Llama 2 related models require HUGGING_FACE_HUB_TOKEN to be set.
