@@ -7,7 +7,7 @@ provider:
     region: us-west-2
     cache_stopped_nodes: False
 docker:
-    image: "anyscale/rayllm:latest"
+    image: "anyscale/ray-llm:latest"
     container_name: "rayllm"
     run_options:
       - --entrypoint ""
