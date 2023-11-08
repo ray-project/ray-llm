@@ -484,8 +484,8 @@ class AviaryFrontend(GradioIngress):
         )
         port = ray.get(controller.get_http_config.remote()).port
 
-        blocks._queue.set_url(f"http://localhost:{port}{route_prefix}/")
         blocks._queue.set_url = noop
+        blocks._queue.set_url(f"http://localhost:{port}{route_prefix}/")
 
 
 app = AviaryFrontend.options(
