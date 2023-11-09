@@ -91,9 +91,11 @@ kubectl get nodes "-o=custom-columns=NAME:.metadata.name,GPU:.status.allocatable
 ## Step 5: Install the KubeRay operator
 
 ```sh
-# Install both CRDs and KubeRay operator v0.6.0.
+# Update helm repo
 helm repo add kuberay https://ray-project.github.io/kuberay-helm/
 helm repo update
+# Install both CRDs and KubeRay operator v0.6.0.
+helm install kuberay-operator kuberay/kuberay-operator
 
 # It should be scheduled on the CPU node. If it is not, something is wrong.
 ```
