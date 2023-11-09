@@ -495,7 +495,11 @@ app = AviaryFrontend.options(
             "env_vars": {
                 k: v
                 for k, v in os.environ.items()
-                if k.startswith("AVIARY") or k.startswith("OPENAI")
+                if (
+                    k.startswith("AVIARY")
+                    or k.startswith("OPENAI")
+                    or k.startswith("MONGO")
+                )
             }
         },
     },
