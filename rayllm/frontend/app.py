@@ -484,8 +484,8 @@ class AviaryFrontend(GradioIngress):
         )
         port = ray.get(controller.get_http_config.remote()).port
 
-        blocks._queue.set_url(f"http://localhost:{port}{route_prefix}/")
         blocks._queue.set_url = noop
+        blocks._queue.set_url(f"http://localhost:{port}{route_prefix}/")
 
 
 app = AviaryFrontend.options(
@@ -495,7 +495,11 @@ app = AviaryFrontend.options(
             "env_vars": {
                 k: v
                 for k, v in os.environ.items()
-                if k.startswith("AVIARY") or k.startswith("OPENAI")
+                if (
+                    k.startswith("AVIARY")
+                    or k.startswith("OPENAI")
+                    or k.startswith("MONGO")
+                )
             }
         },
     },
