@@ -32,11 +32,11 @@ Engine is the abstraction for interacting with a model. It is responsible for sc
 
 The `engine_config` section specifies the Hugging Face model ID (`model_id`), how to initialize it and what parameters to use when generating tokens with an LLM.
 
-RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others.
+RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others. RayLLM also supports quantization, meaning compressed models can be deployed with cheaper hardware requirements and lower inference latency. 
 
 * `model_id` is the ID that refers to the model in the RayLLM or OpenAI API.
 * `type` is the type of  inference engine. Only `VLLMEngine` is currently supported.
-* `engine_kwargs` and `max_total_tokens` are configuration options for the inference engine. These options may vary depending on the hardware accelerator type and model size. We have tuned the parameters in the configuration files included in RayLLM for you to use as reference. 
+* `engine_kwargs` and `max_total_tokens` are configuration options for the inference engine (e.g. gpu memory utilization, quantization, max number of concurrent sequences). These options may vary depending on the hardware accelerator type and model size. We have tuned the parameters in the configuration files included in RayLLM for you to use as reference. 
 * `generation` contains configurations related to default generation parameters such as `prompt_format` and `stopping_sequences`.
 * `hf_model_id` is the Hugging Face model ID. This can also be a path to a local directory. If not specified, defaults to `model_id`.
 * `runtime_env` is a dictionary that contains Ray runtime environment configuration. It allows you to set per-model pip packages and environment variables. See [Ray documentation on Runtime Environments](https://docs.ray.io/en/latest/ray-core/handling-dependencies.html#runtime-environments) for more information.

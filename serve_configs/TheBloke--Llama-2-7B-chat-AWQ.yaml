@@ -4,4 +4,4 @@ applications:
   import_path: rayllm.backend:router_application
   args:
     models:
-      - "./models/continuous_batching/quantization/TheBloke--Llama-2-70B-chat-AWQ.yaml"
+      - "./models/continuous_batching/quantization/TheBloke--Llama-2-7B-chat-AWQ.yaml"
