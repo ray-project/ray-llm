@@ -32,7 +32,7 @@ Engine is the abstraction for interacting with a model. It is responsible for sc
 
 The `engine_config` section specifies the Hugging Face model ID (`model_id`), how to initialize it and what parameters to use when generating tokens with an LLM.
 
-RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others. RayLLM also supports quantization, meaning compressed models can be deployed with cheaper hardware requirements and lower inference latency. 
+RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others. RayLLM also supports quantization, meaning compressed models can be deployed with cheaper hardware requirements. For more details on using quantized models in RayLLM, see the [quantization guide](continuous_batching/quantization/quantization.md).  
 
 * `model_id` is the ID that refers to the model in the RayLLM or OpenAI API.
 * `type` is the type of  inference engine. Only `VLLMEngine` is currently supported.
