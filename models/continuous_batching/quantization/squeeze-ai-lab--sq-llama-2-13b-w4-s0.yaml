@@ -1,0 +1,40 @@
+deployment_config:
+  autoscaling_config:
+    min_replicas: 1
+    initial_replicas: 1
+    max_replicas: 8
+    target_num_ongoing_requests_per_replica: 16
+    metrics_interval_s: 10.0
+    look_back_period_s: 30.0
+    smoothing_factor: 0.5
+    downscale_delay_s: 300.0
+    upscale_delay_s: 15.0
+  max_concurrent_queries: 48
+  ray_actor_options:
+    resources:
+      accelerator_type_a100_40g: 0.01
+engine_config:
+  model_id: squeeze-ai-lab/sq-llama-2-13b-w4-s0
+  hf_model_id: squeeze-ai-lab/sq-llama-2-13b-w4-s0
+  type: VLLMEngine
+  engine_kwargs:
+    quantization: squeezellm
+    max_num_batched_tokens: 12288
+    max_num_seqs: 48
+  max_total_tokens: 4096
+  generation:
+    prompt_format:
+      system: "<<SYS>>\n{instruction}\n<</SYS>>\n\n"
+      assistant: " {instruction} </s><s>"
+      trailing_assistant: ""
+      user: "[INST] {system}{instruction} [/INST]"
+      system_in_user: true
+      default_system_message: ""
+    stopping_sequences: ["<unk>"]
+scaling_config:
+  num_workers: 1
+  num_gpus_per_worker: 1
+  num_cpus_per_worker: 8
+  placement_strategy: "STRICT_PACK"
+  resources_per_worker:
+    accelerator_type_a100_40g: 0.01
