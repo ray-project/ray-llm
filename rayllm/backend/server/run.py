@@ -111,6 +111,7 @@ def router_deployment(
 
 
 def router_application(args):
+    ray._private.usage.usage_lib.record_library_usage("ray-llm")
     router_args = RouterArgs.parse_obj(args)
     llm_apps = parse_args(router_args.models, llm_app_cls=VLLMApp)
     return router_deployment(llm_apps, enable_duplicate_models=False)
@@ -125,7 +126,6 @@ def run(
         models: The paths of the model yamls to deploy
 
     """
-    ray._private.usage.usage_lib.record_library_usage("aviary")
     router_app = router_application({"models": vllm_base_args})
 
     host = "0.0.0.0"
