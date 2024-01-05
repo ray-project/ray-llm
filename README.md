@@ -15,10 +15,11 @@ a variety of open source LLMs, built on [Ray Serve](https://docs.ray.io/en/lates
 - Fully supporting multi-GPU & multi-node model deployments.
 - Offering high performance features like continuous batching, quantization and streaming.
 - Providing a REST API that is similar to OpenAI's to make it easy to migrate and cross test them.
+- Supporting multiple LLM backends out of the box, including [vLLM](https://github.com/vllm-project/vllm) and [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM).
 
 In addition to LLM serving, it also includes a CLI and a web frontend (Aviary Explorer) that you can use to compare the outputs of different models directly, rank them by quality, get a cost and latency estimate, and more.
 
-RayLLM supports continuous batching and quantization by integrating with [vLLM](https://github.com/vllm-project/vllm). Continuous batching allows you to get much better throughput and latency than static batching. Quantization allows you to deploy compressed models with cheaper hardware requirements and lower inference costs. See [quantization guide](models/continuous_batching/quantization/README.md) for more details on running quantized models on RayLLM. 
+RayLLM supports continuous batching and quantization by integrating with [vLLM](https://github.com/vllm-project/vllm). Continuous batching allows you to get much better throughput and latency than static batching. Quantization allows you to deploy compressed models with cheaper hardware requirements and lower inference costs. See [quantization guide](models/continuous_batching/quantization/README.md) for more details on running quantized models on RayLLM.
 
 RayLLM leverages [Ray Serve](https://docs.ray.io/en/latest/serve/index.html), which has native support for autoscaling
 and multi-node deployments. RayLLM can scale to zero and create
