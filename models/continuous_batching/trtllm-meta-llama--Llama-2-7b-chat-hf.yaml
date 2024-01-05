@@ -15,14 +15,12 @@ deployment_config:
       accelerator_type_a10: 0.01
 engine_config:
   model_id: meta-llama/Llama-2-7b-chat-hf
-  hf_model_id: meta-llama/Llama-2-7b-chat-hf
-  type: VLLMEngine
-  engine_kwargs:
-    trust_remote_code: true
-    max_num_batched_tokens: 4096
-    max_num_seqs: 64
-    gpu_memory_utilization: 0.95
-  max_total_tokens: 4096
+  type: TRTLLMEngine
+  s3_mirror_config:
+    bucket_uri: s3://trtllm-models/llama2-7b-tp2/ # Change to your own model s3 path
+  # If you want to test with local file path, you can comment out s3_mirror_config section
+  # and add following
+  # model_local_path: <your local path>
   generation:
     prompt_format:
       system: "<<SYS>>\n{instruction}\n<</SYS>>\n\n"
@@ -31,9 +29,9 @@ engine_config:
       user: "[INST] {system}{instruction} [/INST]"
       system_in_user: true
       default_system_message: ""
-    stopping_sequences: []
+    stopping_sequences: ["<unk>"]
 scaling_config:
-  num_workers: 1
+  num_workers: 2 #mpi size
   num_gpus_per_worker: 1
   num_cpus_per_worker: 8
   placement_strategy: "STRICT_PACK"

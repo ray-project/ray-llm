@@ -29,7 +29,7 @@ engine_config:
       user: "[INST] {system}{instruction} [/INST]"
       system_in_user: true
       default_system_message: ""
-    stopping_sequences: ["<unk>"]
+    stopping_sequences: []
 scaling_config:
   num_workers: 4
   num_gpus_per_worker: 1

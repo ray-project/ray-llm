@@ -1,0 +1,7 @@
+applications:
+- name: ray-llm
+  route_prefix: /
+  import_path: rayllm.backend:router_application
+  args:
+    embedding_models:
+      - "./models/embedding_models/thenlper--gte-large.yaml"

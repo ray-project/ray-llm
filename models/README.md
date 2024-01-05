@@ -30,18 +30,42 @@ Ray Actors during deployments (using `ray_actor_options`). We recommend using th
 
 Engine is the abstraction for interacting with a model. It is responsible for scheduling and running the model inside a Ray Actor worker group.
 
-The `engine_config` section specifies the Hugging Face model ID (`model_id`), how to initialize it and what parameters to use when generating tokens with an LLM.
+The `engine_config` section specifies the model ID (`model_id`), how to initialize it and what parameters to use when generating tokens with an LLM.
 
-RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others. RayLLM also supports quantization, meaning compressed models can be deployed with cheaper hardware requirements. For more details on using quantized models in RayLLM, see the [quantization guide](continuous_batching/quantization/README.md).  
+RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others. RayLLM also supports quantization, meaning compressed models can be deployed with cheaper hardware requirements. For more details on using quantized models in RayLLM, see the [quantization guide](continuous_batching/quantization/README.md).
 
+#### vLLM Engine Config
 * `model_id` is the ID that refers to the model in the RayLLM or OpenAI API.
-* `type` is the type of  inference engine. Only `VLLMEngine` is currently supported.
-* `engine_kwargs` and `max_total_tokens` are configuration options for the inference engine (e.g. gpu memory utilization, quantization, max number of concurrent sequences). These options may vary depending on the hardware accelerator type and model size. We have tuned the parameters in the configuration files included in RayLLM for you to use as reference. 
+* `type` is the type of  inference engine. `VLLMEngine`, `TRTLLMEngine` and `EmbeddingEngine` are currently supported.
+* `engine_kwargs` and `max_total_tokens` are configuration options for the inference engine (e.g. gpu_memory_utilization, quantization, max_num_seqs and so on, see [more options](https://github.com/vllm-project/vllm/blob/main/vllm/engine/arg_utils.py#L11)). These options may vary depending on the hardware accelerator type and model size. We have tuned the parameters in the configuration files included in RayLLM for you to use as reference.
 * `generation` contains configurations related to default generation parameters such as `prompt_format` and `stopping_sequences`.
 * `hf_model_id` is the Hugging Face model ID. This can also be a path to a local directory. If not specified, defaults to `model_id`.
 * `runtime_env` is a dictionary that contains Ray runtime environment configuration. It allows you to set per-model pip packages and environment variables. See [Ray documentation on Runtime Environments](https://docs.ray.io/en/latest/ray-core/handling-dependencies.html#runtime-environments) for more information.
 * `s3_mirror_config` is a dictionary that contains configuration for loading the model from S3 instead of Hugging Face Hub. You can use this to speed up downloads.
 * `gcs_mirror_config` is a dictionary that contains configuration for loading the model from Google Cloud Storage instead of Hugging Face Hub. You can use this to speed up downloads.
+
+#### TRTLLM Engine Config
+* `model_local_path` is the path to the TensorRT-LLM model directory.
+* `s3_mirror_config` is a dictionary that contains configuration for loading the model from S3 instead of Hugging Face Hub. You can use this to speed up downloads.
+* `generation` contains configurations related to default generation parameters such as `prompt_format` and `stopping_sequences`.
+* `scheduler_policy` is to choose scheduler policy between max_utilization/guaranteed_no_evict.
+(`MAX_UTILIZATION` packs as many requests as the underlying TRT engine can support in any iteration of the InflightBatching generation loop. While this is expected to maximize GPU throughput, it might require that some requests be paused and restarted depending on peak KV cache memory availability.
+`GUARANTEED_NO_EVICT` uses KV cache more conservatively guaranteeing that a request, once started, will run to completion without eviction.)
+* `logger_level` is to configure log level for TensorRT-LLM engine. ("INFO", "ERROR", "VERBOSE", "WARNING")
+* `max_num_sequences` is the maximum number of requests/sequences the backend can maintain state
+* `max_tokens_in_paged_kv_cache` is to configure the maximum number of tokens in the paged kv cache.
+* `kv_cache_free_gpu_mem_fraction` is to configure K-V Cache free gpu memory fraction.
+
+#### Embedding Engine Config
+* `model_id` is the ID that refers to the model in the RayLLM or OpenAI API.
+* `type` is the type of inference engine. `VLLMEngine`, `TRTLLMEngine` and `EmbeddingEngine` are currently supported.
+* `hf_model_id` is the Hugging Face model ID. This can also be a path to a local directory. If not specified, defaults to `model_id`.
+* `max_total_tokens` is to configure number of the maximum length of each query.
+* `max_batch_size` is to set the maximum batch size when queries are batched in the backend.
+
+#### Prepare TensorRT-LLM models
+You can follow the TensorRT-LLM example to generate the model.(https://github.com/NVIDIA/TensorRT-LLM/tree/v0.6.1/examples/llama). After generating the model, you can upload the model artifact to S3 and use the `s3_mirror_config` to load the model from S3. You can also place the model artifacts in a local directory and use the `model_local_path` to load the model from the local directory. See the [llama example](continuous_batching/trtllm-meta-llama--Llama-2-7b-chat-hf.yaml) for more details.
+
 
 ### Scaling config
 
@@ -88,7 +112,7 @@ engine_config:
   model_id: mosaicml/mpt-7b-instruct
   # Id of the model on Hugging Face Hub. Can also be a disk path. Defaults to model_id if not specified.
   hf_model_id: mosaicml/mpt-7b-instruct
-  # vLLM keyword arguments passed when constructing the model.
+  # LLM engine keyword arguments passed when constructing the model.
   engine_kwargs:
     trust_remote_code: true
   # Optional Ray Runtime Environment configuration. See Ray documentation for more details.
