@@ -1,12 +1,16 @@
 import asyncio
 from contextlib import AsyncExitStack, asynccontextmanager
+from functools import wraps
 from typing import Coroutine
 
+from opentelemetry import trace
 from starlette.requests import Request
 
 from rayllm.backend.server.models import (
     AviaryModelResponse,
 )
+
+tracer = trace.get_tracer(__name__)
 
 
 class ExecutionHooks:
@@ -38,12 +42,28 @@ class ExecutionHooks:
     ):
         # Run the token hooks in parallel
         if len(self.hooks) > 0:
-            await asyncio.gather(
-                *[
-                    fn(request, model_id, input_str, output, is_first_token)
-                    for fn in self.hooks
-                ]
-            )
+            with tracer.start_as_current_span("trigger_post_execution_hook"):
+                await asyncio.gather(
+                    *[
+                        self.wrap_with_trace(fn)(
+                            request,
+                            model_id,
+                            input_str,
+                            output,
+                            is_first_token,
+                        )
+                        for fn in self.hooks
+                    ]
+                )
+
+    @staticmethod
+    def wrap_with_trace(fn):
+        @wraps(fn)
+        async def wrapper(*args, **kwargs):
+            with tracer.start_as_current_span(fn.__name__):
+                return await fn(*args, **kwargs)
+
+        return wrapper
 
 
 class ShieldedTaskSet:

@@ -9,13 +9,19 @@ TModel = TypeVar("TModel", bound="Model")
 TCompletion = TypeVar("TCompletion", bound="Completion")
 TChatCompletion = TypeVar("TChatCompletion", bound="ChatCompletion")
 
+PROMPT_TRACE_KEY = "+TRACE_"
+
+
+class PromptFormatDisabledError(ValueError):
+    status_code = 404
+
 
 class ModelData(BaseModel):
     id: str
     object: str
     owned_by: str
     permission: List[str]
-    aviary_metadata: Dict[str, Any]
+    rayllm_metadata: Dict[str, Any]
 
 
 class Model(BaseModel):
@@ -25,6 +31,12 @@ class Model(BaseModel):
     @classmethod
     def list(cls) -> TModel:
         pass
+
+
+class DeletedModel(BaseModel):
+    id: str
+    object: str = "model"
+    deleted: bool = True
 
 
 class TextChoice(BaseModel):
@@ -55,6 +67,11 @@ class Usage(BaseModel):
         )
 
 
+class EmbeddingsUsage(BaseModel):
+    prompt_tokens: int
+    total_tokens: int
+
+
 class Completion(BaseModel):
     id: str
     object: str
@@ -83,12 +100,94 @@ class Completion(BaseModel):
         pass
 
 
-class Message(BaseModel):
-    role: Literal["system", "assistant", "user"]
-    content: str
+class EmbeddingsData(BaseModel):
+    embedding: List[float]
+    index: int
+    object: str
+
+
+class EmbeddingsOutput(BaseModel):
+    data: List[EmbeddingsData]
+    id: str
+    object: str
+    created: int
+    model: str
+    usage: Optional[EmbeddingsUsage]
+
+
+class FunctionCall(BaseModel):
+    name: str
+    arguments: Optional[str] = None
+
+
+class ToolCall(BaseModel):
+    function: FunctionCall
+    type: Literal["function"]
+    id: str
 
     def __str__(self):
-        return self.content
+        return str(self.dict())
+
+
+class Function(BaseModel):
+    name: str
+    description: Optional[str] = None
+    parameters: Optional[Dict[str, Any]] = None
+
+
+class ToolChoice(BaseModel):
+    type: Literal["function"]
+    function: Function
+
+
+class Tool(BaseModel):
+    type: Literal["function"]
+    function: Function
+
+
+class Message(BaseModel):
+    role: Literal["system", "assistant", "user", "tool"]
+    content: Optional[str] = None
+    tool_calls: Optional[List[ToolCall]] = None
+    tool_call_id: Optional[str] = None
+
+    def __str__(self):
+        # if tool_calls is not None, then we are passing a tool message
+        # using get attr instead of  just in case the attribute is deleted off of
+        # the object
+        if getattr(self, "tool_calls", None):
+            return str(self.content)
+        return str(self.dict())
+
+    @root_validator
+    def check_fields(cls, values):
+        if values["role"] in ["system", "user"]:
+            if not isinstance(values.get("content"), str):
+                raise ValueError("content must be a string")
+        if values["role"] == "tool":
+            if not isinstance(values.get("tool_call_id"), str):
+                raise ValueError("tool_call_id must be a str")
+            # content should either be a dict with errors or with results
+            if not isinstance(values.get("content"), str):
+                raise ValueError(
+                    "content must be a str with results or errors for " "the tool call"
+                )
+        if values["role"] == "assistant":
+            if values.get("tool_calls"):
+                # passing a regular assistant message
+                if not isinstance(values.get("tool_calls"), list):
+                    raise ValueError("tool_calls must be a list")
+                for tool_call in values["tool_calls"]:
+                    if not isinstance(tool_call, ToolCall):
+                        raise TypeError("Tool calls must be of type ToolCall")
+            else:
+                # passing a regular assistant message
+                if (
+                    not isinstance(values.get("content"), str)
+                    or values.get("content") == ""
+                ):
+                    raise ValueError("content must be a string or None")
+        return values
 
 
 class DeltaRole(BaseModel):
@@ -100,9 +199,13 @@ class DeltaRole(BaseModel):
 
 class DeltaContent(BaseModel):
     content: str
+    tool_calls: Optional[List[Dict[str, Any]]] = None
 
     def __str__(self):
-        return self.content
+        if self.tool_calls:
+            return str(self.tool_calls)
+        else:
+            return str(self.dict())
 
 
 class DeltaEOS(BaseModel):
@@ -153,6 +256,29 @@ class Prompt(BaseModel):
     prompt: Union[str, List[Message]]
     use_prompt_format: bool = True
     parameters: Optional[Union[Dict[str, Any], BaseModel]] = None
+    tools: Optional[List[Tool]] = None
+    tool_choice: Union[Literal["auto", "none"], ToolChoice] = "auto"
+
+    @validator("prompt")
+    def check_prompt(cls, value):
+        if isinstance(value, list) and not value:
+            raise ValueError("Messages cannot be an empty list.")
+        return value
+
+    def to_unformatted_string(self) -> str:
+        if isinstance(self.prompt, list):
+            return ", ".join(str(message.content) for message in self.prompt)
+        return self.prompt
+
+    def get_log_str(self):
+        prompt_str = self.to_unformatted_string()
+        if PROMPT_TRACE_KEY in prompt_str:
+            start_idx = prompt_str.find(PROMPT_TRACE_KEY)
+
+            # Grab the prompt key and the next following 30 chars.
+            return prompt_str[start_idx : start_idx + len(PROMPT_TRACE_KEY) + 31]
+        else:
+            return None
 
 
 class ErrorResponse(BaseModel):
@@ -163,7 +289,15 @@ class ErrorResponse(BaseModel):
     param: Dict[str, Any] = {}
 
 
-class PromptFormat(BaseModel):
+class AbstractPromptFormat(BaseModel):
+    class Config:
+        extra = "forbid"
+
+    def generate_prompt(self, messages: Union[Prompt, List[Message]]) -> str:
+        raise NotImplementedError()
+
+
+class PromptFormat(AbstractPromptFormat):
     system: str
     assistant: str
     trailing_assistant: str
@@ -271,3 +405,17 @@ class PromptFormat(BaseModel):
                 prompt.append(self.assistant.format(instruction=message_content))
         prompt.append(self.trailing_assistant)
         return "".join(prompt)
+
+
+class DisabledPromptFormat(AbstractPromptFormat):
+    def generate_prompt(self, messages: Union[Prompt, List[Message]]) -> str:
+        if (
+            isinstance(messages, Prompt)
+            and isinstance(messages.prompt, str)
+            and not messages.use_prompt_format
+        ):
+            return messages.prompt
+        raise PromptFormatDisabledError(
+            "This model doesn't support chat completions. Please use the completions "
+            "endpoint instead."
+        )

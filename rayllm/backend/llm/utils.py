@@ -6,9 +6,10 @@ import traceback
 from collections import defaultdict
 from functools import wraps
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import AsyncIterator, Callable, Dict, List, Optional, Tuple, TypeVar, Union
 from unittest.mock import patch
 
+import ray
 import requests
 import torch
 import torch.distributed as dist
@@ -24,6 +25,8 @@ from transformers import PreTrainedTokenizer
 
 from rayllm.backend.logger import get_logger
 from rayllm.backend.server.models import (
+    AviaryModelResponse,
+    BatchedAviaryModelResponse,
     GCSMirrorConfig,
     S3AWSCredentials,
     S3MirrorConfig,
@@ -50,12 +53,15 @@ def download_model_from_s3(
     The downloaded model may have a 'hash' file containing the commit hash
     corresponding to the commit on Hugging Face Hub.
     """
+    extended_env = None
+    if env:
+        extended_env = {**os.environ.copy(), **env}
     s3_sync_args = s3_sync_args or []
     subprocess.run(
         [aws_executable, "s3", "cp", "--quiet"]
         + s3_sync_args
         + [os.path.join(bucket_uri, "hash"), "."],
-        env=env,
+        env=extended_env,
     )
     if not os.path.exists(os.path.join(".", "hash")):
         f_hash = "0000000000000000000000000000000000000000"
@@ -70,27 +76,42 @@ def download_model_from_s3(
     )
     subprocess.run(["mkdir", "-p", os.path.join(path, "snapshots", f_hash)])
     subprocess.run(["mkdir", "-p", os.path.join(path, "refs")])
-    subprocess.run(
-        [
-            aws_executable,
-            "s3",
-            "sync",
-            "--quiet",
-        ]
-        + s3_sync_args
+    download_files_from_s3(
+        os.path.join(path, "snapshots", f_hash),
+        bucket_uri,
+        s3_sync_args=s3_sync_args
         + (
             ["--exclude", "*", "--include", "*token*", "--include", "config.json"]
             if tokenizer_only
             else []
-        )
-        + [
-            bucket_uri,
-            os.path.join(path, "snapshots", f_hash),
-        ],
-        env=env,
+        ),
+        aws_executable=aws_executable,
+        env=extended_env,
+        check=False,
     )
     with open(os.path.join(path, "refs", "main"), "w") as f:
         f.write(f_hash)
+
+
+def download_files_from_s3(
+    path: str,
+    bucket_uri: str,
+    s3_sync_args: Optional[List[str]] = None,
+    aws_executable: str = AWS_EXECUTABLE,
+    env: Optional[Dict[str, str]] = None,
+    check: bool = True,
+) -> None:
+    """
+    Download files from an S3 bucket.
+    """
+    os.makedirs(path, exist_ok=True)
+    s3_sync_args = s3_sync_args or []
+    logger.info(f'Downloading files from "{bucket_uri}" to directory "{path}".')
+    subprocess.run(
+        [aws_executable, "s3", "sync", "--quiet"] + s3_sync_args + [bucket_uri, path],
+        env=env,
+        check=check,
+    )
 
 
 def download_model_from_gcs(
@@ -167,22 +188,12 @@ def download_model_from_gcs(
     # Blob names can contain slashes (/). However, GCS doesn't actually contain
     # true directories. We create the directories manually before downloading
     # blobs to mirror the directory structure in the bucket.
-    tokenizer_file_substrings = ["tokenizer", "config.json"]
-    for blob in bucket.list_blobs(prefix=prefix):
-        # Remove the prefix from each blob's name
-        blob_base_name = blob.name[len(prefix) :]
-
-        if tokenizer_only:
-            for substring in tokenizer_file_substrings:
-                if substring not in blob_base_name:
-                    continue
-        if "/" in blob_base_name:
-            blob_source_dir = blob_base_name[: blob_base_name.rfind("/")]
-            blob_destination_dir = os.path.join(destination_dir, blob_source_dir)
-            os.makedirs(blob_destination_dir, exist_ok=True)
-
-        blob_destination_path = os.path.join(destination_dir, blob_base_name)
-        blob.download_to_filename(blob_destination_path)
+    tokenizer_file_substrings = ["tokenizer", "config.json"] if tokenizer_only else []
+    download_files_from_gcs(
+        path=destination_dir,
+        bucket_uri=bucket_uri,
+        substrings_to_include=tokenizer_file_substrings,
+    )
 
 
 def get_gcs_bucket_name_and_prefix(bucket_uri: str) -> Tuple[str, str]:
@@ -213,6 +224,54 @@ def get_gcs_bucket_name_and_prefix(bucket_uri: str) -> Tuple[str, str]:
         bucket_prefix += "/"
 
     return bucket_name, bucket_prefix
+
+
+def download_files_from_gcs(
+    path: str,
+    bucket_uri: str,
+    substrings_to_include: Optional[List[str]] = None,
+) -> None:
+    """
+    Download files from a GCS.
+    """
+
+    try:
+        from google.cloud import storage
+    except ImportError as e:
+        raise ImportError(
+            "You must `pip install google-cloud-storage` "
+            "to download models from Google Cloud Storage."
+        ) from e
+
+    bucket_name, prefix = get_gcs_bucket_name_and_prefix(bucket_uri)
+
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+
+    # Download all files in bucket to the path/snapshots/<f_hash>/ directory.
+    # Blob names can contain slashes (/). However, GCS doesn't actually contain
+    # true directories. We create the directories manually before downloading
+    # blobs to mirror the directory structure in the bucket.
+    for blob in bucket.list_blobs(prefix=prefix):
+        # Remove the prefix from each blob's name
+        blob_base_name = blob.name[len(prefix) :]
+
+        if substrings_to_include:
+            for substring in substrings_to_include:
+                if substring not in blob_base_name:
+                    continue
+
+        if "/" in blob_base_name:
+            blob_source_dir = blob_base_name[: blob_base_name.rfind("/")]
+            blob_destination_dir = os.path.join(path, blob_source_dir)
+            os.makedirs(blob_destination_dir, exist_ok=True)
+
+        blob_destination_path = os.path.join(path, blob_base_name)
+
+        # If the blob is a file (not a directory), we download it.
+        blob_is_file = not blob_destination_path.endswith("/")
+        if blob_is_file:
+            blob.download_to_filename(blob_destination_path)
 
 
 def timeit(func):
@@ -256,11 +315,72 @@ def get_aws_credentials(
     return env
 
 
+@ray.remote(num_cpus=0)
+def check_s3_path_exists(
+    s3_folder_uri: Path,
+    aws_executable: str = AWS_EXECUTABLE,
+    subprocess_run=subprocess.run,
+) -> bool:
+    """
+    Check if a given path exists in an S3 bucket.
+
+    :param s3_folder_uri: The Path object pointing to the desired folder in S3.
+    :param aws_executable: Path to the AWS CLI executable.
+    :param env: Environment variables to be passed to the subprocess.
+    :param subprocess_run: the subprocess run method, added for testing.
+    :return: True if the path exists, False otherwise.
+    """
+    # Use AWS CLI to list objects in the specified folder
+    result = subprocess_run(
+        [aws_executable, "s3", "ls", s3_folder_uri],
+        capture_output=True,
+    )
+
+    # If the command executed successfully and the output is not empty, the folder exists
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
+def is_model_cached(
+    model_s3_cache: Optional[str],
+    num_workers: Optional[int],
+) -> bool:
+    """
+    Check if a model is cached.
+
+    :param model_s3_cache: The cache prefix in S3.
+    :param num_workers: The number of workers serving the model, this affects the cache path.
+    """
+    if not model_s3_cache or not num_workers:
+        logger.info(
+            f"Model cache is not configured. Cache: {model_s3_cache}, num_workers:: {num_workers}"
+        )
+        return False
+
+    # TODO@iycheng: add an API in VLLM that exposes the path to avoid this implicit dependency.
+    s3_folder_base_folder = f"{model_s3_cache}/GPU-{num_workers}"
+    file_check_remotes = [
+        check_s3_path_exists.remote(
+            f"{s3_folder_base_folder}/model-{str(worker).zfill(5)}-of-{str(num_workers).zfill(5)}.safetensors"
+        )
+        for worker in range(num_workers)
+    ]
+    is_model_cached = all(ray.get(file_check_remotes))
+    # check if path exist in s3
+    if is_model_cached:
+        logger.info(f"Model is cached in {s3_folder_base_folder}")
+        return True
+    else:
+        logger.info(f"Model is not cached in {s3_folder_base_folder}")
+        return False
+
+
 def initialize_node(
     model_id: Optional[str] = None,
     s3_mirror_config: Optional[S3MirrorConfig] = None,
     gcs_mirror_config: Optional[GCSMirrorConfig] = None,
     tokenizer_only: bool = False,
+    model_s3_cache: Optional[str] = None,
+    num_workers: Optional[int] = None,
 ) -> Optional[str]:
     """
     Perform initialization for a node.
@@ -277,6 +397,11 @@ def initialize_node(
     os.makedirs(os.path.join(torch_cache_home, "kernels"), exist_ok=True)
 
     if model_id is None:
+        return None
+
+    # If the model cache is defined and we have a cache hit skip downloading the weights from the mirror
+    if not tokenizer_only and is_model_cached(model_s3_cache, num_workers):
+        logger.info("Model is cached, skipping the download from mirror")
         return None
 
     if s3_mirror_config is not None and gcs_mirror_config is not None:
@@ -318,12 +443,6 @@ def get_model_from_s3(
     """
 
     bucket_uri = s3_mirror_config.bucket_uri
-    if bucket_uri is None:
-        logger.info(
-            "No bucket_uri was provided in the s3_mirror_config. "
-            "Cannot download model from S3."
-        )
-        return None
 
     env_vars = None
     if s3_mirror_config.s3_aws_credentials is not None:
@@ -344,20 +463,33 @@ def get_model_from_s3(
         # This ensures that subsequent processes don't duplicate work.
         with FileLock(lock_path, timeout=0):
             s3_sync_args = s3_mirror_config.s3_sync_args if s3_mirror_config else None
-            try:
-                download_model_from_s3(
-                    model_id,
-                    path,
-                    bucket_uri,
+            if bucket_uri is not None:
+                try:
+                    download_model_from_s3(
+                        model_id,
+                        path,
+                        bucket_uri,
+                        s3_sync_args=s3_sync_args,
+                        tokenizer_only=tokenizer_only,
+                        env=env_vars,
+                    )
+                    logger.info("Done downloading the model from S3 bucket!")
+                except RuntimeError:
+                    logger.warning(
+                        "Unable to download the model from S3 bucket. "
+                        f"Traceback:\n {traceback.format_exc()}"
+                    )
+            for extra_file in s3_mirror_config.extra_files or []:
+                download_files_from_s3(
+                    path=os.path.expanduser(
+                        os.path.expandvars(extra_file.destination_path)
+                    ),
+                    bucket_uri=extra_file.bucket_uri,
                     s3_sync_args=s3_sync_args,
-                    tokenizer_only=tokenizer_only,
                     env=env_vars,
                 )
-                logger.info("Done downloading the model from S3 bucket!")
-            except RuntimeError:
-                logger.warning(
-                    "Unable to download the model from S3 bucket. "
-                    f"Traceback:\n {traceback.format_exc()}"
+                logger.info(
+                    f"Done downloading the model with tokenizer_only={tokenizer_only} from S3 bucket!"
                 )
     except TimeoutError:
         # If the directory is already locked, then wait but do not do anything.
@@ -381,13 +513,6 @@ def get_model_from_gcs(
     """
 
     bucket_uri = gcs_mirror_config.bucket_uri
-    if bucket_uri is None:
-        logger.info(
-            "No bucket_uri was provided in the "
-            "gcs_mirror_config. Cannot download model from Google Cloud "
-            "Storage."
-        )
-        return None
 
     # TODO (shrekris-anyscale): add comment for why this is a delayed import.
     from transformers.utils.hub import TRANSFORMERS_CACHE
@@ -403,17 +528,25 @@ def get_model_from_gcs(
         # will be thrown.
         # This ensures that subsequent processes don't duplicate work.
         with FileLock(lock_path, timeout=0):
-            try:
-                download_model_from_gcs(
-                    destination_path=path,
-                    bucket_uri=bucket_uri,
-                    tokenizer_only=tokenizer_only,
-                )
-                logger.info("Done downloading the model from GCS bucket!")
-            except RuntimeError:
-                logger.warning(
-                    "Unable to download the model from GCS bucket. "
-                    f"Traceback:\n {traceback.format_exc()}"
+            if bucket_uri is not None:
+                try:
+                    download_model_from_gcs(
+                        destination_path=path,
+                        bucket_uri=bucket_uri,
+                        tokenizer_only=tokenizer_only,
+                    )
+                    logger.info("Done downloading the model from GCS bucket!")
+                except RuntimeError:
+                    logger.warning(
+                        "Unable to download the model from GCS bucket. "
+                        f"Traceback:\n {traceback.format_exc()}"
+                    )
+            for extra_file in gcs_mirror_config.extra_files or []:
+                download_files_from_gcs(
+                    path=os.path.expanduser(
+                        os.path.expandvars(extra_file.destination_path)
+                    ),
+                    bucket_uri=extra_file.bucket_uri,
                 )
     except TimeoutError:
         # If the directory is already locked, then wait but do not do anything.
@@ -640,3 +773,59 @@ def get_model_location_on_disk(model_id: str) -> str:
             model_id_or_path = str(snapshot_hash_path.absolute())
 
     return model_id_or_path
+
+
+class BatchAviaryModelResponses:
+    """This class batches AviaryModelResponses from a generator into a single response, at some time interval."""
+
+    def __init__(self, generator: AsyncIterator[AviaryModelResponse], interval_ms=100):
+        self.generator = generator
+        self.queue: asyncio.Queue = asyncio.Queue()
+        self.interval_s = interval_ms / 1000
+
+        # We are okay with this task getting cancelled (to propogate cancellations)
+        self.read_task = asyncio.create_task(self.read())
+
+    async def stream(self) -> AsyncIterator[BatchedAviaryModelResponse]:
+        """Drain from the queue every interval_ms and yield the merged results"""
+        try:
+            while True:
+                # Wait for the interval
+                await asyncio.sleep(self.interval_s)
+
+                # Get all elements from the queue
+                results, is_done = self.check_done_and_drain()
+
+                # If there are results, merge and yield them
+                if results:
+                    output: BatchedAviaryModelResponse = BatchedAviaryModelResponse.merge_stream(*results)  # type: ignore
+                    yield output
+
+                # If the read task is done, exit the stream task
+                if is_done:
+                    # Raise exception, if any
+                    self.read_task.result()
+                    break
+        finally:
+            # If the stream task is done, make sure to exit the read task
+            if not self.read_task.done():
+                self.read_task.cancel()
+
+    def check_done_and_drain(self):
+        results = self.drain_queue()
+        return results, self.read_task.done()
+
+    async def read(self):
+        """Read from the generator and put into the queue in a tight loop"""
+        async for x in self.generator:
+            self.queue.put_nowait(x)
+
+    def drain_queue(self):
+        """Drain all results currently in the queue"""
+        results = []
+        try:
+            while True:
+                results.append(self.queue.get_nowait())
+        except asyncio.QueueEmpty:
+            pass
+        return results

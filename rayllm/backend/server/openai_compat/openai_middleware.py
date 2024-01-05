@@ -1,36 +1,28 @@
-from fastapi import Request, status
+from typing import Union
+
+from fastapi import HTTPException, Request
+from httpx import HTTPStatusError as HTTPXHTTPStatusError
 from opentelemetry import trace
 from starlette.responses import JSONResponse
 
-from rayllm.backend.server.models import AviaryModelResponse
 from rayllm.backend.server.openai_compat.openai_exception import OpenAIHTTPException
-from rayllm.backend.server.utils import extract_message_from_exception
-from rayllm.common.models import ErrorResponse
+from rayllm.backend.server.utils import get_response_for_error
 
 
-def openai_exception_handler(request: Request, exc: OpenAIHTTPException):
+def openai_exception_handler(
+    request: Request,
+    exc: Union[OpenAIHTTPException, HTTPException],
+):
     assert isinstance(
-        exc, OpenAIHTTPException
+        exc, (OpenAIHTTPException, HTTPException, HTTPXHTTPStatusError)
     ), f"Unable to handle invalid exception {type(exc)}"
-    if exc.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
-        message = f"Internal Server Error (Request ID: {request.state.request_id})"
-        internal_message = message
-        exc_type = "InternalServerError"
-    else:
-        internal_message = extract_message_from_exception(exc)
-        message = exc.message
-        exc_type = exc.type
+
+    err_response = get_response_for_error(
+        exc, request.state.request_id, prefix="Returning error to user"
+    )
 
     span = trace.get_current_span()
     span.record_exception(exc)
-    span.set_status(trace.StatusCode.ERROR, description=message)
+    span.set_status(trace.StatusCode.ERROR, description=err_response.error.message)
 
-    err_response = AviaryModelResponse(
-        error=ErrorResponse(
-            message=message,
-            code=exc.status_code,
-            internal_message=internal_message,
-            type=exc_type,
-        )
-    )
     return JSONResponse(content=err_response.dict(), status_code=exc.status_code)

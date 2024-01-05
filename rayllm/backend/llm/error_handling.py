@@ -41,6 +41,8 @@ class InputTooLong(ErrorReason):
         self.max_num_tokens = max_num_tokens
 
     def get_message(self) -> str:
+        if self.num_tokens < 0:
+            return f"Input too long. The maximum input length is {self.max_num_tokens} tokens."
         return f"Input too long. Recieved {self.num_tokens} tokens, but the maximum input length is {self.max_num_tokens} tokens."
 
     @property

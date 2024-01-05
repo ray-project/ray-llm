@@ -1,12 +1,14 @@
-from fastapi import Request
-from opentelemetry import trace
+import secrets
 
-tracer = trace.get_tracer(__name__)
+from fastapi import Request
+
+from rayllm.backend.observability.tracing.baggage import baggage
 
 
 async def add_request_id(request: Request, call_next):
-    request.state.request_id = trace.format_trace_id(
-        trace.get_current_span().get_span_context().trace_id
-    )
+    request.state.request_id = secrets.token_urlsafe()
 
-    return await call_next(request)
+    with baggage({"request_id": request.state.request_id}):
+        resp = await call_next(request)
+
+    return resp

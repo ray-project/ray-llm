@@ -73,10 +73,10 @@ MODEL_DESCRIPTIONS = (
         [
             MODEL_DESCRIPTION_FORMAT.format(
                 model_id=k,
-                model_description=v["aviary_metadata"]["engine_config"][
+                model_description=v["rayllm_metadata"]["engine_config"][
                     "model_description"
                 ],
-                model_url=v["aviary_metadata"]["engine_config"]["model_url"],
+                model_url=v["rayllm_metadata"]["engine_config"]["model_url"],
             )
             for k, v in ALL_MODELS_METADATA.items()
         ]

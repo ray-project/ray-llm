@@ -1,6 +1,5 @@
 import os
 import warnings
-from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 import openai
@@ -71,29 +70,22 @@ def get_aviary_backend(verbose: Optional[bool] = None):
     return AviaryResource(aviary_url, aviary_token)
 
 
-@contextmanager
-def openai_aviary_context():
+def get_openai_client() -> openai.Client:
+    """Get an OpenAI Client connected to the ray-llm backend."""
     backend = get_aviary_backend()
-    original_api_base = openai.api_base
-    original_api_key = openai.api_key
-    openai.api_base = backend.backend_url
-    openai.api_key = backend.token
-    yield
-    openai.api_base = original_api_base
-    openai.api_key = original_api_key
+    openai_client = openai.Client(base_url=backend.backend_url, api_key=backend.token)
+    return openai_client
 
 
-@openai_aviary_context()
 def models() -> List[str]:
     """List available models"""
-    models = openai.Model.list()
+    models = get_openai_client().models.list()
     return [model.id for model in models.data]
 
 
-@openai_aviary_context()
 def metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
     """Get model metadata"""
-    metadata = openai.Model.retrieve(model_id)
+    metadata = get_openai_client().models.retrieve(model_id).model_dump()
     return metadata
 
 
@@ -106,22 +98,21 @@ def completions(
     """Get completions from Aviary models."""
     kwargs.setdefault("max_tokens", None)
     if _is_aviary_model(model):
-        with openai_aviary_context():
-            if use_prompt_format:
-                result = openai.ChatCompletion.create(
-                    model=model,
-                    messages=[{"role": "user", "content": prompt}],
-                    stream=False,
-                    **kwargs,
-                )
-            else:
-                result = openai.Completion.create(
-                    model=model,
-                    prompt=prompt,
-                    stream=False,
-                    **kwargs,
-                )
-            return result
+        if use_prompt_format:
+            result = get_openai_client().chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                stream=False,
+                **kwargs,
+            )
+        else:
+            result = get_openai_client().completions.create(
+                model=model,
+                prompt=prompt,
+                stream=False,
+                **kwargs,
+            )
+        return result.model_dump()
     llm = _get_langchain_model(model)
     return llm.predict(prompt)
 
@@ -140,6 +131,11 @@ def query(
     return completions(model, prompt, use_prompt_format, **kwargs)
 
 
+def _iterator(gen):
+    for x in gen:
+        yield x.model_dump()
+
+
 def stream(
     model: str,
     prompt: str,
@@ -149,22 +145,21 @@ def stream(
     """Query Aviary and stream response"""
     kwargs.setdefault("max_tokens", None)
     if _is_aviary_model(model):
-        with openai_aviary_context():
-            if use_prompt_format:
-                result = openai.ChatCompletion.create(
-                    model=model,
-                    messages=[{"role": "user", "content": prompt}],
-                    stream=True,
-                    **kwargs,
-                )
-            else:
-                result = openai.Completion.create(
-                    model=model,
-                    prompt=prompt,
-                    stream=True,
-                    **kwargs,
-                )
-            return result
+        if use_prompt_format:
+            result = get_openai_client().chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True,
+                **kwargs,
+            )
+        else:
+            result = get_openai_client().completions.create(
+                model=model,
+                prompt=prompt,
+                stream=True,
+                **kwargs,
+            )
+        return _iterator(result)
     else:
         # TODO implement streaming for langchain models
         raise RuntimeError("Streaming is currently only supported for aviary models")
