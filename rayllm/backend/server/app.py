@@ -1,3 +1,4 @@
+import json
 import os
 
 from ray import serve
@@ -19,5 +20,8 @@ RouterDeployment = serve.deployment(
             os.environ.get("AVIARY_ROUTER_TARGET_NUM_ONGOING_REQUESTS_PER_REPLICA", 200)
         ),
     },
+    ray_actor_options=json.loads(
+        os.environ.get("AVIARY_ROUTER_RAY_ACTOR_OPTIONS", "{}")
+    ),
     max_concurrent_queries=1000,  # Maximum backlog for a single replica
 )(serve.ingress(router_app)(Router))

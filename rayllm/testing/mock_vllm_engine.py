@@ -7,6 +7,9 @@ from rayllm.backend.llm.error_handling import ValidationError
 from rayllm.backend.llm.generation import (
     FinishReason,
 )
+from rayllm.backend.llm.llm_node_initializer import (
+    LLMNodeInitializer,
+)
 from rayllm.backend.llm.vllm.vllm_engine_stats import (
     VLLMEngineStats,
     VLLMEngineStatTracker,
@@ -16,15 +19,12 @@ from rayllm.backend.llm.vllm.vllm_models import (
     VLLMGenerationRequest,
     VLLMSamplingParams,
 )
-from rayllm.backend.llm.vllm.vllm_node_initializer import (
-    VLLMNodeInitializer,
-)
 from rayllm.backend.server.models import AviaryModelResponse
 
 
 class MockVLLMEngine:
     def __init__(
-        self, llm_app: VLLMApp, *, node_initializer: VLLMNodeInitializer = None
+        self, llm_app: VLLMApp, *, node_initializer: LLMNodeInitializer = None
     ):
         """Create a VLLM Engine class
 

@@ -12,6 +12,7 @@ class FinishReason(str, Enum):
     STOP = "stop"
     ERROR = "error"
     CANCELLED = "cancelled"
+    TOOL_CALLS = "tool_calls"
 
     def __str__(self) -> str:
         return self.value

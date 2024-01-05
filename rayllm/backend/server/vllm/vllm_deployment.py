@@ -85,7 +85,7 @@ class VLLMDeploymentImpl:
         ),
     },
     max_concurrent_queries=20,  # Maximum backlog for a single replica
-    health_check_period_s=10,
+    health_check_period_s=30,
     health_check_timeout_s=30,
 )
 class VLLMDeployment(VLLMDeploymentImpl):

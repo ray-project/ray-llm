@@ -10,7 +10,7 @@ from rayllm.backend.server.plugins.router_query_engine import (
     StreamingErrorHandler,
 )
 from rayllm.backend.server.vllm.vllm_deployment import VLLMDeploymentImpl
-from rayllm.common.models import ModelData, Prompt
+from rayllm.common.models import DeletedModel, ModelData, Prompt
 from rayllm.testing.mock_vllm_engine import MockVLLMEngine
 
 
@@ -44,21 +44,29 @@ class MockDeployment(MockDeploymentImpl):
 class MockRouterQueryClient(RouterQueryClient):
     def __init__(self, mock_deployments: Dict[str, "MockDeployment"], hooks=None):
         self.mock_deployments = mock_deployments
+        self._deployment_map = {}
         self.error_hook = StreamingErrorHandler(hooks=hooks)
+
+    def _get_deploy_handle(self, model: str):
+        deploy_handle = self.mock_deployments.get(model, None)
+        if not deploy_handle:
+            deploy_handle = self._deployment_map.get(model)
+            if not deploy_handle:
+                raise HTTPException(404, f"Could not find model with id {model}")
+            deploy_handle = deploy_handle.options(stream=True)
+            self.mock_deployments[model] = deploy_handle
+        return deploy_handle
 
     async def stream(
         self, model: str, prompt: Prompt, request: Request, priority: QueuePriority
     ) -> AsyncIterator[AviaryModelResponse]:
-        if model in self.mock_deployments:
-            deploy_handle = self.mock_deployments[model]
-        else:
-            raise HTTPException(404, f"Could not find model with id {model}")
+        deploy_handle = self._get_deploy_handle(model)
 
         async for x in self.error_hook.handle_failure(
             model=model,
             request=request,
             prompt=prompt,
-            async_iterator=deploy_handle.options(stream=True).stream.remote("", prompt),
+            async_iterator=deploy_handle.stream.remote("", prompt),
         ):
             yield x
 
@@ -69,11 +77,12 @@ class MockRouterQueryClient(RouterQueryClient):
             object="model",
             owned_by="mock owner",
             permission=["mock permission"],
-            aviary_metadata={
+            rayllm_metadata={
                 "mock_metadata": "mock_metadata",
                 "engine_config": {
                     "model_description": "mock_description",
                     "model_url": "mock_url",
+                    "model_type": "text-generation",
                 },
             },
         )
@@ -84,3 +93,9 @@ class MockRouterQueryClient(RouterQueryClient):
         for model_id in self.mock_deployments:
             metadatas[model_id] = await self.model(model_id)
         return metadatas
+
+    async def delete_fine_tuned_model(self, model: str) -> DeletedModel:
+        if model not in self.mock_deployments:
+            raise HTTPException(404, f"Could not find model with id {model}")
+        del self.mock_deployments[model]
+        return DeletedModel(id=model)

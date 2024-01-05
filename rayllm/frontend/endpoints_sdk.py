@@ -1,6 +1,5 @@
 import os
 from collections import namedtuple
-from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 
 import openai
@@ -32,31 +31,27 @@ def get_endpoints_backend(verbose: Optional[bool] = None) -> AviaryResource:
     return AviaryResource(endpoints_url, endpoints_token)
 
 
-@contextmanager
-def openai_endpoints_context():
+def get_openai_client() -> Optional[openai.Client]:
+    """Get an OpenAI Client connected to the Endpoints backend."""
     backend = get_endpoints_backend()
-    original_api_base = openai.api_base
-    original_api_key = openai.api_key
-    openai.api_base = backend.backend_url
-    openai.api_key = backend.token
-    yield
-    openai.api_base = original_api_base
-    openai.api_key = original_api_key
+    if not backend.backend_url or not backend.token:
+        return None
+    return openai.Client(base_url=backend.backend_url, api_key=backend.token)
 
 
-@openai_endpoints_context()
 def get_endpoints_models() -> List[str]:
     """List available models"""
-    if not (openai.api_base and openai.api_key):
+    openai_client = get_openai_client()
+    if not openai_client:
         return []
-    models = openai.Model.list()
+    models = openai_client.models.list()
     return [model.id for model in models.data]
 
 
-@openai_endpoints_context()
 def get_endpoints_metadata(model_id: str) -> Dict[str, Dict[str, Any]]:
     """Get model metadata"""
-    if not (openai.api_base and openai.api_key):
+    openai_client = get_openai_client()
+    if not openai_client:
         return {}
-    metadata = openai.Model.retrieve(model_id)
+    metadata = openai_client.models.retrieve(model_id).model_dump()
     return metadata
