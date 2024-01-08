@@ -46,7 +46,7 @@ RayLLM supports continuous batching, meaning incoming requests are processed as 
 
 #### TRTLLM Engine Config
 * `model_local_path` is the path to the TensorRT-LLM model directory.
-* `s3_mirror_config` is a dictionary that contains configuration for loading the model from S3 instead of Hugging Face Hub. You can use this to speed up downloads.
+* `s3_mirror_config` is a dictionary that contains configurations for loading the model from S3 instead of Hugging Face Hub. You can use this to speed up downloads.
 * `generation` contains configurations related to default generation parameters such as `prompt_format` and `stopping_sequences`.
 * `scheduler_policy` is to choose scheduler policy between max_utilization/guaranteed_no_evict.
 (`MAX_UTILIZATION` packs as many requests as the underlying TRT engine can support in any iteration of the InflightBatching generation loop. While this is expected to maximize GPU throughput, it might require that some requests be paused and restarted depending on peak KV cache memory availability.
