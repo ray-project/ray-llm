@@ -50,7 +50,7 @@ RayLLM supports continuous batching, meaning incoming requests are processed as 
 * `generation` contains configurations related to default generation parameters such as `prompt_format` and `stopping_sequences`.
 * `scheduler_policy` is to choose scheduler policy between max_utilization/guaranteed_no_evict.
 (`MAX_UTILIZATION` packs as many requests as the underlying TRT engine can support in any iteration of the InflightBatching generation loop. While this is expected to maximize GPU throughput, it might require that some requests be paused and restarted depending on peak KV cache memory availability.
-`GUARANTEED_NO_EVICT` uses KV cache more conservatively guaranteeing that a request, once started, will run to completion without eviction.)
+`GUARANTEED_NO_EVICT` uses KV cache more conservatively and guarantees that a request, once started, runs to completion without eviction.)
 * `logger_level` is to configure log level for TensorRT-LLM engine. ("INFO", "ERROR", "VERBOSE", "WARNING")
 * `max_num_sequences` is the maximum number of requests/sequences the backend can maintain state
 * `max_tokens_in_paged_kv_cache` is to configure the maximum number of tokens in the paged kv cache.
