@@ -36,7 +36,7 @@ RayLLM supports continuous batching, meaning incoming requests are processed as 
 
 #### vLLM Engine Config
 * `model_id` is the ID that refers to the model in the RayLLM or OpenAI API.
-* `type` is the type of  inference engine. `VLLMEngine`, `TRTLLMEngine` and `EmbeddingEngine` are currently supported.
+* `type` is the type of  inference engine. `VLLMEngine`, `TRTLLMEngine`, and `EmbeddingEngine` are currently supported.
 * `engine_kwargs` and `max_total_tokens` are configuration options for the inference engine (e.g. gpu_memory_utilization, quantization, max_num_seqs and so on, see [more options](https://github.com/vllm-project/vllm/blob/main/vllm/engine/arg_utils.py#L11)). These options may vary depending on the hardware accelerator type and model size. We have tuned the parameters in the configuration files included in RayLLM for you to use as reference.
 * `generation` contains configurations related to default generation parameters such as `prompt_format` and `stopping_sequences`.
 * `hf_model_id` is the Hugging Face model ID. This can also be a path to a local directory. If not specified, defaults to `model_id`.
