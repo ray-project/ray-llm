@@ -53,7 +53,7 @@ RayLLM supports continuous batching, meaning incoming requests are processed as 
 `GUARANTEED_NO_EVICT` uses KV cache more conservatively and guarantees that a request, once started, runs to completion without eviction.)
 * `logger_level` is to configure log level for TensorRT-LLM engine. ("VERBOSE", "INFO", "WARNING", "ERROR")
 * `max_num_sequences` is the maximum number of requests/sequences the backend can maintain state
-* `max_tokens_in_paged_kv_cache` is to configure the maximum number of tokens in the paged kv cache.
+* `max_tokens_in_paged_kv_cache` sets the maximum number of tokens in the paged kv cache.
 * `kv_cache_free_gpu_mem_fraction` is to configure K-V Cache free gpu memory fraction.
 
 #### Embedding Engine Config
