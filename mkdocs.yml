@@ -12,8 +12,8 @@ theme:
   logo: img/ray.png
   favicon: img/favicon.ico
 
-repo_name: anyscale/aviary
-repo_url: https://github.com/anyscale/aviary
+repo_name: anyscale/ray-llm
+repo_url: https://github.com/anyscale/ray-llm
 edit_uri: ""
 
 nav:
