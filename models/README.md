@@ -54,7 +54,7 @@ RayLLM supports continuous batching, meaning incoming requests are processed as 
 * `logger_level` is to configure log level for TensorRT-LLM engine. ("VERBOSE", "INFO", "WARNING", "ERROR")
 * `max_num_sequences` is the maximum number of requests/sequences the backend can maintain state
 * `max_tokens_in_paged_kv_cache` sets the maximum number of tokens in the paged kv cache.
-* `kv_cache_free_gpu_mem_fraction` is to configure K-V Cache free gpu memory fraction.
+* `kv_cache_free_gpu_mem_fraction` sets the K-V Cache free gpu memory fraction.
 
 #### Embedding Engine Config
 * `model_id` is the ID that refers to the model in the RayLLM or OpenAI API.
