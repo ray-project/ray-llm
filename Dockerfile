@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1.4
+# Note: TRTLLM backend is not included in the dockerfile, it is planned to be added in the future.
 
 ARG RAY_IMAGE="anyscale/ray"
 ARG RAY_TAG="2.9.0-py39-cu121"
