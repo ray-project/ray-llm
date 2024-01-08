@@ -1,10 +1,7 @@
-name: 🦜🔍 Documentation build and deploy
+name: 🦜🔍 Documentation deploy
 
 on:
   push:
-    branches:
-    - master
-  pull_request:
     branches:
     - master
 
