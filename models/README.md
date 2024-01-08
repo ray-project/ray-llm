@@ -30,7 +30,7 @@ Ray Actors during deployments (using `ray_actor_options`). We recommend using th
 
 Engine is the abstraction for interacting with a model. It is responsible for scheduling and running the model inside a Ray Actor worker group.
 
-The `engine_config` section specifies the model ID (`model_id`), how to initialize it and what parameters to use when generating tokens with an LLM.
+The `engine_config` section specifies the model ID (`model_id`), how to initialize it, and what parameters to use when generating tokens with an LLM.
 
 RayLLM supports continuous batching, meaning incoming requests are processed as soon as they arrive, and can be added to batches that are already being processed. This means that the model is not slowed down by certain sentences taking longer to generate than others. RayLLM also supports quantization, meaning compressed models can be deployed with cheaper hardware requirements. For more details on using quantized models in RayLLM, see the [quantization guide](continuous_batching/quantization/README.md).
 
