@@ -45,6 +45,8 @@ RayLLM supports continuous batching, meaning incoming requests are processed as 
 * `gcs_mirror_config` is a dictionary that contains configuration for loading the model from Google Cloud Storage instead of Hugging Face Hub. You can use this to speed up downloads.
 
 #### TRTLLM Engine Config
+* `model_id` is the ID that refers to the model in the RayLLM or OpenAI API.
+* `type` is the type of  inference engine. `VLLMEngine`, `TRTLLMEngine`, and `EmbeddingEngine` are currently supported.
 * `model_local_path` is the path to the TensorRT-LLM model directory.
 * `s3_mirror_config` is a dictionary that contains configurations for loading the model from S3 instead of Hugging Face Hub. You can use this to speed up downloads.
 * `generation` contains configurations related to default generation parameters such as `prompt_format` and `stopping_sequences`.
