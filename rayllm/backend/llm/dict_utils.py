@@ -1,14 +1,15 @@
-def merge_dicts(overwrite: dict, base: dict) -> dict:
+def merge_dicts(base: dict, overwrite: dict) -> dict:
     """
-    Merge two dictionaries recursively, with keys from overwrite taking precedence.
+    Merge overwrite into base. Modify base inplace.
     """
-    base = base.copy()
-    for key, value in overwrite.items():
-        if isinstance(value, dict):
-            # get node or create one
-            node = base.setdefault(key, {})
-            merge_dicts(value, node)
-        else:
-            base[key] = value
 
+    for key in overwrite:
+        if (
+            key in base
+            and isinstance(base[key], dict)
+            and isinstance(overwrite[key], dict)
+        ):
+            merge_dicts(base[key], overwrite[key])
+        else:
+            base[key] = overwrite[key]
     return base

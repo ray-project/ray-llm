@@ -24,7 +24,7 @@ from rayllm.backend.server.utils import (
     _replace_prefix,
     stream_model_responses,
 )
-from rayllm.common.models import ModelData
+from rayllm.common.models import DeletedModel, ModelData
 
 logger = get_logger(__name__)
 
@@ -86,6 +86,9 @@ class ServeApplicationQueryClient(RouterQueryClient):
     async def model(self, model_id: str):
         return self.all_models.get(model_id)
 
+    async def delete_fine_tuned_model(self, model: str) -> DeletedModel:
+        raise NotImplementedError
+
     def _get_model_path(self, model: str):
         model = _replace_prefix(model)
         route = self._routes.get(model)
@@ -98,20 +101,11 @@ class ServeApplicationQueryClient(RouterQueryClient):
         return route
 
     def _model(self, model: str):
-        metadata = self._engine_configurations[model].dict(
-            include={
-                "engine_config": {
-                    "generation",
-                    "model_id",
-                    "model_url",
-                    "model_description",
-                }
-            }
-        )
+        metadata = self._engine_configurations[model].short_metadata()
         return ModelData(
             id=model,
             object="model",
             owned_by="organization-owner",  # TODO
             permission=[],  # TODO
-            aviary_metadata=metadata,
+            rayllm_metadata=metadata,
         )

@@ -11,13 +11,13 @@ if TYPE_CHECKING:
     from vllm.outputs import RequestOutput
 
 
-metrics_prefix = "vllm_engine_stats"
+engine_metrics_prefix = "vllm_engine_stats"
 num_current_pending_requests_gauge = metrics.Gauge(
-    f"{metrics_prefix}_num_current_pending_requests",
+    f"{engine_metrics_prefix}_num_current_pending_requests",
     "current pending requests.",
 )
 num_current_running_requests_gauge = metrics.Gauge(
-    f"{metrics_prefix}_num_current_running_requests",
+    f"{engine_metrics_prefix}_num_current_running_requests",
     "current running requests.",
 )
 
@@ -32,24 +32,83 @@ class RequestState(str, Enum):
 
 state_counters = {
     RequestState.PENDING: NonExceptionThrowingCounter(
-        f"{metrics_prefix}_total_requests_submitted",
+        f"{engine_metrics_prefix}_total_requests_submitted",
         "total submitted requests.",
     ),
     RequestState.RUNNING: NonExceptionThrowingCounter(
-        f"{metrics_prefix}_total_requests_started",
+        f"{engine_metrics_prefix}_total_requests_started",
         "total started requests.",
     ),
     RequestState.ERRORED: NonExceptionThrowingCounter(
-        f"{metrics_prefix}_total_requests_errored",
+        f"{engine_metrics_prefix}_total_requests_errored",
         "total errored requests.",
     ),
     RequestState.CANCELLED: NonExceptionThrowingCounter(
-        f"{metrics_prefix}_total_requests_cancelled",
+        f"{engine_metrics_prefix}_total_requests_cancelled",
         "total cancelled requests.",
     ),
     RequestState.FINISHED: NonExceptionThrowingCounter(
-        f"{metrics_prefix}_total_requests_finished",
+        f"{engine_metrics_prefix}_total_requests_finished",
         "total finished requests.",
+    ),
+}
+
+usage_metrics_prefix = "vllm_arg_usage_stats"
+
+
+class ArgUsage(str, Enum):
+    BEST_OF = "best_of"
+    PRESENCE_PENALTY = "presence_penalty"
+    FREQUENCY_PENALTY = "frequency_penalty"
+    PRESENCE_AND_FREQUENCY_PENALTY = "presence_and_frequency_penalty"
+    TEMPERATURE = "temperature"
+    TOP_P = "top_p"
+    TOP_K = "top_k"
+    STOP = "stop"
+    MAX_TOKENS = "max_tokens"
+    LOGPROBS = "logprobs"
+
+
+usage_counters = {
+    ArgUsage.BEST_OF: NonExceptionThrowingCounter(
+        f"{usage_metrics_prefix}_best_of_usage_count",
+        "total number of usage of best of.",
+    ),
+    ArgUsage.PRESENCE_PENALTY: NonExceptionThrowingCounter(
+        f"{usage_metrics_prefix}_presence_penalty_usage_count",
+        "total number of usage of presence penalty.",
+    ),
+    ArgUsage.FREQUENCY_PENALTY: NonExceptionThrowingCounter(
+        f"{usage_metrics_prefix}_frequency_penalty_usage_count",
+        "total number of usage of frequency penalty.",
+    ),
+    ArgUsage.PRESENCE_AND_FREQUENCY_PENALTY: NonExceptionThrowingCounter(
+        f"{usage_metrics_prefix}_presence_and_frequency_penalty_usage_count",
+        "total number of usage when both presence penalty and frequency penalty are on.",
+    ),
+    ArgUsage.TEMPERATURE: NonExceptionThrowingCounter(
+        f"{usage_metrics_prefix}_temperature_usage_count",
+        "total number of usage of temperature.",
+    ),
+    ArgUsage.TOP_P: NonExceptionThrowingCounter(
+        f"{usage_metrics_prefix}_top_p_usage_count",
+        "total number of usage of top p.",
+    ),
+    ArgUsage.TOP_K: NonExceptionThrowingCounter(
+        f"{usage_metrics_prefix}_top_k_usage_count",
+        "total number of usage of top k.",
+    ),
+    ArgUsage.STOP: NonExceptionThrowingCounter(
+        f"{usage_metrics_prefix}_stop_usage_count",
+        "total number of usage of stop.",
+    ),
+    ArgUsage.MAX_TOKENS: NonExceptionThrowingCounter(
+        f"{usage_metrics_prefix}_max_tokens_usage_count",
+        "total number of usage of max tokens.",
+    ),
+    ArgUsage.LOGPROBS: NonExceptionThrowingCounter(
+        f"{usage_metrics_prefix}_logprobs_usage_count",
+        "total number of usage of logprobs.",
     ),
 }
 

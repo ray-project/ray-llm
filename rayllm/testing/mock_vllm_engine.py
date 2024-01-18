@@ -7,6 +7,9 @@ from rayllm.backend.llm.error_handling import ValidationError
 from rayllm.backend.llm.generation import (
     FinishReason,
 )
+from rayllm.backend.llm.llm_node_initializer import (
+    LLMNodeInitializer,
+)
 from rayllm.backend.llm.vllm.vllm_engine_stats import (
     VLLMEngineStats,
     VLLMEngineStatTracker,
@@ -16,15 +19,13 @@ from rayllm.backend.llm.vllm.vllm_models import (
     VLLMGenerationRequest,
     VLLMSamplingParams,
 )
-from rayllm.backend.llm.vllm.vllm_node_initializer import (
-    VLLMNodeInitializer,
-)
 from rayllm.backend.server.models import AviaryModelResponse
+from rayllm.common.models import LogProb, LogProbs
 
 
 class MockVLLMEngine:
     def __init__(
-        self, llm_app: VLLMApp, *, node_initializer: VLLMNodeInitializer = None
+        self, llm_app: VLLMApp, *, node_initializer: LLMNodeInitializer = None
     ):
         """Create a VLLM Engine class
 
@@ -61,6 +62,7 @@ class MockVLLMEngine:
             len(prompt.split()) if isinstance(prompt, str) else len(prompt.prompt)
         )
         generation_time = 0.001
+
         async for i in self.async_range(max_tokens):
             if i == max_tokens - 1:
                 finish_reason = FinishReason.STOP
@@ -74,6 +76,7 @@ class MockVLLMEngine:
                 preprocessing_time=0,
                 generation_time=generation_time,
                 finish_reason=finish_reason,
+                logprobs=self.get_logprobs(i, vllm_engine_request, sampling_params),
             )
             yield aviary_model_response
             await asyncio.sleep(generation_time)
@@ -93,6 +96,20 @@ class MockVLLMEngine:
         try:
             if sampling_params.n != 1:
                 raise ValueError("n>1 is not supported yet in aviary")
+            if sampling_params.logprobs:
+                if sampling_params.top_logprobs:
+                    if not (0 <= sampling_params.top_logprobs <= 5):
+                        raise ValueError("top_logprobs must be between 0 and 5")
+                    log_probs = sampling_params.top_logprobs
+                else:
+                    log_probs = 1
+            else:
+                if sampling_params.top_logprobs:
+                    raise ValueError(
+                        "if top_logprobs is specified, logprobs must be set to `True`"
+                    )
+                log_probs = None
+
             return VLLMInternalSamplingParams(
                 n=1,
                 best_of=sampling_params.best_of,
@@ -117,9 +134,39 @@ class MockVLLMEngine:
                 # vLLM will cancel internally if input+output>max_tokens
                 max_tokens=sampling_params.max_tokens
                 or self.engine_config.max_total_tokens,
-                logprobs=sampling_params.logprobs,
+                logprobs=log_probs,
             )
         except Exception as e:
             # Wrap the error in ValidationError so the status code
             # returned to the user is correct.
             raise ValidationError(str(e)) from e
+
+    def get_logprobs(
+        self,
+        i: int,
+        vllm_engine_request: VLLMGenerationRequest,
+        sampling_params: VLLMSamplingParams,
+    ):
+        """Helper function for generating AviaryModelResponse logprobs"""
+        num_logprobs = sampling_params.logprobs
+        top_logprobs = vllm_engine_request.sampling_params.top_logprobs
+        if num_logprobs:
+            log_probs = [
+                LogProbs.create(
+                    logprobs=[
+                        LogProb(
+                            logprob=0.0,
+                            token=(
+                                f"test_{i} " if idx == 0 else f"candidate_token_{idx}"
+                            ),
+                            bytes=[],
+                        )
+                        for idx in range(num_logprobs)
+                    ],
+                    top_logprobs=top_logprobs,
+                )
+            ]
+        else:
+            log_probs = None
+
+        return log_probs

@@ -1,5 +1,8 @@
+import os
 import traceback
 import warnings
+
+import boto3
 
 try:
     from langchain.llms import OpenAIChat
@@ -84,3 +87,17 @@ def assert_has_backend():
         "This command requires aviary backend to be installed. "
         "Please install backend dependencies with `pip install aviary[backend]`. "
     )
+
+
+def download_files_from_s3(bucket_uri: str, dest_dir: str):
+    """Download files from s3 to a local directory"""
+    isExist = os.path.exists(dest_dir)
+    if not isExist:
+        os.makedirs(dest_dir)
+    s3 = boto3.resource("s3")
+    bucket_name, prefix = bucket_uri.replace("s3://", "").split("/", 1)
+    bucket = s3.Bucket(bucket_name)
+    for obj in bucket.objects.filter(Prefix=prefix):
+        s3.meta.client.download_file(
+            bucket_name, obj.key, f"{dest_dir}/{obj.key.split('/')[-1]}"
+        )

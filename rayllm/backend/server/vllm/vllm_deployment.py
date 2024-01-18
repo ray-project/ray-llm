@@ -66,7 +66,6 @@ class VLLMDeploymentImpl:
                 request_id=request_id, priority=priority
             ),
         )
-
         async for aviary_model_response in self.engine.generate(vllm_request):
             yield aviary_model_response
 
@@ -85,7 +84,7 @@ class VLLMDeploymentImpl:
         ),
     },
     max_concurrent_queries=20,  # Maximum backlog for a single replica
-    health_check_period_s=10,
+    health_check_period_s=30,
     health_check_timeout_s=30,
 )
 class VLLMDeployment(VLLMDeploymentImpl):

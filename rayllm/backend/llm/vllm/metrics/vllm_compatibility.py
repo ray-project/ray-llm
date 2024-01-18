@@ -13,19 +13,19 @@ engine_metrics = FnCallMetricsContainer(metrics_prefix)
 # from vLLM directly. We may want to revisit this in the future if
 # the metrics need more granularity.
 engine_record_stats_gauges: Dict[str, metrics.Gauge] = {
-    f"{metrics_prefix}_avg_prompt_throughput": metrics.Gauge(
-        "LLMEngine_avg_prompt_throughput",
+    "avg_prompt_throughput": metrics.Gauge(
+        f"{metrics_prefix}_avg_prompt_throughput",
         "avg prompt (prefill) throughput (tokens/s). Updated every 5s.",
     ),
-    f"{metrics_prefix}_avg_generation_throughput": metrics.Gauge(
-        "LLMEngine_avg_generation_throughput",
+    "avg_generation_throughput": metrics.Gauge(
+        f"{metrics_prefix}_avg_generation_throughput",
         "avg generation throughput (tokens/s). Updated every 5s.",
     ),
-    f"{metrics_prefix}_gpu_cache_usage": metrics.Gauge(
-        "LLMEngine_gpu_cache_usage", "gpu_cache_usage (%). Updated every 5s."
+    "gpu_cache_usage": metrics.Gauge(
+        f"{metrics_prefix}_gpu_cache_usage", "gpu_cache_usage (%). Updated every 5s."
     ),
-    f"{metrics_prefix}_cpu_cache_usage": metrics.Gauge(
-        "LLMEngine_cpu_cache_usage", "cpu_cache_usage (%). Updated every 5s."
+    "cpu_cache_usage": metrics.Gauge(
+        f"{metrics_prefix}_cpu_cache_usage", "cpu_cache_usage (%). Updated every 5s."
     ),
 }
 

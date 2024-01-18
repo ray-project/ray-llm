@@ -11,6 +11,7 @@ from rayllm.backend.server.models import (
     Prompt,
     QueuePriority,
 )
+from rayllm.backend.server.openai_compat.openai_exception import OpenAIHTTPException
 from rayllm.backend.server.plugins.execution_hooks import (
     ExecutionHooks,
 )
@@ -18,7 +19,7 @@ from rayllm.backend.server.plugins.router_query_engine import (
     RouterQueryClient,
     StreamingErrorHandler,
 )
-from rayllm.common.models import ModelData
+from rayllm.common.models import DeletedModel, ModelData
 
 logger = get_logger(__name__)
 
@@ -51,13 +52,14 @@ class MultiQueryClient(RouterQueryClient):
                 f"Unable to find {model}. Please ensure that the model exists and you have permission.",
             )
 
+        self._log_prompt(prompt)
+
         with step(
             "aviary_request",
             request.state.request_id,
             baggage={"model_id": model},
         ) as span:
             request.state.aviary_request_span = span
-
             async for x in self.metrics_wrapper.handle_failure(
                 model,
                 request,
@@ -69,6 +71,7 @@ class MultiQueryClient(RouterQueryClient):
     async def _find_client_for_model(
         self, model: str, raise_if_missing=True
     ) -> Tuple[RouterQueryClient, ModelData]:
+        # TODO: This probably shouldn't use order as implicit priority
         for client in self.clients:
             model_def = await client.model(model)
             if model_def:
@@ -90,3 +93,17 @@ class MultiQueryClient(RouterQueryClient):
     async def model(self, model_id: str):
         _, model_data = await self._find_client_for_model(model_id)
         return model_data
+
+    async def delete_fine_tuned_model(self, model: str) -> DeletedModel:
+        client, _ = await self._find_client_for_model(model)
+        if not client:
+            raise OpenAIHTTPException(
+                status.HTTP_404_NOT_FOUND,
+                f"Unable to find {model}. Please ensure that the model exists and you have permission.",
+            )
+        return await client.delete_fine_tuned_model(model)
+
+    def _log_prompt(self, prompt: Prompt):
+        log_str = prompt.get_log_str()
+        if log_str is not None:
+            logger.info(f"Prompt tracing: {log_str}")

@@ -1,4 +1,4 @@
-openai
+openai>=1.0.0
 pre-commit
 mypy_extensions
 ruff==0.0.270
@@ -9,7 +9,7 @@ types-filelock
 types-requests
 types-cachetools
 pytest
-pytest-asyncio
+pytest-asyncio==0.21.1
 pytest-timeout
 buildkite-test-collector
 locust

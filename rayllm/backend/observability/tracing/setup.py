@@ -17,7 +17,9 @@ from rayllm.backend.observability.tracing.baggage_span_processor import (
     BaggageSpanProcessor,
 )
 from rayllm.backend.observability.tracing.fastapi import FastAPIInstrumentor
-from rayllm.backend.observability.tracing.threading import ThreadingInstrumentor
+from rayllm.backend.observability.tracing.threading_propagator import (
+    ThreadPoolExecutorInstrumentor,
+)
 
 has_setup_tracing = Once()
 
@@ -47,7 +49,7 @@ def _setup_tracing():
     AioHttpClientInstrumentor().instrument()
     BotocoreInstrumentor().instrument()
     HTTPXClientInstrumentor().instrument()
-    ThreadingInstrumentor().instrument()
+    ThreadPoolExecutorInstrumentor().instrument()
     RedisInstrumentor().instrument()
 
     tracer = trace.get_tracer(__name__)

@@ -1,27 +1,36 @@
 import asyncio
-import json
 import os
 import traceback
 from functools import partial
 from typing import (
     AsyncIterable,
-    AsyncIterator,
     Awaitable,
     Callable,
     List,
+    Optional,
     TypeVar,
     Union,
 )
 
 import aiohttp
 import pydantic
-from fastapi import Request
-from starlette.responses import StreamingResponse
+from fastapi import HTTPException, Request, status
+from httpx import HTTPStatusError as HTTPXHTTPStatusError
+from opentelemetry import trace
+from pydantic import ValidationError as PydanticValidationError
 
-from rayllm.backend.server.models import AviaryModelResponse, LLMApp
+from rayllm.backend.logger import get_logger
+from rayllm.backend.server import constants
+from rayllm.backend.server.models import (
+    AviaryModelResponse,
+    LLMApp,
+)
+from rayllm.backend.server.openai_compat.openai_exception import OpenAIHTTPException
+from rayllm.common.models import ErrorResponse
 
 T = TypeVar("T")
 
+logger = get_logger(__name__)
 AVIARY_ROUTER_HTTP_TIMEOUT = float(os.environ.get("AVIARY_ROUTER_HTTP_TIMEOUT", 175))
 
 
@@ -97,6 +106,7 @@ def _is_yaml_file(filename: str) -> bool:
 
 
 def _replace_prefix(model: str) -> str:
+    """Replace -- with / in model name to handle slashes within the URL path segment"""
     return model.replace("--", "/")
 
 
@@ -108,28 +118,6 @@ async def _until_disconnected(request: Request):
 
 
 EOS_SENTINELS = (None, StopIteration, StopAsyncIteration)
-
-
-async def serialize_stream(async_iterator: AsyncIterator):
-    try:
-        async for x in async_iterator:
-            if isinstance(x, pydantic.BaseModel):
-                x = x.json() + "\n"
-
-            if not isinstance(x, (str, bytes)):
-                raise TypeError(f"Unable to serialize object {x}, of type {type(x)}")
-
-            yield x
-    except Exception as e:
-        err = {"error": f"Internal server error: {e}"}
-        yield json.dumps(err) + "\n"
-
-
-def get_streaming_response(async_iterator: AsyncIterable) -> StreamingResponse:
-    return StreamingResponse(
-        serialize_stream(async_iterator),
-        media_type="text/event-stream",
-    )
 
 
 async def collapse_stream(async_iterator: AsyncIterable[T]) -> List[T]:
@@ -249,3 +237,76 @@ def extract_message_from_exception(e: Exception) -> str:
         message = line + "\n" + message
     message = message.strip()
     return message
+
+
+def get_response_for_error(
+    e: Exception,
+    request_id: str,
+    span: Optional[trace.Span] = None,
+    prefix="",
+    enable_returning_500_errors: Optional[bool] = None,
+) -> AviaryModelResponse:
+    """Convert an exception to an AviaryModelResponse object"""
+    enable_returning_500_errors = (
+        enable_returning_500_errors
+        if enable_returning_500_errors is not None
+        else constants.enable_returning_internal_exceptions
+    )
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    if isinstance(e, HTTPException):
+        status_code = e.status_code
+    elif isinstance(e, OpenAIHTTPException):
+        status_code = e.status_code
+    elif isinstance(e, PydanticValidationError):
+        status_code = 400
+    elif isinstance(e, HTTPXHTTPStatusError):
+        status_code = e.response.status_code
+    else:
+        # Try to get the status code attribute
+        status_code = getattr(e, "status_code", status_code)
+
+    logger.error(
+        f"{prefix}. Request {request_id} failed with status code {status_code}: {e}",
+        exc_info=e,
+    )
+
+    if (
+        status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        and not enable_returning_500_errors
+    ):
+        message = "Internal Server Error"
+        internal_message = message
+        exc_type = "InternalServerError"
+    else:
+        if isinstance(e, OpenAIHTTPException) and e.internal_message is not None:
+            internal_message = e.internal_message
+        else:
+            internal_message = extract_message_from_exception(e)
+        if isinstance(e, HTTPException):
+            message = e.detail
+        elif isinstance(e, OpenAIHTTPException):
+            message = e.message
+        else:
+            message = internal_message
+        exc_type = e.__class__.__name__
+
+    # TODO make this more robust
+    if "(Request ID: " not in message:
+        message += f" (Request ID: {request_id})"
+
+    if "(Request ID: " not in internal_message:
+        internal_message += f" (Request ID: {request_id})"
+
+    if span is None:
+        span = trace.get_current_span()
+    span.record_exception(e)
+    span.set_status(trace.StatusCode.ERROR, description=message)
+
+    return AviaryModelResponse(
+        error=ErrorResponse(
+            message=message,
+            code=status_code,
+            internal_message=internal_message,
+            type=exc_type,
+        ),
+    )

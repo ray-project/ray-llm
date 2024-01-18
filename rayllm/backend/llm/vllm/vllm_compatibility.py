@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type, Union
 
 import ray
 from ray.util.placement_group import PlacementGroup
+from transformers.dynamic_module_utils import init_hf_modules
 from vllm.config import CacheConfig as VllmCacheConfig
 from vllm.config import ModelConfig as VllmModelConfig
 from vllm.config import ParallelConfig as VllmParallelConfig
@@ -23,6 +24,11 @@ from rayllm.backend.llm.vllm.vllm_models import VLLMApp
 
 if TYPE_CHECKING:
     from vllm.sampling_params import SamplingParams
+
+
+# This has to be ran at module level to fix serialization issues
+# with remote HF Transformers code.
+init_hf_modules()
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +101,8 @@ class AviaryLLMEngine(_AsyncLLMEngine):
         for name, stat in last_stats.items():
             if name in engine_record_stats_gauges:
                 engine_record_stats_gauges[name].set(stat)
+            else:
+                raise ValueError(f"Unknown stat {name}")
         return last_stats
 
 
