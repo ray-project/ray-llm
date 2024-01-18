@@ -43,6 +43,7 @@ from rayllm.backend.llm.error_handling import TooManyStoppingSequences
 from rayllm.common.models import (
     DisabledPromptFormat,
     ErrorResponse,
+    LogProbs,
     Message,
     Prompt,
     PromptFormat,
@@ -166,9 +167,29 @@ class ComputedPropertyMixin:
 
 
 class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
+    """The response from a query to a RayLLM Model.
+
+    Args:
+        generated_text: The generated text.
+        tool_calls: The tool calls that were made.
+        embedding_outputs: The embedding outputs.
+        logprobs: Log probabilities of each token and possibly some of the unchosen tokens.
+        num_input_tokens: The number of input tokens.
+        num_generated_tokens: The number of generated tokens.
+        num_input_tokens_batch: The number of input tokens in the batch.
+        num_generated_tokens_batch: The number of generated tokens in the batch.
+        preprocessing_time: The time spent preprocessing the request.
+        generation_time: The time spent generating the response.
+        timestamp: The timestamp of the response.
+        finish_reason: The reason the generation finished.
+        error: The error, if any.
+
+    """
+
     generated_text: Optional[str] = None
     tool_calls: Optional[List[ToolCall]] = None
     embedding_outputs: Optional[Union[List[float], List[List[float]]]] = None
+    logprobs: Optional[List[LogProbs]] = None
     num_input_tokens: Optional[int] = None
     num_input_tokens_batch: Optional[int] = None
     num_generated_tokens: Optional[int] = None
@@ -264,10 +285,15 @@ class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
         error = next(
             (response.error for response in reversed(responses) if response.error), None
         )
+        logprobs = []
+        for response in responses:
+            if response.logprobs:
+                logprobs.extend(response.logprobs)
 
         return cls(
             generated_text=generated_text,
             embedding_outputs=embedding_outputs,
+            logprobs=logprobs,
             num_input_tokens=max_num_input_tokens,
             num_input_tokens_batch=max_num_input_tokens_batch,
             num_generated_tokens=total_generated_tokens,
@@ -477,6 +503,8 @@ class SamplingParams(BaseModelExtended):
         n: How many completions to generate for each prompt.
         logprobs: Include the log probabilities on the `logprobs` most likely
             tokens, as well the chosen tokens.
+        top_logprobs: The number of logprobs to return. Defaults to 1. `logprobs`
+            must be set to `True` in order to use top_logprobs.
         stop: Up to 4 sequences where the API will stop generating further tokens.
             The returned text will not contain the stop sequence.
         presence_penalty: Number between -2.0 and 2.0.
@@ -500,7 +528,8 @@ class SamplingParams(BaseModelExtended):
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     n: int = 1
-    logprobs: Optional[int] = None
+    logprobs: Optional[bool] = None
+    top_logprobs: Optional[int] = None
     logit_bias: Optional[Dict[str, float]] = None
     stop: Optional[List[str]] = None
     presence_penalty: Optional[float] = None

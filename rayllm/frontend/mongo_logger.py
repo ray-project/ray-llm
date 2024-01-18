@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, List
 
 from gradio import FlaggingCallback
 from pymongo import MongoClient
@@ -49,7 +49,7 @@ class MongoLogger(FlaggingCallback):
             self.db.create_collection(COLLECTION_NAME)
             print(f"Collection '{COLLECTION_NAME}' created in database '{DB_NAME}'.")
 
-    def flag(self, flag_data: list[Any], flag_option: str = "", username: str = ""):
+    def flag(self, flag_data: List[Any], flag_option: str = "", username: str = ""):
         print(f"last value is: {flag_data}")
         event = LlmEvent(
             project_name=self.project_name,

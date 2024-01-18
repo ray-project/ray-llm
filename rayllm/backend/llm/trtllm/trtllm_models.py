@@ -119,6 +119,7 @@ class TRTLLMSamplingParams(SamplingParams):
         "logit_bias",
         "frequency_penalty",
         "response_format",
+        "top_logprobs",
     }
     presence_penalty: Optional[float] = None
 

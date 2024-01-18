@@ -66,7 +66,6 @@ class VLLMDeploymentImpl:
                 request_id=request_id, priority=priority
             ),
         )
-
         async for aviary_model_response in self.engine.generate(vllm_request):
             yield aviary_model_response
 

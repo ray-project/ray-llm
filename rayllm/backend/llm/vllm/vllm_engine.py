@@ -1,7 +1,8 @@
 import logging
 import time
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
+from vllm.config import ModelConfig
 from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams as VLLMInternalSamplingParams
 
@@ -31,8 +32,14 @@ from rayllm.backend.observability.fn_call_metrics import (
 from rayllm.backend.server.models import (
     AviaryModelResponse,
 )
+from rayllm.backend.server.openai_compat.openai_exception import OpenAIHTTPException
+from rayllm.backend.server.utils import get_response_for_error
+from rayllm.common.models import LogProb, LogProbs
 
 logger = logging.getLogger(__name__)
+
+MIN_NUM_TOPLOGPROBS_ALLOWED = 0
+MAX_NUM_TOPLOGPROBS_ALLOWED = 5
 
 
 class VLLMEngine:
@@ -60,6 +67,7 @@ class VLLMEngine:
         )
         self._stats = VLLMEngineStatTracker()
         self.running = False
+        self.model_config: ModelConfig = None
 
     async def start(self):
         """Start the VLLM Engine
@@ -86,6 +94,7 @@ class VLLMEngine:
                 runtime_env,
             )
             self.running = True
+            self.model_config = await self.engine.get_model_config()
 
     async def generate(self, vllm_engine_request: VLLMGenerationRequest):
         response_stream = BatchAviaryModelResponses(self._generate(vllm_engine_request))
@@ -117,7 +126,6 @@ class VLLMEngine:
             self._parse_sampling_params(vllm_generation_request.sampling_params),
             req_id,
         )
-
         # Loop over the results
         num_text_returned = 0
         all_tokens_collected = 0
@@ -125,6 +133,9 @@ class VLLMEngine:
         output = None
         try:
             start = time.perf_counter()
+            # TODO @avnishn: comment this back in when openai logprobs supported in
+            # public vllm
+            # log_probs_idx = 0
             async for request_output in self._stats.auto_track(results_generator):
                 # TODO(tchordia): handle more than one output
                 assert (
@@ -139,8 +150,26 @@ class VLLMEngine:
                 finish_reason = FinishReason.from_vllm_finish_reason(
                     output.finish_reason
                 )
+                logprobs_enabled = (
+                    vllm_generation_request.sampling_params.logprobs
+                    or vllm_generation_request.sampling_params.top_logprobs
+                )
+                if logprobs_enabled:
+                    raise OpenAIHTTPException(
+                        status_code=400,
+                        message="Openai compatible logprobs aren't supported in vllm",
+                    )
+                # TODO @avnishn: comment this back in when openai logprobs supported in
+                # public vllm
+                # log_probs = self._extract_logprobs(output, log_probs_idx,
+                #     vllm_generation_request.sampling_params.top_logprobs)
+                # log_probs_idx += 1
+
                 yield AviaryModelResponse(
                     generated_text=text_output,
+                    # TODO @avnishn: comment this back in when openai logprobs supported
+                    # in public vllm
+                    # logprobs=log_probs,
                     num_generated_tokens=tokens_collected,
                     num_generated_tokens_batch=tokens_collected,
                     num_input_tokens=num_input_tokens,
@@ -155,6 +184,8 @@ class VLLMEngine:
                 f"Total time: {total_request_time}s, "
                 f"Input tokens: {num_input_tokens}, Generated tokens: {all_tokens_collected}, "
             )
+        except OpenAIHTTPException as e:
+            yield get_response_for_error(e=e, request_id=req_id)
         except Exception as e:
             logger.error(
                 f"Failed while generating for requests ({req_id}): {repr(e)}",
@@ -218,6 +249,31 @@ class VLLMEngine:
             if sampling_params.n != 1:
                 raise ValueError("n>1 is not supported yet in aviary")
             self._collect_usage_metrics(sampling_params)
+            log_probs = None
+            if sampling_params.logprobs:
+                max_logprobs = min(
+                    MAX_NUM_TOPLOGPROBS_ALLOWED, self.model_config.max_log_probs
+                )
+                if max_logprobs == 0:
+                    raise ValueError("This model doesn't support outputting logprobs")
+                if sampling_params.top_logprobs:
+                    if not (
+                        MIN_NUM_TOPLOGPROBS_ALLOWED
+                        <= sampling_params.top_logprobs
+                        <= max_logprobs
+                    ):
+                        raise ValueError(
+                            f"top_logprobs must be between {MIN_NUM_TOPLOGPROBS_ALLOWED} "
+                            f"and {max_logprobs}"
+                        )
+                    log_probs = sampling_params.top_logprobs
+                else:
+                    log_probs = 1
+            else:
+                if sampling_params.top_logprobs:
+                    raise ValueError(
+                        "if top_logprobs is specified, logprobs must be set to `True`"
+                    )
             return VLLMInternalSamplingParams(
                 n=1,
                 best_of=sampling_params.best_of,
@@ -242,10 +298,33 @@ class VLLMEngine:
                 # vLLM will cancel internally if input+output>max_tokens
                 max_tokens=sampling_params.max_tokens
                 or self.engine_config.max_total_tokens,
-                logprobs=sampling_params.logprobs,
+                logprobs=log_probs,
                 **extra_fields,
             )
         except Exception as e:
             # Wrap the error in ValidationError so the status code
             # returned to the user is correct.
             raise ValidationError(str(e)) from e
+
+    def _extract_logprobs(
+        self,
+        output: RequestOutput,
+        log_probs_idx: int,
+        top_logprobs: Optional[int] = None,
+    ):
+        log_probs = output.logprobs[log_probs_idx] if output.logprobs else None
+        if log_probs:
+            log_probs_for_n_sampled = [
+                LogProb(
+                    logprob=log_prob.logprob,
+                    token=log_prob.decoded_token,
+                    bytes=list(log_prob.decoded_token.encode()),
+                )
+                for log_prob in log_probs.values()
+            ]
+            log_probs = [
+                LogProbs.create(
+                    logprobs=log_probs_for_n_sampled, top_logprobs=top_logprobs
+                )
+            ]
+        return log_probs

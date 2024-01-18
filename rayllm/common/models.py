@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, TypeVar, Union
 
+from fastapi import HTTPException, status
 from pydantic import BaseModel, root_validator, validator
 
 if TYPE_CHECKING:
@@ -135,6 +136,29 @@ class Function(BaseModel):
     parameters: Optional[Dict[str, Any]] = None
 
 
+class LogProb(BaseModel):
+    logprob: float
+    token: str
+    bytes: List[int]
+
+
+class LogProbs(BaseModel):
+    token: str
+    logprob: float
+    bytes: List[int]
+    top_logprobs: List[LogProb]
+
+    @classmethod
+    def create(cls, logprobs: List[LogProb], top_logprobs: Optional[int] = None):
+        assert len(logprobs) > 0, "logprobs must be a non-empty list"
+        token = logprobs[0].token
+        logprob = logprobs[0].logprob
+        bytes = logprobs[0].bytes
+        all_logprobs = logprobs if top_logprobs else []
+        ret = cls(token=token, logprob=logprob, bytes=bytes, top_logprobs=all_logprobs)
+        return ret
+
+
 class ToolChoice(BaseModel):
     type: Literal["function"]
     function: Function
@@ -213,16 +237,22 @@ class DeltaEOS(BaseModel):
         extra = "forbid"
 
 
+class ChoiceLogProbs(BaseModel):
+    content: List[LogProbs]
+
+
 class MessageChoices(BaseModel):
     message: Message
     index: int
     finish_reason: str
+    logprobs: Optional[ChoiceLogProbs] = None
 
 
 class DeltaChoices(BaseModel):
     delta: Union[DeltaRole, DeltaContent, DeltaEOS]
     index: int
     finish_reason: Optional[str]
+    logprobs: Optional[ChoiceLogProbs] = None
 
 
 class ChatCompletion(BaseModel):
@@ -361,7 +391,10 @@ class PromptFormat(AbstractPromptFormat):
                 if system_message_index == -1:
                     system_message_index = i
                 else:
-                    raise ValueError("Only one system message can be specified.")
+                    raise HTTPException(
+                        status.HTTP_400_BAD_REQUEST,
+                        "Only one system message can be specified.",
+                    )
 
         system_message = None
         if system_message_index != -1:

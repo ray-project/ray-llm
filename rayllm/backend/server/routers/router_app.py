@@ -32,6 +32,7 @@ from rayllm.backend.server.routers.middleware import add_request_id
 from rayllm.backend.server.utils import _replace_prefix, get_response_for_error
 from rayllm.common.models import (
     ChatCompletion,
+    ChoiceLogProbs,
     Completion,
     DeletedModel,
     DeltaChoices,
@@ -41,6 +42,7 @@ from rayllm.common.models import (
     EmbeddingsData,
     EmbeddingsOutput,
     EmbeddingsUsage,
+    LogProbs,
     Message,
     MessageChoices,
     Model,
@@ -200,6 +202,7 @@ async def _chat_completions_wrapper(
         try:
             async for results in generator:
                 for subresult in results.unpack():
+                    logger.info(f"subresult: {subresult}")
                     all_results.append(subresult)
                     subresult_dict = subresult.dict()
                     if subresult_dict.get("error"):
@@ -215,12 +218,14 @@ async def _chat_completions_wrapper(
                         break
                     else:
                         finish_reason = subresult_dict["finish_reason"]
+
                         if not yielded_role:
                             choices: List[DeltaChoices] = [
                                 DeltaChoices(
                                     delta=DeltaRole(role="assistant"),
                                     index=0,
                                     finish_reason=None,
+                                    logprobs=ChoiceLogProbs(content=[]),
                                 )
                             ]
                             yield ChatCompletion(
@@ -232,6 +237,15 @@ async def _chat_completions_wrapper(
                                 usage=None,
                             )
                             yielded_role = True
+                        if subresult_dict["logprobs"]:
+                            logprobs = ChoiceLogProbs(
+                                content=[
+                                    LogProbs.parse_obj(logprob)
+                                    for logprob in subresult_dict["logprobs"]
+                                ]
+                            )
+                        else:
+                            logprobs = None
                         choices: List[DeltaChoices] = [
                             DeltaChoices(
                                 delta=DeltaContent(
@@ -240,6 +254,7 @@ async def _chat_completions_wrapper(
                                 ),
                                 index=0,
                                 finish_reason=None,
+                                logprobs=logprobs,
                             )
                         ]
                         yield ChatCompletion(
@@ -451,6 +466,13 @@ class Router:
                         type=results.error.type,
                     )
                 # TODO: pick up parameters that make sense, remove the rest
+                logprobs = results.logprobs
+                if logprobs:
+                    logprobs = ChoiceLogProbs(
+                        content=[LogProbs.parse_obj(logprob) for logprob in logprobs]
+                    )
+                else:
+                    logprobs = None
                 if results.tool_calls:
                     msg = Message(role="assistant", tool_calls=results.tool_calls)
                     # deleting this fields so that they don't appear in the response
@@ -460,6 +482,7 @@ class Router:
                             message=msg,
                             index=0,
                             finish_reason=results.finish_reason,
+                            logprobs=logprobs,
                         )
                     ]
                 else:
@@ -471,6 +494,7 @@ class Router:
                             ),
                             index=0,
                             finish_reason=results.finish_reason,
+                            logprobs=logprobs,
                         )
                     ]
 

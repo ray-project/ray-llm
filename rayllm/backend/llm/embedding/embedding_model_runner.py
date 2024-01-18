@@ -88,6 +88,30 @@ class ONNXGPUEmbeddingModelRunner(EmbeddingModelRunner):
         )
         from transformers.utils.hub import TRANSFORMERS_CACHE
 
+        class ORTModelForFeatureExtractionPatched(ORTModelForFeatureExtraction):
+            # Optimum v0.16.0 introduced an issue where a sentence-transformer model
+            # will have buffers named following sentence-transformer convention,
+            # but ORTModelForFeatureExtraction requires buffers named following
+            # Transformers convention. This patch fixes that.
+            def prepare_io_binding(self, *model_inputs, ordered_input_names):
+                # Remove input tensors not supported by sentence_transformers
+                model_inputs = model_inputs[: len(ordered_input_names)]
+                io_binding, output_shapes, output_buffers = super().prepare_io_binding(
+                    *model_inputs, ordered_input_names=ordered_input_names
+                )
+                # Fix output buffers
+                if (
+                    "last_hidden_state" not in output_buffers
+                    and "token_embeddings" in output_buffers
+                ):
+                    output_buffers["last_hidden_state"] = output_buffers[
+                        "token_embeddings"
+                    ]
+                    output_shapes["last_hidden_state"] = output_shapes[
+                        "token_embeddings"
+                    ]
+                return io_binding, output_shapes, output_buffers
+
         potential_path = Path(self.llm_app.engine_config.actual_hf_model_id)
         if potential_path.exists():
             # We are dealing with a local path
@@ -111,7 +135,7 @@ class ONNXGPUEmbeddingModelRunner(EmbeddingModelRunner):
                 logger.info(
                     f"Optimizing model {self.llm_app.engine_config.actual_hf_model_id} with ONNX Runtime..."
                 )
-                ort_model = ORTModelForFeatureExtraction.from_pretrained(
+                ort_model = ORTModelForFeatureExtractionPatched.from_pretrained(
                     self.llm_app.engine_config.actual_hf_model_id,
                     export=True,
                     provider="CUDAExecutionProvider",
@@ -126,7 +150,7 @@ class ONNXGPUEmbeddingModelRunner(EmbeddingModelRunner):
             path = potential_path
 
         logger.info(f"Loading ORT model from {path}...")
-        model = ORTModelForFeatureExtraction.from_pretrained(
+        model = ORTModelForFeatureExtractionPatched.from_pretrained(
             str(path), provider="CUDAExecutionProvider"
         )
 

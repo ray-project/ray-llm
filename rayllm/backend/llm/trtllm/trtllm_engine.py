@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING, AsyncIterator, Dict, List, Tuple
 
-from tensorrt_llm.runtime import to_word_list_format
 from transformers import AutoTokenizer
 
 from rayllm.backend.llm.trtllm.trtllm_models import (
@@ -101,6 +100,9 @@ class TRTLLMEngine:
         self.stopping_seq_ids = None
         if config.engine_config.generation.stopping_sequences:
             if isinstance(config.engine_config.generation.stopping_sequences, list):
+                # Avoid the tensorrt llm dependency.
+                from tensorrt_llm.runtime import to_word_list_format
+
                 stop_words_list = to_word_list_format(
                     [config.engine_config.generation.stopping_sequences], self.tokenizer
                 )

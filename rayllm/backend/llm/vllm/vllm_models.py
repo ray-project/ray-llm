@@ -34,11 +34,13 @@ class VLLMSamplingParams(SamplingParams):
     """
     Args:
         top_k: The number of highest probability vocabulary tokens to keep for top-k-filtering.
+        seed: Seed for deterministic sampling with temperature>0.
     """
 
-    _ignored_fields = {"best_of", "n", "logit_bias", "logprobs"}
+    _ignored_fields = {"best_of", "n", "logit_bias"}
 
     top_k: Optional[int] = None
+    seed: Optional[int] = None
 
 
 class VLLMGenerationRequest(GenerationRequest):
