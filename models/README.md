@@ -70,7 +70,7 @@ You can follow the TensorRT-LLM example to generate the model.(https://github.co
 
 
 #### Prompt Format
-A prompt format is used to convert a chat completions API input into a prompt to feed into the LLM engine. The format is a dictionary where the key refers to one of the chat actors and the value is a string template for which to convert the text of the actor into a string to add to the overall prompt. The template is used to generate a portion of the prompt and each portion is assembled together to form the final prompt.
+A prompt format is used to convert a chat completions API input into a prompt to feed into the LLM engine. The format is a dictionary where the key refers to one of the chat actors and the value is a string template for which to convert the content of the message into a string. Each message in the API input is formated into a string and these strings are assembled together to form the final prompt.
 
 The string template should include the `{instruction}` keyword, which will be replaced with message content from the ChatCompletions API.
 
