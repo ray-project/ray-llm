@@ -87,6 +87,8 @@ In addition, there some configurations to control the prompt formatting behavior
 * `strip_whitespace` - Whether to automatically strip whitespace from left and right of the content for the messages provided in the ChatCompletions API.
 
 
+You can see an example in the [Adding a new model](#adding-a-new-model) section below.
+
 ### Scaling config
 
 Finally, the `scaling_config` section specifies what resources should be used to serve the model - this corresponds to Ray AIR [ScalingConfig](https://docs.ray.io/en/latest/train/api/doc/ray.train.ScalingConfig.html). Note that the `scaling_config` applies to each model replica, and not the entire model deployment (in other words, each replica will have `num_workers` workers).
