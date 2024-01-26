@@ -74,6 +74,40 @@ A prompt format is used to convert a chat completions API input into a prompt to
 
 The string template should include the `{instruction}` keyword, which will be replaced with message content from the ChatCompletions API.
 
+For example, if a user sends the following message for llama2-7b-chat-hf ([prompt format](continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml#L27-L33)):
+```json
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "What is the capital of France?"
+    },
+    {
+      "role": "assistant",
+      "content": "The capital of France is Paris."
+    },
+    {
+      "role": "user",
+      "content": "What about Germany?"
+    }
+  ]
+}
+```
+The generated prompt that is sent to the LLM engine will be:
+```
+[INST] <<SYS>>
+You are a helpful assistant.
+<</SYS>>
+
+What is the capital of France? [/INST] The capital of France is Paris. </s><s>[INST] What about Germany? [/INST]
+```
+
+##### Schema
+
 The following keys are supported:
 * `system` - The system message. This is a message inserted at the beginning of the prompt to provide instructions for the LLM.
 * `assistant` - The assistant message. These messages are from the past turns of the assistant as defined in the list of messages provided in the ChatCompletions API.
@@ -87,7 +121,7 @@ In addition, there some configurations to control the prompt formatting behavior
 * `strip_whitespace` - Whether to automatically strip whitespace from left and right of the content for the messages provided in the ChatCompletions API.
 
 
-You can see an example in the [Adding a new model](#adding-a-new-model) section below.
+You can see config in the [Adding a new model](#adding-a-new-model) section below.
 
 ### Scaling config
 
