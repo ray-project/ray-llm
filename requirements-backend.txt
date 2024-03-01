@@ -16,7 +16,7 @@ numpy<1.24
 ninja
 protobuf<3.21.0
 safetensors
-pydantic~=1.10.0
+pydantic>=2.0
 einops
 markdown-it-py[plugins]
 fastapi-versioning

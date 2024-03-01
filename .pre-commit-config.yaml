@@ -23,7 +23,7 @@ repos:
         exclude: tests
         additional_dependencies:
           - mypy-extensions
-          - pydantic==1.10.0
+          - pydantic>=2.0
           - types-cachetools
           - types-filelock
           - types-PyYAML
