@@ -2,6 +2,6 @@ boto3
 pydantic
 typer>=0.9
 rich
-typing_extensions~=4.5.0
+typing_extensions~=4.10.0
 requests
 openai
