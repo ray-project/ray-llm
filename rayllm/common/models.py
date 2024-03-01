@@ -183,7 +183,7 @@ class Message(BaseModel):
             return str(self.content)
         return str(self.dict())
 
-    @root_validator(skip_on_failure=True)
+    @root_validator
     def check_fields(cls, values):
         if values["role"] in ["system", "user"]:
             if not isinstance(values.get("content"), str):
@@ -359,7 +359,7 @@ class PromptFormat(AbstractPromptFormat):
         ), "user must be a string containing '{instruction}'"
         return value
 
-    @root_validator(skip_on_failure=True)
+    @root_validator
     def check_user_system_in_user(cls, values):
         if values["system_in_user"]:
             assert (
