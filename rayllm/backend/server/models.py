@@ -200,7 +200,7 @@ class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
     finish_reason: Optional[str] = None
     error: Optional[ErrorResponse] = None
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def text_or_error_or_finish_reason(cls, values):
         if (
             values.get("generated_text") is None
