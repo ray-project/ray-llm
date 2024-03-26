@@ -1,8 +1,9 @@
 # RayLLM - LLMs on Ray
 
-[![Build status](https://badge.buildkite.com/d6d7af987d1db222827099a953410c4e212b32e8199ca513be.svg?branch=master)](https://buildkite.com/anyscale/aviary-docker)
+The hosted Aviary Explorer is not available anymore.
+Visit [Anyscale](https://temp.endpoints.anyscale.com) to experience models served with RayLLM models.
 
-Try it now: [🦜🔍 Ray Aviary Explorer 🦜🔍](http://aviary.anyscale.com/)
+[![Build status](https://badge.buildkite.com/d6d7af987d1db222827099a953410c4e212b32e8199ca513be.svg?branch=master)](https://buildkite.com/anyscale/aviary-docker)
 
 RayLLM (formerly known as Aviary) is an LLM serving solution that makes it easy to deploy and manage
 a variety of open source LLMs, built on [Ray Serve](https://docs.ray.io/en/latest/serve/index.html). It does this by:
@@ -233,34 +234,6 @@ pip install "rayllm[frontend] @ git+https://github.com/ray-project/ray-llm.git"
 
 The backend dependencies are heavy weight, and quite large. We recommend using the official
 `anyscale/ray-llm` image. Installing the backend manually is not a supported usecase.
-
-## Running Aviary Explorer locally
-
-The frontend is a [Gradio](https://gradio.app/) interface that allows you to interact
-with the models in the backend through a web interface.
-The Gradio app is served using [Ray Serve](https://docs.ray.io/en/latest/serve/index.html).
-
-To run the Aviary Explorer locally, you need to set the following environment variable:
-
-```shell
-export ENDPOINT_URL=<hostname of the backend, eg. 'http://localhost:8000'>
-```
-
-Once you have set these environment variables, you can run the frontend with the
-following command:
-
-```shell
-serve run rayllm.frontend.app:app --non-blocking
-```
-
-You will be able to access it at `http://localhost:8000/frontend` in your browser.
-
-To just use the Gradio frontend without Ray Serve, you can start it
-with `python rayllm/frontend/app.py`. In that case, the Gradio interface should be accessible at `http://localhost:7860` in your browser.
-If running the frontend yourself is not an option, you can still use
-[our hosted version](http://aviary.anyscale.com/) for your experiments.
-
-Note that the frontend will not dynamically update the list of models should they change in the backend. In order for the frontend to update, you will need to restart it.
 
 ### Usage stats collection
 
