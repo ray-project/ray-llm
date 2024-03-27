@@ -1,7 +1,7 @@
 # RayLLM - LLMs on Ray
 
 The hosted Aviary Explorer is not available anymore.
-Visit [Anyscale](https://temp.endpoints.anyscale.com) to experience models served with RayLLM models.
+Visit [Anyscale](https://endpoints.anyscale.com) to experience models served with RayLLM.
 
 [![Build status](https://badge.buildkite.com/d6d7af987d1db222827099a953410c4e212b32e8199ca513be.svg?branch=master)](https://buildkite.com/anyscale/aviary-docker)
 
