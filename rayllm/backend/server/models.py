@@ -20,7 +20,7 @@ from typing import (
 
 import yaml
 from markdown_it import MarkdownIt
-from pydantic import (
+from pydantic.v1 import (
     BaseModel,
     Extra,
     Field,

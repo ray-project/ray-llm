@@ -59,8 +59,8 @@ class VLLMEngine:
         self.llm_app = llm_app.copy(deep=True)
         self.engine_config = llm_app.engine_config
         self.placement_config = llm_app.placement_config
-        if not (self.placement_config.scaling_config.num_gpus_per_worker > 0):
-            raise ValueError("The VLLM Engine Requires > 0 GPUs to run.")
+        # if not (self.placement_config.scaling_config.num_gpus_per_worker > 0):
+        #     raise ValueError("The VLLM Engine Requires > 0 GPUs to run.")
 
         self.node_initializer = node_initializer or LLMNodeInitializer(
             local_node_tokenizer_only=True

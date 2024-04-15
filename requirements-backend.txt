@@ -11,7 +11,8 @@ Jinja2
 numexpr>=2.7.3
 hf_transfer
 evaluate
-vllm>=0.2.0,<0.2.6
+# vllm>=0.2.0,<0.2.6
+vllm==0.4.0.post1+cpu
 numpy<1.24
 ninja
 protobuf<3.21.0
