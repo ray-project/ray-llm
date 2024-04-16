@@ -9,6 +9,9 @@ from vllm.config import CacheConfig as VllmCacheConfig
 from vllm.config import ModelConfig as VllmModelConfig
 from vllm.config import ParallelConfig as VllmParallelConfig
 from vllm.config import SchedulerConfig as VllmSchedulerConfig
+from vllm.config import EngineConfig as VllmEngineConfig
+from vllm.config import VisionLanguageConfig as VllmVisionLanguageConfig
+from vllm.config import SpeculativeConfig as VllmSpeculativeConfig
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine, AsyncStream, _AsyncLLMEngine
 
@@ -33,12 +36,11 @@ init_hf_modules()
 logger = logging.getLogger(__name__)
 
 VllmConfigs = Tuple[
-    VllmCacheConfig, VllmModelConfig, VllmParallelConfig, VllmSchedulerConfig
+    VllmCacheConfig, VllmModelConfig, VllmParallelConfig, VllmSchedulerConfig, VllmVisionLanguageConfig, VllmSpeculativeConfig,
 ]
 
-
 class AviaryLLMEngine(_AsyncLLMEngine):
-    def __init__(self, *args, runtime_env: dict, **kwargs):
+    def __init__(self, *args, runtime_env: dict = {}, **kwargs):
         self.runtime_env = runtime_env
         super().__init__(*args, **kwargs)
 
@@ -114,7 +116,8 @@ def _get_vllm_engine_config(vllm_app) -> Tuple[AsyncEngineArgs, VllmConfigs]:
         # If it is the hf_model_id, vllm automatically downloads the correct model.
         **dict(
             model=vllm_app.engine_config.actual_hf_model_id,
-            worker_use_ray=True,
+            # worker_use_ray=True,
+            worker_use_ray=False,
             engine_use_ray=False,
             tensor_parallel_size=vllm_app.placement_config.world_size,
             max_model_len=vllm_app.engine_config.max_total_tokens,
@@ -123,8 +126,10 @@ def _get_vllm_engine_config(vllm_app) -> Tuple[AsyncEngineArgs, VllmConfigs]:
             **vllm_app.engine_config.get_initialization_kwargs(),
         )
     )
-    configs = async_engine_args.create_engine_configs()
-    return async_engine_args, configs
+    config = async_engine_args.create_engine_config()
+    vllm_configs = (config.cache_config, config.model_config, config.parallel_config,
+                    config.scheduler_config, config.vision_language_config, config.speculative_config)
+    return async_engine_args, vllm_configs
 
 
 class AviaryAsyncLLMEngine(AsyncLLMEngine):
@@ -174,16 +179,19 @@ class AviaryAsyncLLMEngine(AsyncLLMEngine):
         )
 
         # Create the async LLM engine.
-        engine = cls(
-            engine_args.worker_use_ray,
-            engine_args.engine_use_ray,
-            *engine_configs,
-            None,
-            placement_group,
-            runtime_env=runtime_env,
-            log_requests=not engine_args.disable_log_requests,
-            log_stats=not engine_args.disable_log_stats,
-            max_log_len=engine_args.max_log_len,
-            start_engine_loop=True,
-        )
+        # engine = cls(
+        #     engine_args.worker_use_ray,
+        #     engine_args.engine_use_ray,
+        #     *engine_configs,
+        #     None,
+        #     placement_group,
+        #     runtime_env=runtime_env,
+        #     log_requests=not engine_args.disable_log_requests,
+        #     log_stats=not engine_args.disable_log_stats,
+        #     max_log_len=engine_args.max_log_len,
+        #     start_engine_loop=True,
+        # )
+
+        engine = cls.from_engine_args(engine_args, start_engine_loop=True)
+
         return engine
