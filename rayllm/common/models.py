@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Self, TypeVar, Union
 
 from fastapi import HTTPException, status
-from pydantic.v1 import BaseModel, root_validator, validator
+from pydantic import BaseModel, field_validator, model_validator
 
 if TYPE_CHECKING:
     from rayllm.backend.server.models import AviaryModelResponse
@@ -127,7 +127,7 @@ class ToolCall(BaseModel):
     id: str
 
     def __str__(self):
-        return str(self.dict())
+        return str(self.model_dump())
 
 
 class Function(BaseModel):
@@ -181,37 +181,37 @@ class Message(BaseModel):
         # the object
         if getattr(self, "tool_calls", None):
             return str(self.content)
-        return str(self.dict())
+        return str(self.model_dump())
 
-    @root_validator(skip_on_failure=True)
-    def check_fields(cls, values):
-        if values["role"] in ["system", "user"]:
-            if not isinstance(values.get("content"), str):
+    @model_validator(mode='after')
+    def check_fields(self) -> Self:
+        if self.role in ["system", "user"]:
+            if not isinstance(self.content, str):
                 raise ValueError("content must be a string")
-        if values["role"] == "tool":
-            if not isinstance(values.get("tool_call_id"), str):
+        if self.role == "tool":
+            if not isinstance(self.tool_call_id, str):
                 raise ValueError("tool_call_id must be a str")
             # content should either be a dict with errors or with results
-            if not isinstance(values.get("content"), str):
+            if not isinstance(self.content, str):
                 raise ValueError(
                     "content must be a str with results or errors for " "the tool call"
                 )
-        if values["role"] == "assistant":
-            if values.get("tool_calls"):
+        if self.role == "assistant":
+            if self.tool_calls:
                 # passing a regular assistant message
-                if not isinstance(values.get("tool_calls"), list):
+                if not isinstance(self.tool_calls, list):
                     raise ValueError("tool_calls must be a list")
-                for tool_call in values["tool_calls"]:
+                for tool_call in self.tool_calls:
                     if not isinstance(tool_call, ToolCall):
                         raise TypeError("Tool calls must be of type ToolCall")
             else:
                 # passing a regular assistant message
                 if (
-                    not isinstance(values.get("content"), str)
-                    or values.get("content") == ""
+                    not isinstance(self.content, str)
+                    or self.content == ""
                 ):
                     raise ValueError("content must be a string or None")
-        return values
+        return self
 
 
 class DeltaRole(BaseModel):
@@ -229,7 +229,7 @@ class DeltaContent(BaseModel):
         if self.tool_calls:
             return str(self.tool_calls)
         else:
-            return str(self.dict())
+            return str(self.model_dump())
 
 
 class DeltaEOS(BaseModel):
@@ -289,7 +289,7 @@ class Prompt(BaseModel):
     tools: Optional[List[Tool]] = None
     tool_choice: Union[Literal["auto", "none"], ToolChoice] = "auto"
 
-    @validator("prompt")
+    @field_validator("prompt")
     def check_prompt(cls, value):
         if isinstance(value, list) and not value:
             raise ValueError("Messages cannot be an empty list.")
@@ -338,34 +338,34 @@ class PromptFormat(AbstractPromptFormat):
     add_system_tags_even_if_message_is_empty: bool = False
     strip_whitespace: bool = True
 
-    @validator("system")
+    @field_validator("system")
     def check_system(cls, value):
         assert value and (
             "{instruction}" in value
         ), "system must be a string containing '{instruction}'"
         return value
 
-    @validator("assistant")
+    @field_validator("assistant")
     def check_assistant(cls, value):
         assert (
             value and "{instruction}" in value
         ), "assistant must be a string containing '{instruction}'"
         return value
 
-    @validator("user")
+    @field_validator("user")
     def check_user(cls, value):
         assert value and (
             "{instruction}" in value
         ), "user must be a string containing '{instruction}'"
         return value
 
-    @root_validator(skip_on_failure=True)
-    def check_user_system_in_user(cls, values):
-        if values["system_in_user"]:
+    @model_validator(mode='after')
+    def check_user_system_in_user(self) -> Self:
+        if self.system_in_user:
             assert (
-                "{system}" in values["user"]
+                "{system}" in self.user
             ), "If system_in_user=True, user must contain '{system}'"
-        return values
+        return self
 
     def generate_prompt(self, messages: Union[Prompt, List[Message]]) -> str:
         if isinstance(messages, Prompt):

@@ -11,6 +11,7 @@ from typing import (
     Literal,
     Optional,
     Protocol,
+    Self,
     Set,
     Tuple,
     Type,
@@ -20,17 +21,16 @@ from typing import (
 
 import yaml
 from markdown_it import MarkdownIt
-from pydantic.v1 import (
+from pydantic import (
     BaseModel,
-    Extra,
     Field,
     PrivateAttr,
     conlist,
-    root_validator,
-    validator,
+    field_validator,
+    model_validator,
 )
 from ray.air import ScalingConfig as AIRScalingConfig
-from ray.serve.config import AutoscalingConfig
+from rayllm.backend.server.config_models import AutoscalingConfig
 from ray.util.placement_group import (
     PlacementGroup,
     get_current_placement_group,
@@ -103,7 +103,7 @@ class BaseModelExtended(BaseModel):
     def parse_yaml(cls: Type[ModelT], file, **kwargs) -> ModelT:
         kwargs.setdefault("Loader", yaml.SafeLoader)
         dict_args = yaml.load(file, **kwargs)
-        return cls.parse_obj(dict_args)
+        return cls.model_validate(dict_args)
 
     def yaml(
         self,
@@ -123,7 +123,7 @@ class BaseModelExtended(BaseModel):
         """
         return yaml.dump(
             json.loads(
-                self.json(
+                self.model_dump_json(
                     include=include,
                     exclude=exclude,
                     by_alias=by_alias,
@@ -200,18 +200,18 @@ class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
     finish_reason: Optional[str] = None
     error: Optional[ErrorResponse] = None
 
-    @root_validator
-    def text_or_error_or_finish_reason(cls, values):
+    @model_validator(mode='after')
+    def text_or_error_or_finish_reason(self) -> Self:
         if (
-            values.get("generated_text") is None
-            and values.get("embedding_outputs") is None
-            and values.get("error") is None
-            and values.get("finish_reason") is None
+            self.generated_text is None
+            and self.embedding_outputs is None
+            and self.error is None
+            and self.finish_reason is None
         ):
             raise ValueError(
                 "Either 'generated_text' or 'embedding_outputs' or 'error' or 'finish_reason' must be set"
             )
-        return values
+        return self
 
     @classmethod
     def merge_stream(cls, *responses: "AviaryModelResponse") -> "AviaryModelResponse":
@@ -370,7 +370,7 @@ class GCSMirrorConfig(BaseModelExtended):
     bucket_uri: str
     extra_files: List[ExtraFiles] = Field(default_factory=list)
 
-    @validator("bucket_uri")
+    @field_validator("bucket_uri")
     def check_uri_format(cls, value: str):
         if not value.startswith("gs://"):
             raise ValueError(
@@ -385,11 +385,11 @@ class GenerationConfig(BaseModelExtended):
     generate_kwargs: Dict[str, Any] = {}
     stopping_sequences: Optional[List[Union[str, int, List[Union[str, int]]]]] = None
 
-    @validator("prompt_format")
+    @field_validator("prompt_format")
     def default_prompt_format(cls, prompt_format):
         return prompt_format if prompt_format is not None else DisabledPromptFormat()
 
-    @validator("stopping_sequences")
+    @field_validator("stopping_sequences")
     def check_stopping_sequences(cls, value):
         def try_int(x):
             if isinstance(x, list):
@@ -425,13 +425,13 @@ class ModelType(str, Enum):
 class EngineConfig(BaseModelExtended):
     class Config:
         use_enum_values = True
-        extra = Extra.forbid
+        extra = 'forbid'
 
     model_id: str
     hf_model_id: Optional[str] = None
     type: EngineType
     model_type: ModelType
-    tokenizer_id: Optional[str]
+    tokenizer_id: Optional[str] = None
 
     s3_mirror_config: Optional[S3MirrorConfig] = None
     gcs_mirror_config: Optional[GCSMirrorConfig] = None
@@ -445,7 +445,7 @@ class EngineConfig(BaseModelExtended):
     # These will be copied to the runtime env
     env_vars_to_propogate: List[str] = list(ENV_VARS_TO_PROPAGATE)
 
-    @validator("gcs_mirror_config")
+    @field_validator("gcs_mirror_config")
     def check_only_one_mirror_config_specified(cls, value, values):
         gcs_config = value
         s3_config = values["s3_mirror_config"]
@@ -540,9 +540,9 @@ class SamplingParams(BaseModelExtended):
     def dict(self, **kwargs):
         if kwargs.get("exclude", None) is None:
             kwargs["exclude"] = self._ignored_fields
-        return super().dict(**kwargs)
+        return super().model_dump(**kwargs)
 
-    @validator("stop", always=True)
+    @field_validator("stop")
     def validate_stopping_sequences(cls, values):
         if not values:
             return values
@@ -603,7 +603,7 @@ class ChatCompletions(BaseModelExtended):
     """
 
     model: str
-    messages: conlist(Message, min_items=1)
+    messages: conlist(Message, min_length=1)
     stream: bool = False
     echo: Optional[bool] = False
     user: Optional[str] = None
@@ -640,7 +640,7 @@ class Embeddings(BaseModelExtended):
     """
 
     model: str
-    input: Union[str, conlist(str, min_items=1)]
+    input: Union[str, conlist(str, min_length=1)]
     user: Optional[str] = None
 
 
@@ -652,7 +652,7 @@ class ScalingConfig(BaseModelExtended):
     resources_per_worker: Optional[Dict[str, float]] = None
     pg_timeout_s: float = 600
 
-    @validator("num_gpus_per_worker")
+    @field_validator("num_gpus_per_worker")
     def validate_num_gpus_per_worker(cls, value):
         if value > 1:
             raise ValueError(
@@ -706,7 +706,7 @@ class LLMApp(Args):
         return self.engine_config.model_id
 
     def short_metadata(self):
-        return self.dict(
+        return self.model_dump(
             include={
                 "model_id": True,
                 "engine_config": {
@@ -787,9 +787,9 @@ class HasModelId(Protocol):
     model_id: str
 
 
-class ChatCompletionsParams(ChatCompletions, SamplingParams, extra=Extra.allow):
+class ChatCompletionsParams(ChatCompletions, SamplingParams, extra='allow'):
     pass
 
 
-class CompletionsParams(Completions, SamplingParams, extra=Extra.allow):
+class CompletionsParams(Completions, SamplingParams, extra='allow'):
     max_tokens: Optional[int] = 16
