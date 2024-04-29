@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Self, TypeVar, Union
 
 from fastapi import HTTPException, status
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import ConfigDict, BaseModel, field_validator, model_validator
 
 if TYPE_CHECKING:
     from rayllm.backend.server.models import AviaryModelResponse
@@ -44,7 +44,7 @@ class TextChoice(BaseModel):
     text: str
     index: int
     logprobs: dict
-    finish_reason: Optional[str]
+    finish_reason: Optional[str] = None
 
 
 class Usage(BaseModel):
@@ -79,7 +79,7 @@ class Completion(BaseModel):
     created: int
     model: str
     choices: List[TextChoice]
-    usage: Optional[Usage]
+    usage: Optional[Usage] = None
 
     @classmethod
     def create(
@@ -113,7 +113,7 @@ class EmbeddingsOutput(BaseModel):
     object: str
     created: int
     model: str
-    usage: Optional[EmbeddingsUsage]
+    usage: Optional[EmbeddingsUsage] = None
 
 
 class FunctionCall(BaseModel):
@@ -233,8 +233,7 @@ class DeltaContent(BaseModel):
 
 
 class DeltaEOS(BaseModel):
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class ChoiceLogProbs(BaseModel):
@@ -251,7 +250,7 @@ class MessageChoices(BaseModel):
 class DeltaChoices(BaseModel):
     delta: Union[DeltaRole, DeltaContent, DeltaEOS]
     index: int
-    finish_reason: Optional[str]
+    finish_reason: Optional[str] = None
     logprobs: Optional[ChoiceLogProbs] = None
 
 
@@ -261,7 +260,7 @@ class ChatCompletion(BaseModel):
     created: int
     model: str
     choices: List[Union[MessageChoices, DeltaChoices]]
-    usage: Optional[Usage]
+    usage: Optional[Usage] = None
 
     @classmethod
     def create(
@@ -320,8 +319,7 @@ class ErrorResponse(BaseModel):
 
 
 class AbstractPromptFormat(BaseModel):
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
     def generate_prompt(self, messages: Union[Prompt, List[Message]]) -> str:
         raise NotImplementedError()

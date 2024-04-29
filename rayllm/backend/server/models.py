@@ -22,10 +22,9 @@ from typing import (
 import yaml
 from markdown_it import MarkdownIt
 from pydantic import (
-    BaseModel,
+    ConfigDict, BaseModel,
     Field,
     PrivateAttr,
-    conlist,
     field_validator,
     model_validator,
 )
@@ -58,6 +57,7 @@ from rayllm.env_conf import (
     ALLOW_NEW_PLACEMENT_GROUPS_IN_DEPLOYMENT,
     MAX_NUM_STOPPING_SEQUENCES,
 )
+from typing_extensions import Annotated
 
 T = TypeVar("T")
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -351,7 +351,7 @@ class BatchedAviaryModelResponse(AviaryModelResponse):
 
 class S3AWSCredentials(BaseModelExtended):
     create_aws_credentials_url: str
-    auth_token_env_variable: Optional[str]
+    auth_token_env_variable: Optional[str] = None
 
 
 class ExtraFiles(BaseModelExtended):
@@ -423,9 +423,7 @@ class ModelType(str, Enum):
 
 
 class EngineConfig(BaseModelExtended):
-    class Config:
-        use_enum_values = True
-        extra = 'forbid'
+    model_config = ConfigDict(use_enum_values=True, extra='forbid')
 
     model_id: str
     hf_model_id: Optional[str] = None
@@ -489,9 +487,7 @@ class EngineConfig(BaseModelExtended):
 class SchedulingMetadata(BaseModelExtended):
     request_id: Union[str, List[str]]
     priority: Union[QueuePriority, List[QueuePriority]]
-
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class SamplingParams(BaseModelExtended):
@@ -583,7 +579,7 @@ class SamplingParams(BaseModelExtended):
 class GenerationRequest(BaseModelExtended):
     prompt: Union[str, List[int], List[str]]
     request_id: Union[str, List[str]]
-    sampling_params: Optional[Union[SamplingParams, List[SamplingParams]]]
+    sampling_params: Optional[Union[SamplingParams, List[SamplingParams]]] = None
     scheduling_metadata: Union[SchedulingMetadata, List[SchedulingMetadata]]
 
 
@@ -603,7 +599,7 @@ class ChatCompletions(BaseModelExtended):
     """
 
     model: str
-    messages: conlist(Message, min_length=1)
+    messages: Annotated[List[Message], Field(min_length=1)]
     stream: bool = False
     echo: Optional[bool] = False
     user: Optional[str] = None
@@ -640,7 +636,7 @@ class Embeddings(BaseModelExtended):
     """
 
     model: str
-    input: Union[str, conlist(str, min_length=1)]
+    input: Union[str, Annotated[List[str], Field(min_length=1)]]
     user: Optional[str] = None
 
 
@@ -689,7 +685,7 @@ class ServeMultiplexConfig(BaseModelExtended):
 
 
 class DeploymentConfig(BaseModelExtended):
-    autoscaling_config: Optional[AutoscalingConfig]
+    autoscaling_config: Optional[AutoscalingConfig] = None
     max_concurrent_queries: Optional[int] = None
     ray_actor_options: Optional[Dict[str, Any]] = None
 
