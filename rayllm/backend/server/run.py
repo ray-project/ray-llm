@@ -177,7 +177,7 @@ def router_deployment(
 
 def router_application(args):
     ray._private.usage.usage_lib.record_library_usage("ray-llm")
-    router_args = RouterArgs.parse_obj(args)
+    router_args = RouterArgs.model_validate(args)
     vllm_apps = []
     embedding_apps = []
     trtllm_apps = []

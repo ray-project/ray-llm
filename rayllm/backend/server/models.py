@@ -573,7 +573,7 @@ class SamplingParams(BaseModelExtended):
             generation.stopping_sequences or []
         )
 
-        return cls.parse_obj(generate_kwargs)
+        return cls.model_validate(generate_kwargs)
 
 
 class GenerationRequest(BaseModelExtended):

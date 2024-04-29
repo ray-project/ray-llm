@@ -30,7 +30,7 @@ class TRTLLMDeployment:
         prompt: Prompt,
         priority=None,
     ):
-        sample_params = TRTLLMSamplingParams.parse_obj(prompt.parameters)
+        sample_params = TRTLLMSamplingParams.model_validate(prompt.parameters)
         logger.info(f"Received request {request_id}")
 
         prompt_text = (

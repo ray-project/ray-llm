@@ -136,7 +136,7 @@ async def _completions_wrapper(
                         )
                         all_results.pop()
                         had_error = True
-                        yield AviaryModelResponse.parse_obj(subresult_dict)
+                        yield AviaryModelResponse.model_validate(subresult_dict)
                         # Return early in case of an error
                         break
                     choices = [
@@ -213,7 +213,7 @@ async def _chat_completions_wrapper(
                         subresult_dict["finish_reason"] = None
                         all_results.pop()
                         had_error = True
-                        yield AviaryModelResponse.parse_obj(subresult_dict)
+                        yield AviaryModelResponse.model_validate(subresult_dict)
                         # Return early in case of an error
                         break
                     else:
@@ -240,7 +240,7 @@ async def _chat_completions_wrapper(
                         if subresult_dict["logprobs"]:
                             logprobs = ChoiceLogProbs(
                                 content=[
-                                    LogProbs.parse_obj(logprob)
+                                    LogProbs.model_validate(logprob)
                                     for logprob in subresult_dict["logprobs"]
                                 ]
                             )
@@ -469,7 +469,7 @@ class Router:
                 logprobs = results.logprobs
                 if logprobs:
                     logprobs = ChoiceLogProbs(
-                        content=[LogProbs.parse_obj(logprob) for logprob in logprobs]
+                        content=[LogProbs.model_validate(logprob) for logprob in logprobs]
                     )
                 else:
                     logprobs = None
