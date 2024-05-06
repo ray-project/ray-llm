@@ -30,7 +30,7 @@ pip install -e .[backend] --extra-index-url https://download.pytorch.org/whl/cpu
 conda install -y -c conda-forge gxx=12.3 gxx_linux-64=12.3 libxcrypt
 ```
 
-## Install latest vLLM (>= 0.4.1) on CPU
+### Install latest vLLM (>= 0.4.1) on CPU
 
 ```bash
 MAX_JOBS=8 VLLM_TARGET_DEVICE=cpu pip install -v git+https://github.com/vllm-project/vllm --extra-index-url https://download.pytorch.org/whl/cpu
@@ -70,7 +70,7 @@ __Notice: Please change "accelerator_type_a10" to match your GPU type__
 serve run ./serve_configs/meta-llama--Llama-2-7b-chat-hf.yaml
 ```
 
-## Query
+### Query
 
 Export the endpoint URL:
 
@@ -90,7 +90,7 @@ curl -X POST $ENDPOINT_URL/chat/completions \
   }'
 ```
 
-## List Models
+### List Models
 
 Set the API base and key:
 
