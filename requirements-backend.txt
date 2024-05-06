@@ -21,6 +21,7 @@ einops
 markdown-it-py[plugins]
 fastapi-versioning
 scipy
+redis
 opentelemetry-api>=1.15.0
 opentelemetry-sdk
 opentelemetry-exporter-otlp
