@@ -6,18 +6,28 @@
 pip install ray[serve]
 ```
 
-## Additional Dependencies
-
-```bash
-pip install redis
-conda install -y -c conda-forge gxx=12.3 gxx_linux-64=12.3 libxcrypt
-```
-
-## Install RayLLM Backend from patched branch
+## Install RayLLM Backend from PR #149 branch (TODO: update link when PR merged)
 
 ```bash
 git clone https://github.com/xwu99/ray-llm && cd ray-llm && git checkout support-vllm-cpu
+```
+
+Install for GPU device:
+```bash
+pip install -e .[backend]
+```
+
+Install for CPU device:
+```bash
 pip install -e .[backend] --extra-index-url https://download.pytorch.org/whl/cpu
+```
+
+## (Optional) Additional steps to install vllm from source for CPU device
+
+### Install GCC (>=12.3)
+
+```bash
+conda install -y -c conda-forge gxx=12.3 gxx_linux-64=12.3 libxcrypt
 ```
 
 ## Install latest vLLM (>= 0.4.1) on CPU
@@ -26,7 +36,9 @@ pip install -e .[backend] --extra-index-url https://download.pytorch.org/whl/cpu
 MAX_JOBS=8 VLLM_TARGET_DEVICE=cpu pip install -v git+https://github.com/vllm-project/vllm --extra-index-url https://download.pytorch.org/whl/cpu
 ```
 
-## Run
+## Test Run
+
+### Run on CPU device
 
 Start Ray from the directory of the code:
 
@@ -34,12 +46,28 @@ Start Ray from the directory of the code:
 OMP_NUM_THREADS=32 ray start --head
 ```
 
-## Start Serve
+To start serving:
 
-Please change dtype to "bfloat16" for performance if you run on SPR machine, otherwise use "float32" for compatibility.
+__Notice: Please change dtype to "bfloat16" for performance if you run on 4th generation Xeon Scalable (codename "Sapphire Rapids") or later CPU, otherwise use "float32" for compatibility.__
 
 ```bash
 serve run ./serve_configs/cpu/meta-llama--Llama-2-7b-chat-hf.yaml
+```
+
+### Run on GPU device
+
+Start Ray from the directory of the code:
+
+```bash
+ray start --head
+```
+
+To start serving:
+
+__Notice: Please change "accelerator_type_a10" to match your GPU type__
+
+```bash
+serve run ./serve_configs/meta-llama--Llama-2-7b-chat-hf.yaml
 ```
 
 ## Query
