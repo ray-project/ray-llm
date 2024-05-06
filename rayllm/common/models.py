@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Self, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, TypeVar, Union
 
 from fastapi import HTTPException, status
 from pydantic import ConfigDict, BaseModel, field_validator, model_validator
@@ -184,7 +184,7 @@ class Message(BaseModel):
         return str(self.model_dump())
 
     @model_validator(mode='after')
-    def check_fields(self) -> Self:
+    def check_fields(self):
         if self.role in ["system", "user"]:
             if not isinstance(self.content, str):
                 raise ValueError("content must be a string")
@@ -358,7 +358,7 @@ class PromptFormat(AbstractPromptFormat):
         return value
 
     @model_validator(mode='after')
-    def check_user_system_in_user(self) -> Self:
+    def check_user_system_in_user(self):
         if self.system_in_user:
             assert (
                 "{system}" in self.user

@@ -11,7 +11,6 @@ from typing import (
     Literal,
     Optional,
     Protocol,
-    Self,
     Set,
     Tuple,
     Type,
@@ -201,7 +200,7 @@ class AviaryModelResponse(ComputedPropertyMixin, BaseModelExtended):
     error: Optional[ErrorResponse] = None
 
     @model_validator(mode='after')
-    def text_or_error_or_finish_reason(self) -> Self:
+    def text_or_error_or_finish_reason(self):
         if (
             self.generated_text is None
             and self.embedding_outputs is None
