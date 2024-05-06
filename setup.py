@@ -35,7 +35,6 @@ setup(
         "test": required_dev,
         "docs": required_docs,
     },
-    # dependency_links=["https://download.pytorch.org/whl/cu118"],
-    dependency_links=["https://download.pytorch.org/whl/cpu"],
+    dependency_links=["https://download.pytorch.org/whl/cu118"],
     python_requires=">=3.8",
 )
