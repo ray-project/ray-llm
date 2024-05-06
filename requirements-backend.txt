@@ -11,13 +11,12 @@ Jinja2
 numexpr>=2.7.3
 hf_transfer
 evaluate
-# vllm is installed seperately from source for now
-# vllm>=0.2.0,<0.2.6
+vllm>=0.4.1
 numpy<1.24
 ninja
 protobuf<3.21.0
 safetensors
-pydantic~=1.10.0
+pydantic>=2.0
 einops
 markdown-it-py[plugins]
 fastapi-versioning
