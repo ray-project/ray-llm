@@ -12,14 +12,14 @@ pip install ray[serve]
 git clone https://github.com/xwu99/ray-llm && cd ray-llm && git checkout support-vllm-cpu
 ```
 
-Install for GPU device:
-```bash
-pip install -e .[backend]
-```
-
-Install for CPU device:
+Install for running on CPU device:
 ```bash
 pip install -e .[backend] --extra-index-url https://download.pytorch.org/whl/cpu
+```
+
+Install for running on GPU device:
+```bash
+pip install -e .[backend]
 ```
 
 ## (Optional) Additional steps to install vllm from source for CPU device
