@@ -16,6 +16,8 @@ engine_config:
   hf_model_id: meta-llama/Llama-2-7b-chat-hf
   type: VLLMEngine
   engine_kwargs:
+    device: "cpu"
+    dtype: "float32"
     trust_remote_code: true
     max_num_batched_tokens: 4096
     max_num_seqs: 64
@@ -33,7 +35,7 @@ engine_config:
 scaling_config:
   num_workers: 1
   num_gpus_per_worker: 0
-  num_cpus_per_worker: 8
+  num_cpus_per_worker: 32
   placement_strategy: "STRICT_PACK"
   resources_per_worker: {}
 

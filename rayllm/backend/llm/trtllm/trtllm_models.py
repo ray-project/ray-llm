@@ -10,6 +10,7 @@ from rayllm.backend.server.models import (
     S3MirrorConfig,
     SamplingParams,
 )
+from pydantic import ConfigDict
 
 try:
     from tensorrt_llm.libs import trt_llm_engine_py as trt_py
@@ -23,9 +24,7 @@ try:
         max_tokens_in_paged_kv_cache: int = None
         kv_cache_free_gpu_mem_fraction: float = None
         enable_trt_overlap: bool = None
-
-        class Config:
-            arbitrary_types_allowed = True
+        model_config = ConfigDict(arbitrary_types_allowed=True)
 
         @classmethod
         def from_engine_config(

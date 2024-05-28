@@ -20,8 +20,8 @@ class Vote(BaseModel):
 class LlmResponse(BaseModel):
     model_id: str
     text: str
-    engine_config: Optional[Dict]
-    gen_stats: Optional[Dict]
+    engine_config: Optional[Dict] = None
+    gen_stats: Optional[Dict] = None
 
 
 class LlmEvent(BaseModel):
@@ -30,7 +30,7 @@ class LlmEvent(BaseModel):
     project_name: str
 
     # Identifier for a session
-    session_id: Optional[str]
+    session_id: Optional[str] = None
 
     # unique string representing this event
     instance_id: str
@@ -41,13 +41,13 @@ class LlmEvent(BaseModel):
 
     # Vote is a dictionary by llm and the votes
     # that model got. Typically, this is 1.
-    votes: Optional[List[Vote]]
-    vote_comments: Optional[Dict[str, str]]
+    votes: Optional[List[Vote]] = None
+    vote_comments: Optional[Dict[str, str]] = None
 
     # Key: llm
     # Value: list of flags
-    flag: Optional[Dict[str, List[Flag]]]
+    flag: Optional[Dict[str, List[Flag]]] = None
 
     # Key: llm
     # Value: Comment for each llm
-    flag_comments: Optional[Dict[str, str]]
+    flag_comments: Optional[Dict[str, str]] = None

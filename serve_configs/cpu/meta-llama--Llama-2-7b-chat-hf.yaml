@@ -1,0 +1,7 @@
+applications:
+- name: ray-llm
+  route_prefix: /
+  import_path: rayllm.backend:router_application
+  args:
+    models:
+      - "./models/continuous_batching/cpu/meta-llama--Llama-2-7b-chat-hf.yaml"

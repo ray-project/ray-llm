@@ -11,6 +11,7 @@ from rayllm.backend.server.models import (
     ModelType,
     S3MirrorConfig,
 )
+from pydantic import ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,7 @@ class EmbeddingOptimize(str, Enum):
 
 
 class EmbeddingEngineConfig(EngineConfig):
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
     type: EngineType = EngineType.EmbeddingEngine
     model_type: ModelType = ModelType.embedding

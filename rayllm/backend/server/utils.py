@@ -71,7 +71,7 @@ def parse_args(
                     else:
                         raise
         else:
-            parsed_models = [llm_app_cls.parse_obj(raw_model)]
+            parsed_models = [llm_app_cls.model_validate(raw_model)]
         models += parsed_models
     return [model for model in models if model.enabled]
 
