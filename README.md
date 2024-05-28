@@ -1,7 +1,7 @@
 ============================
 # Archiving Ray LLM
 
-We had started RayLLM to simplify setting up and deploying LLMs on top of Ray Serve. In the past few months, vLLM has made significant improvements in ease of use. We are archiving the RayLLM project and instead adding some examples to our Ray Serve docs for deploying LLMs with Ray Serve and vLLM. This will reduce another library for the community to learn about and greatly simplify the workflow to serve LLMs at scale. We also recently launched Hosted Anyscale where you can serve LLMs with Ray Serve with some more capabilities out of the box like multi-lora with serve multiplexing, JSON mode function calling and further performance enhancements.
+We had started RayLLM to simplify setting up and deploying LLMs on top of Ray Serve. In the past few months, vLLM has made significant improvements in ease of use. We are archiving the RayLLM project and instead adding some examples to our [Ray Serve docs](https://docs.ray.io/en/master/serve/tutorials/vllm-example.html) for deploying LLMs with Ray Serve and vLLM. This will reduce another library for the community to learn about and greatly simplify the workflow to serve LLMs at scale. We also recently launched [Hosted Anyscale](https://www.anyscale.com/) where you can serve LLMs with Ray Serve with some more capabilities out of the box like multi-lora with serve multiplexing, JSON mode function calling and further performance enhancements.
 
 
 ============================
