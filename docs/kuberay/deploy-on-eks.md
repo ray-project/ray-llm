@@ -262,8 +262,8 @@ It's important to note that the `model` argument refers to the path of the LLM m
 ```sh
 # Step 2.1: Port forward the Kubernetes Serve service.
 # Note that the service will be created only when all Serve applications are ready.
-kubectl get svc # Check if `aviary-serve-svc` is created.
-kubectl port-forward service/aviary-serve-svc 8000:8000
+kubectl get svc # Check if `rayllm-serve-svc` is created.
+kubectl port-forward service/rayllm-serve-svc 8000:8000
 
 # Step 2.2: Check that the models have started running using `serve status`
 serve status
