@@ -1,9 +1,0 @@
-githubRepoOwner: ray-project
-githubRepoName: ray-llm
-githubHost: github.com
-requireChecks: true
-requireApproval: true
-githubRemote: origin
-githubBranch: master
-remoteBranches: []
-mergeMethod: squash

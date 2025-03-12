@@ -1,7 +1,0 @@
-applications:
-- name: ray-llm
-  route_prefix: /
-  import_path: rayllm.backend:router_application
-  args:
-    models:
-      - "./models/continuous_batching/quantization/squeeze-ai-lab--sq-llama-2-7b-w4-s0.yaml"

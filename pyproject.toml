@@ -1,9 +1,0 @@
-[tool.ruff]
-select = ["E", "F", "I", "ASYNC", "B"]
-line-length = 300
-ignore = ["F403", "B905"]
-
-[[tool.mypy.overrides]]
-# TODO (temporarily ignoring aviary issues) remove this
-module = "rayllm.*"
-ignore_errors = true
