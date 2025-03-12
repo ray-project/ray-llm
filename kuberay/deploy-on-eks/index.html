@@ -1,0 +1,738 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Aviary - A tool to deploy and query LLMs.">
+      
+      
+      
+        <link rel="canonical" href="https://anyscale.github.io/aviary/kuberay/deploy-on-eks/">
+      
+      
+        <link rel="prev" href="../deploy-on-gke/">
+      
+      
+      
+      <link rel="icon" href="../../img/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.7">
+    
+    
+      
+        <title>Deploying on EKS - Aviary</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.8608ea7d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="teal">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#deploy-rayllm-on-amazon-eks-using-kuberay" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Aviary" class="md-header__button md-logo" aria-label="Aviary" data-md-component="logo">
+      
+  <img src="../../img/ray.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Aviary
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Deploying on EKS
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/anyscale/ray-llm" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+  </div>
+  <div class="md-source__repository">
+    anyscale/ray-llm
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Aviary" class="md-nav__button md-logo" aria-label="Aviary" data-md-component="logo">
+      
+  <img src="../../img/ray.png" alt="logo">
+
+    </a>
+    Aviary
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/anyscale/ray-llm" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+  </div>
+  <div class="md-source__repository">
+    anyscale/ray-llm
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index.md" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Aviary Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli.md" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    CLI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy-on-gke/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Deploying on GKE
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Deploying on EKS
+    
+  </span>
+  
+
+      </a>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="deploy-rayllm-on-amazon-eks-using-kuberay">Deploy RayLLM on Amazon EKS using KubeRay</h1>
+<ul>
+<li>Note that this document will be extended to include Ray autoscaling and the deployment of multiple models in the near future.</li>
+</ul>
+<h1 id="part-1-set-up-a-kubernetes-cluster-on-amazon-eks">Part 1: Set up a Kubernetes cluster on Amazon EKS</h1>
+<h2 id="step-1-create-a-kubernetes-cluster-on-amazon-eks">Step 1: Create a Kubernetes cluster on Amazon EKS</h2>
+<p>Follow the first two steps in this <a href="https://docs.aws.amazon.com/eks/latest/userguide/getting-started-console.html#">AWS documentation</a>
+to: (1) Create your Amazon EKS cluster (2) Configure your computer to communicate with your cluster.</p>
+<h2 id="step-2-create-node-groups-for-the-amazon-eks-cluster">Step 2: Create node groups for the Amazon EKS cluster</h2>
+<p>You can follow "Step 3: Create nodes" in this <a href="https://docs.aws.amazon.com/eks/latest/userguide/getting-started-console.html#">AWS documentation</a> to create node groups. The following section provides more detailed information.</p>
+<h3 id="create-a-cpu-node-group">Create a CPU node group</h3>
+<p>Create a CPU node group for all Pods except Ray GPU workers, such as KubeRay operator, Ray head, and CoreDNS Pods.</p>
+<ul>
+<li>Create a CPU node group</li>
+<li>Instance type: <a href="https://aws.amazon.com/ec2/instance-types/m5/"><strong>m5.xlarge</strong></a> (4 vCPU; 16 GB RAM)</li>
+<li>Disk size: 256 GB</li>
+<li>Desired size: 1, Min size: 0, Max size: 1</li>
+</ul>
+<h3 id="create-a-gpu-node-group">Create a GPU node group</h3>
+<p>Create a GPU node group for Ray GPU workers.</p>
+<ul>
+<li>Create a GPU node group</li>
+<li>Add a Kubernetes taint to prevent CPU Pods from being scheduled on this GPU node group<ul>
+<li>Key: ray.io/node-type, Value: worker, Effect: NoSchedule</li>
+</ul>
+</li>
+<li>AMI type: Bottlerocket NVIDIA (BOTTLEROCKET_x86_64_NVIDIA)</li>
+<li>Instance type: <a href="https://aws.amazon.com/ec2/instance-types/g5/"><strong>g5.12xlarge</strong></a> (4 GPU; 96 GB GPU Memory; 48 vCPUs; 192 GB RAM)</li>
+<li>Disk size: 1024 GB</li>
+<li>Desired size: 1, Min size: 0, Max size: 1</li>
+</ul>
+<p>Because this tutorial is for deploying 1 LLM, the maximum size of this GPU node group is 1.
+If you want to deploy multiple LLMs in this cluster, you may need to increase the value of the max size.</p>
+<p><strong>Warning: GPU nodes are extremely expensive. Please remember to delete the cluster if you no longer need it.</strong></p>
+<h2 id="step-3-verify-the-node-groups">Step 3: Verify the node groups</h2>
+<p>If you encounter permission issues with <code>eksctl</code>, you can navigate to your AWS account's webpage and copy the
+credential environment variables, including <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, and <code>AWS_SESSION_TOKEN</code>,
+from the "Command line or programmatic access" page.</p>
+<pre><code class="language-sh">eksctl get nodegroup --cluster ${YOUR_EKS_NAME}
+
+# CLUSTER         NODEGROUP       STATUS  CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID                        ASG NAME                           TYPE
+# ${YOUR_EKS_NAME}     cpu-node-group  ACTIVE  2023-06-05T21:31:49Z    0               1               1                       m5.xlarge       AL2_x86_64                      eks-cpu-node-group-...     managed
+# ${YOUR_EKS_NAME}     gpu-node-group  ACTIVE  2023-06-05T22:01:44Z    0               1               1                       g5.12xlarge     BOTTLEROCKET_x86_64_NVIDIA      eks-gpu-node-group-...     managed
+</code></pre>
+<h2 id="step-4-install-the-daemonset-for-nvidia-device-plugin-for-kubernetes">Step 4: Install the DaemonSet for NVIDIA device plugin for Kubernetes</h2>
+<p>If you encounter permission issues with <code>kubectl</code>, you can follow "Step 2: Configure your computer to communicate with your cluster"
+in the <a href="https://docs.aws.amazon.com/eks/latest/userguide/getting-started-console.html#">AWS documentation</a>.</p>
+<p>You can refer to the <a href="https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html#gpu-ami">Amazon EKS optimized accelerated Amazon Linux AMIs</a>
+or <a href="https://github.com/NVIDIA/k8s-device-plugin">NVIDIA/k8s-device-plugin</a> repository for more details.</p>
+<pre><code class="language-sh"># Install the DaemonSet
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.9.0/nvidia-device-plugin.yml
+
+# Verify that your nodes have allocatable GPUs 
+kubectl get nodes &quot;-o=custom-columns=NAME:.metadata.name,GPU:.status.allocatable.nvidia\.com/gpu&quot;
+
+# Example output:
+# NAME                                GPU
+# ip-....us-west-2.compute.internal   4
+# ip-....us-west-2.compute.internal   &lt;none&gt;
+</code></pre>
+<h1 id="part-2-install-a-kuberay-operator">Part 2: Install a KubeRay operator</h1>
+<pre><code class="language-sh"># Install both CRDs and KubeRay operator v0.6.0.
+helm repo add kuberay https://ray-project.github.io/kuberay-helm/
+helm install kuberay-operator kuberay/kuberay-operator --version 0.6.0
+
+# It should be scheduled on the CPU node. If it is not, something is wrong.
+</code></pre>
+<p>At this point, you have two options:</p>
+<ol>
+<li>You can deploy RayLLM manually on a <code>RayCluster</code> (Part 3), or</li>
+<li>You can deploy RayLLM using a <a href="https://ray-project.github.io/kuberay/guidance/rayservice/"><code>RayService</code> custom resource</a> (Part 4).</li>
+</ol>
+<p>The first option is more flexible for conducting experiments.
+The second option is recommended for production use due to the additional high availability features provided by the <code>RayService</code> custom resource, which will manage the underlying <code>RayCluster</code>s for you.</p>
+<h1 id="part-3-deploy-rayllm-on-a-raycluster-recommended-for-experiments">Part 3: Deploy RayLLM on a RayCluster (recommended for experiments)</h1>
+<h2 id="step-1-create-a-raycluster-with-rayllm">Step 1: Create a RayCluster with RayLLM</h2>
+<pre><code class="language-sh"># path: docs/kuberay
+kubectl apply -f ray-cluster.rayllm-eks.yaml
+</code></pre>
+<p>Something is worth noticing:</p>
+<ul>
+<li>
+<p>The <code>tolerations</code> for workers must match the taints on the GPU node group.</p>
+<p>```yaml</p>
+<h1 id="please-add-the-following-taints-to-the-gpu-node">Please add the following taints to the GPU node.</h1>
+<p>tolerations:
+    - key: "ray.io/node-type"
+    operator: "Equal"
+    value: "worker"
+    effect: "NoSchedule"
+```</p>
+</li>
+<li>
+<p>Update <code>rayStartParams.resources</code> for Ray scheduling. The <code>OpenAssistant--falcon-7b-sft-top1-696.yaml</code> file uses both <code>accelerator_type_cpu</code> and <code>accelerator_type_a10</code>.</p>
+<p>```yaml</p>
+<h1 id="ray-head-the-ray-head-has-a-pod-resource-limit-of-2-cpus">Ray head: The Ray head has a Pod resource limit of 2 CPUs.</h1>
+<p>rayStartParams:
+  resources: '"{\"accelerator_type_cpu\": 2}"'</p>
+<h1 id="ray-workers-the-ray-worker-has-a-pod-resource-limit-of-48-cpus-and-4-gpus">Ray workers: The Ray worker has a Pod resource limit of 48 CPUs and 4 GPUs.</h1>
+<h1 id="accelerator_type_a10-and-accelerator_type_a100_80g-below-are-only-used-for-ray-logical-resource-scheduling"><code>accelerator_type_a10</code> and <code>accelerator_type_a100_80g</code> below are only used for Ray logical-resource scheduling.</h1>
+<h1 id="this-does-not-imply-that-each-worker-has-2-a10-gpus-and-2-a100-gpus">This does not imply that each worker has 2 A10 GPUs and 2 A100 GPUs.</h1>
+<p>rayStartParams:
+  resources: '"{\"accelerator_type_cpu\": 48, \"accelerator_type_a10\": 2, \"accelerator_type_a100_80g\": 2}"'
+```</p>
+</li>
+</ul>
+<h2 id="step-2-deploy-an-llm-model-with-rayllm">Step 2: Deploy an LLM model with RayLLM</h2>
+<pre><code class="language-sh"># Step 7.1: Log in to the head Pod
+export HEAD_POD=$(kubectl get pods --selector=ray.io/node-type=head -o custom-columns=POD:metadata.name --no-headers)
+kubectl exec -it $HEAD_POD -- bash
+
+# Step 7.2: Llama 2 related models require HUGGING_FACE_HUB_TOKEN to be set.
+# If you don't have one, you can skip this step and deploy other models in Step 7.3.
+export HUGGING_FACE_HUB_TOKEN=${YOUR_HUGGING_FACE_HUB_TOKEN}
+
+# Step 7.3: Deploy an LLM model. You can deploy Falcon-7B if you don't have a Hugging Face Hub token.
+# (1) Llama 2 7B
+serve run serve_configs/meta-llama--Llama-2-7b-chat-hf.yaml
+
+# Step 7.3: Check the Serve application status
+serve status
+
+# [Example output]
+# proxies:
+#   e4dc8d29f19e3900c0b93dabb76ce9bcc6f42e36bdf5484ca57ec774: HEALTHY
+#   4f4edf80bf644846175eec0a4daabb3f3775e64738720b6b2ae5c139: HEALTHY
+# applications:
+#   router:
+#     status: RUNNING
+#     message: ''
+#     last_deployed_time_s: 1694808658.0861287
+#     deployments:
+#       Router:
+#         status: HEALTHY
+#         replica_states:
+#           RUNNING: 2
+#         message: ''
+#   meta-llama--Llama-2-7b-chat-hf:
+#     status: RUNNING
+#     message: ''
+#     last_deployed_time_s: 1694808658.0861287
+#     deployments:
+#       meta-llama--Llama-2-7b-chat-hf:
+#         status: HEALTHY
+#         replica_states:
+#           RUNNING: 1
+#         message: ''
+
+# Step 7.4: Check the live Serve app's config
+serve config
+
+# [Example output]
+# name: router
+# route_prefix: /
+# import_path: rayllm.backend:router_application
+# args:
+#   models:
+#     meta-llama/Llama-2-7b-chat-hf: ./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
+
+# ---
+
+# name: meta-llama--Llama-2-7b-chat-hf
+# route_prefix: /meta-llama--Llama-2-7b-chat-hf
+# import_path: rayllm.backend:llm_application
+# args:
+#   model: ./models/continuous_batching/meta-llama--Llama-2-7b-chat-hf.yaml
+
+# Step 7.5: Send a query to `meta-llama/Llama-2-7b-chat-hf`.
+curl http://localhost:8000/v1/chat/completions \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;model&quot;: &quot;meta-llama/Llama-2-7b-chat-hf&quot;,
+    &quot;messages&quot;: [
+      {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are a helpful assistant.&quot;},
+      {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What are the top 5 most popular programming languages?&quot;}
+    ],
+    &quot;temperature&quot;: 0.7
+  }'
+
+# [Example output for `meta-llama/Llama-2-7b-chat-hf`]
+{
+  &quot;id&quot;:&quot;meta-llama/Llama-2-7b-chat-hf-95239f0b-4601-4557-8a33-3977e9b6b779&quot;,
+  &quot;object&quot;:&quot;text_completion&quot;,&quot;created&quot;:1694814804,&quot;model&quot;:&quot;meta-llama/Llama-2-7b-chat-hf&quot;,
+  &quot;choices&quot;:[
+    {
+      &quot;message&quot;:
+      {
+        &quot;role&quot;:&quot;assistant&quot;,
+        &quot;content&quot;:&quot;As a helpful assistant, I'm glad to provide you with the top 5 most popular programming languages based on various sources and metrics:\n\n1. Java: Java is a popular language used for developing enterprise-level applications, Android apps, and web applications. It's known for its platform independence, which allows Java developers to create applications that can run on any device supporting the Java Virtual Machine (JVM).\n\n2. Python: Python is a versatile language that's widely used in various industries, including web development, data science, artificial intelligence, and machine learning. Its simplicity, readability, and ease of use make it a favorite among developers.\n\n3. JavaScript: JavaScript is the language of the web and is used for creating interactive client-side functionality for web applications. It's also used in mobile app development, game development, and server-side programming.\n\n4. C++: C++ is a high-performance language used for developing operating systems, games, and other high-performance applications. It's known for its efficiency, speed, and flexibility, making it a popular choice among developers.\n\n5. PHP: PHP is a server-side scripting language used for web development, especially for building dynamic websites and web applications. It's known for its ease of use and is widely used in the web development community.\n\nThese are the top 5 most popular programming languages based on various sources, but it's worth noting that programming language popularity can vary depending on the source and the time frame considered.&quot;
+      },
+      &quot;index&quot;:0,
+      &quot;finish_reason&quot;:&quot;stop&quot;
+    }
+  ],
+  &quot;usage&quot;:{
+    &quot;prompt_tokens&quot;:39,
+    &quot;completion_tokens&quot;:330,
+    &quot;total_tokens&quot;:369
+  }
+}
+</code></pre>
+<h1 id="part-4-deploy-rayllm-on-a-rayservice-recommended-for-production">Part 4: Deploy RayLLM on a RayService (recommended for production)</h1>
+<h2 id="step-1-create-a-rayservice-with-rayllm">Step 1: Create a RayService with RayLLM</h2>
+<pre><code class="language-sh"># path: docs/kuberay
+kubectl apply -f ray-service.rayllm-eks.yaml
+</code></pre>
+<p>The <code>spec.rayClusterConfig</code> in <code>ray-service.rayllm-eks.yaml</code> is the same as the <code>spec</code> in <code>ray-cluster.rayllm-eks.yaml</code>.
+The only difference lies in the <code>serve</code> port, which is required for both the Ray head and Ray worker Pods in the case of RayService.
+Hence, you can refer to Part 3 for more details about how to configure the RayCluster.</p>
+<blockquote>
+<p>Note: Both <code>amazon/LightGPT</code> and <code>OpenAssistant/falcon-7b-sft-top1-696</code> should take about 5 minutes to become ready.
+If this process takes longer, follow the instructions in <a href="https://github.com/ray-project/kuberay/blob/master/docs/guidance/rayservice-troubleshooting.md">the RayService troubleshooting guide</a> to check the Ray dashboard.</p>
+</blockquote>
+<pre><code class="language-yaml">serveConfigV2: |
+    applications:
+    - name: router
+      import_path: rayllm.backend:router_application
+      route_prefix: /
+      args:
+        models:
+          - ./models/continuous_batching/amazon--LightGPT.yaml
+          - ./models/continuous_batching/OpenAssistant--falcon-7b-sft-top1-696.yaml
+</code></pre>
+<p>In the YAML file, we use the <code>serveConfigV2</code> field to configure two LLM Serve applications, one for LightGPT and one for Falcon-7B.
+It's important to note that the <code>model</code> argument refers to the path of the LLM model's YAML file, located in the Ray head Pod.</p>
+<h2 id="step-2-send-a-query-to-both-amazonlightgpt-and-openassistantfalcon-7b-sft-top1-696">Step 2: Send a query to both <code>amazon/LightGPT</code> and <code>OpenAssistant/falcon-7b-sft-top1-696</code>.</h2>
+<pre><code class="language-sh"># Step 2.1: Port forward the Kubernetes Serve service.
+# Note that the service will be created only when all Serve applications are ready.
+kubectl get svc # Check if `aviary-serve-svc` is created.
+kubectl port-forward service/aviary-serve-svc 8000:8000
+
+# Step 2.2: Check that the models have started running using `serve status`
+serve status
+
+# [Example output]
+# Connecting to Aviary backend at:  http://localhost:8000/v1
+# OpenAssistant/falcon-7b-sft-top1-696
+# amazon/LightGPT
+
+# Step 2.3: Send a query to `amazon/LightGPT`.
+curl http://localhost:8000/v1/chat/completions \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;model&quot;: &quot;amazon/LightGPT&quot;,
+    &quot;messages&quot;: [
+      {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are a helpful assistant.&quot;},
+      {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What are the top 5 most popular programming languages?&quot;}
+    ],
+    &quot;temperature&quot;: 0.7
+  }'
+
+# [Example output]
+# amazon/LightGPT:
+# 1. Java
+# 2. C++
+# 3. JavaScript
+# 4. Python
+# 5. SQL
+
+# Step 2.4: Send a query to `OpenAssistant/falcon-7b-sft-top1-696`.
+curl http://localhost:8000/v1/chat/completions \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;model&quot;: &quot;OpenAssistant/falcon-7b-sft-top1-696&quot;,
+    &quot;messages&quot;: [
+      {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are a helpful assistant.&quot;},
+      {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What are the top 5 most popular programming languages?&quot;}
+    ],
+    &quot;temperature&quot;: 0.7
+  }'
+
+# [Example output for `OpenAssistant/falcon-7b-sft-top1-696`]
+# Connecting to Aviary backend at:  http://localhost:8000/v1
+# OpenAssistant/falcon-7b-sft-top1-696:
+# The top five most popular programming languages globally, according to TIOBE, are Java, Python, C, C++, and JavaScript. However, popularity can vary by region, industry, and
+# other factors. Additionally, the definition of a programming language can vary, leading to different rankings depending on the methodology used. Some rankings may include or
+# exclude specific scripting languages or high-level language variants, for example.
+
+# Here are some additional rankings of the most popular programming languages:
+# * **Top 10 programming languages in 2023**: Python, JavaScript, C#, Java, PHP, TypeScript, Swift, Golang, Ruby, and Kotlin.
+# [Source](https://www.toptal.com/software/programming-languages/2023-best-programming-languages/)
+# * **Top 10 programming languages in 2022**: Python, JavaScript, Java, C++, C#, PHP, Swift, Kotlin, R, and TypeScript.
+# [Source](https://www.toptal.com/software/programming-languages/2022-best-programming-languages/)
+# * **Top 10 programming languages in 2021**: Python, JavaScript, Java, C++, C#, PHP, Swift, Go, Kotlin, and TypeScript.
+# .....
+# These rankings can change frequently, so it's important to keep up to date with the latest trends.
+</code></pre>
+<p>Check out the RayLLM README to learn more ways to query models, such as with the Python <code>requests</code> library or the OpenAI package. Use these techniques to stream responses from the models.</p>
+<h1 id="part-5-clean-up-resources">Part 5: Clean up resources</h1>
+<p><strong>Warning: GPU nodes are extremely expensive. Please remember to delete the cluster if you no longer need it.</strong></p>
+<pre><code class="language-sh"># path: docs/kuberay
+# Case 1: RayLLM was deployed on a RayCluster
+kubectl delete -f ray-cluster.rayllm-eks.yaml
+# Case 2: RayLLM was deployed as a RayService
+kubectl delete -f ray-service.rayllm-eks.yaml
+
+# Uninstall the KubeRay operator chart
+helm uninstall kuberay-operator
+
+# Delete the Amazon EKS cluster via AWS Web UI
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/anyscale/aviary" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/raydistributed" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://anyscale.com" target="_blank" rel="noopener" title="anyscale.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M352 256c0 22.2-1.2 43.6-3.3 64H163.4c-2.2-20.4-3.3-41.8-3.3-64s1.2-43.6 3.3-64h185.3c2.2 20.4 3.3 41.8 3.3 64m28.8-64h123.1c5.3 20.5 8.1 41.9 8.1 64s-2.8 43.5-8.1 64H380.8c2.1-20.6 3.2-42 3.2-64s-1.1-43.4-3.2-64m112.6-32H376.7c-10-63.9-29.8-117.4-55.3-151.6 78.3 20.7 142 77.5 171.9 151.6zm-149.1 0H167.7c6.1-36.4 15.5-68.6 27-94.7 10.5-23.6 22.2-40.7 33.5-51.5C239.4 3.2 248.7 0 256 0s16.6 3.2 27.8 13.8c11.3 10.8 23 27.9 33.5 51.5 11.6 26 20.9 58.2 27 94.7m-209 0H18.6c30-74.1 93.6-130.9 172-151.6-25.5 34.2-45.3 87.7-55.3 151.6M8.1 192h123.1c-2.1 20.6-3.2 42-3.2 64s1.1 43.4 3.2 64H8.1C2.8 299.5 0 278.1 0 256s2.8-43.5 8.1-64m186.6 254.6c-11.6-26-20.9-58.2-27-94.6h176.6c-6.1 36.4-15.5 68.6-27 94.6-10.5 23.6-22.2 40.7-33.5 51.5-11.2 10.7-20.5 13.9-27.8 13.9s-16.6-3.2-27.8-13.8c-11.3-10.8-23-27.9-33.5-51.5zM135.3 352c10 63.9 29.8 117.4 55.3 151.6-78.4-20.7-142-77.5-172-151.6zm358.1 0c-30 74.1-93.6 130.9-171.9 151.6 25.5-34.2 45.2-87.7 55.3-151.6h116.7z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://anyscale.github.io/aviary/DOCKERHUB/</loc>
+         <lastmod>2025-03-12</lastmod>
+    </url>
+    <url>
+         <loc>https://anyscale.github.io/aviary/models/</loc>
+         <lastmod>2025-03-12</lastmod>
+    </url>
+    <url>
+         <loc>https://anyscale.github.io/aviary/kuberay/deploy-on-eks/</loc>
+         <lastmod>2025-03-12</lastmod>
+    </url>
+    <url>
+         <loc>https://anyscale.github.io/aviary/kuberay/deploy-on-gke/</loc>
+         <lastmod>2025-03-12</lastmod>
+    </url>
+</urlset>
